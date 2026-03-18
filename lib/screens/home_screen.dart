@@ -169,13 +169,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     Text('Beautiful India', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                GestureDetector(
-                  onTap: () => setState(() => _selectedIndex = isAdmin ? 4 : 3),
-                  child: UserAvatar(
-                    imageUrl: _user?.userMetadata?['avatar_url'],
-                    name: _user?.userMetadata?['full_name'] ?? _user?.email,
-                    radius: 18,
-                  ),
+                Row(
+                  children: [
+                    _buildNotificationIcon(),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.article_outlined, size: 22, color: Colors.blueAccent),
+                      tooltip: 'EXPEDITION BLOGS',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const BlogsScreen())),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () => setState(() => _selectedIndex = 3), // Account is at 3
+                      child: UserAvatar(
+                        imageUrl: _user?.userMetadata?['avatar_url'],
+                        name: _user?.userMetadata?['full_name'] ?? _user?.email,
+                        radius: 18,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
