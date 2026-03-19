@@ -8,6 +8,7 @@ import 'profile_screen.dart';
 import 'blogs_screen.dart';
 import 'trek_detail_screen.dart';
 import 'chat_room_list_screen.dart';
+import 'notification_center_screen.dart';
 import '../widgets/user_avatar.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_panel_screen.dart';
@@ -171,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
                 Row(
                   children: [
-                    _buildNotificationIcon(),
+                    _notificationBadge(),
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.article_outlined, size: 22, color: Colors.blueAccent),
@@ -224,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 24),
                   _buildDailyInsight(),
                   const SizedBox(height: 30),
-                  _buildTrekkerHub(),
+                  // _buildTrekkerHub(),
                   const SizedBox(height: 30),
                   FadeInUp(
                     child: TabBar(
@@ -863,6 +864,46 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               },
             );
           },
+        );
+      },
+    );
+  }
+
+  Widget _notificationBadge() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('notifications')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', user.id),
+      builder: (context, snapshot) {
+        final all = snapshot.data ?? [];
+        final count = all.where((n) => n['is_read'] == false).length;
+        return IconButton(
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.notifications_outlined, color: Colors.blueAccent),
+              if (count > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => NotificationCenterScreen(role: _userRole))),
         );
       },
     );
