@@ -225,7 +225,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 24),
                   _buildDailyInsight(),
                   const SizedBox(height: 30),
-                  // _buildTrekkerHub(),
                   const SizedBox(height: 30),
                   FadeInUp(
                     child: TabBar(
@@ -634,38 +633,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildTrekkerHub() {
-    final bool isAdmin = _userRole == 'admin';
-    if (isAdmin) return const SizedBox.shrink(); // Remove for Admin
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Trekker Hub', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 140,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              _hubCard('The Trekker Daily', Icons.auto_stories_outlined, Colors.indigoAccent, () {
-                Navigator.push(context, MaterialPageRoute(builder: (c) => const BlogsScreen()));
-              }),
-              _hubCard('Summit Stories', Icons.landscape, Colors.deepPurple, () {
-                Navigator.push(context, MaterialPageRoute(builder: (c) => const BlogsScreen(initialCategory: 'Summit')));
-              }),
-              _hubCard('Expedition Dispatch', Icons.campaign, Colors.redAccent, () {
-                _showAnnouncementsList();
-              }),
-              _hubCard('Mission Debrief', Icons.report_problem_outlined, Colors.orange, () {
-                Navigator.push(context, MaterialPageRoute(builder: (c) => const UserComplaintsScreen()));
-              }),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _hubCard(String title, IconData icon, Color color, VoidCallback onTap) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
