@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import 'chat_screen.dart';
+import 'admin_support_inquiries_screen.dart';
 import '../widgets/unread_badge.dart';
 
 class AdminChatListScreen extends StatefulWidget {
@@ -22,14 +24,12 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
 
   Future<void> _fetchChatRooms() async {
     try {
-      // Find all unique developers/users who sent a message. Using a distinct select on messages
       final response = await Supabase.instance.client
           .from('messages')
-          .select('room_id, profiles(full_name)')
+          .select('room_id, content, created_at, profiles(full_name)')
           .order('created_at', ascending: false);
 
       if (mounted) {
-        // We will just unique them in dart
         final Set<String> roomIds = {};
         final List<Map<String, dynamic>> uniqueRooms = [];
 
@@ -37,9 +37,21 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
           final roomId = msg['room_id'] as String;
           if (!roomIds.contains(roomId)) {
             roomIds.add(roomId);
+
+            // Fetch group info for date
+            final groupInfo = await Supabase.instance.client
+                .from('trek_groups')
+                .select('departure_date, group_name')
+                .eq('id', roomId)
+                .maybeSingle();
+
             uniqueRooms.add({
               'room_id': roomId,
-              'name': msg['profiles'] != null ? msg['profiles']['full_name'] : 'Customer $roomId',
+              'name': groupInfo?['group_name'] ?? (msg['profiles'] != null ? msg['profiles']['full_name'] : 'Customer $roomId'),
+              'date': groupInfo?['departure_date'],
+              'message': msg['content'],
+              'sender': msg['profiles']?['full_name'],
+              'created_at': msg['created_at'],
             });
           }
         }
@@ -49,9 +61,8 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() => _isLoading = false);
-      print('Error fetching rooms: $e');
     }
   }
 
@@ -60,8 +71,14 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Customer Support Chats', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminSupportInquiriesScreen())),
+        backgroundColor: Colors.blueAccent,
+        icon: const Icon(Icons.support_agent, color: Colors.white),
+        label: const Text('HQ SUPPORT REGISTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator()) 
@@ -77,12 +94,39 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(16),
-                    leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                      child: Icon(Icons.person, color: Theme.of(context).primaryColor),
+                    leading: Container(
+                      width: 50, height: 50,
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 25,
+                            backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                            child: Icon(Icons.person, color: Theme.of(context).primaryColor),
+                          ),
+                          if (room['date'] != null)
+                            Positioned(
+                              bottom: 0, right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(4)),
+                                child: Text(
+                                  DateFormat('MMM dd').format(DateTime.parse(room['date'])),
+                                  style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    title: Text(room['name'] ?? 'Customer', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: const Text('Tap to view messages'),
+                    title: Text(room['name'] ?? 'Customer', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(room['date'] != null ? 'Departure: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(room['date']))}' : 'No mission date', style: const TextStyle(fontSize: 11)),
+                        const SizedBox(height: 4),
+                        Text('Recent Intel: ${room['message'] ?? "No messages"}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                      ],
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

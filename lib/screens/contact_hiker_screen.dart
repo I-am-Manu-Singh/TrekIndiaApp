@@ -13,7 +13,7 @@ class ContactHikerScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PERSONNEL DOSSIER', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 14)),
+        title: const Text('PERSONNEL RECORD', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 14)),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
@@ -26,14 +26,14 @@ class ContactHikerScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   _sectionTitle('STRATEGIC INFORMATION'),
+                   _sectionTitle('OFFICIAL INFORMATION'),
                    const SizedBox(height: 16),
                    _infoTile(context, Icons.bloodtype, 'BLOOD GROUP', profile['blood_group'] ?? 'DATA RESTRICTED', Colors.redAccent),
                    _infoTile(context, Icons.emergency, 'EMERGENCY CONTACT', profile['emergency_contact'] ?? 'UNAVAILABLE', Colors.orangeAccent),
                    _infoTile(context, Icons.medical_services, 'MEDICAL DISCLOSURES', profile['medical_info'] ?? 'NO CLINICAL DATA', Colors.blueAccent),
                    
                    const SizedBox(height: 32),
-                   _sectionTitle('TACTICAL ACTIONS'),
+                   _sectionTitle('TREK ACTIONS'),
                    const SizedBox(height: 16),
                    _actionButton(context, Icons.phone, 'INITIATE VOICE COMMS', Colors.green, () {
                       if (profile['phone_number'] != null) launchUrl(Uri.parse('tel:${profile['phone_number']}'));
@@ -76,7 +76,7 @@ class ContactHikerScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(profile['full_name']?.toUpperCase() ?? 'GUEST TREKKER', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          Text(profile['role'] ?? 'MISSION PERSONNEL', style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          Text(profile['role'] ?? 'TREK PERSONNEL', style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

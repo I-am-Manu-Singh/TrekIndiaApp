@@ -14,17 +14,23 @@ class UserAvatar extends StatelessWidget {
   });
 
   String get _initials {
-    if (name == null || name!.isEmpty) return 'T';
-    final parts = name!.trim().split(' ');
-    if (parts.length > 1) {
+    if (name == null || name!.trim().isEmpty) return 'T';
+    final trimmed = name!.trim();
+    final parts = trimmed.split(' ');
+    if (parts.length > 1 && parts[0].isNotEmpty && parts[parts.length - 1].isNotEmpty) {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
-    return name![0].toUpperCase();
+    return trimmed[0].toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
+    final bool hasImage = imageUrl != null && 
+                          imageUrl!.isNotEmpty && 
+                          imageUrl != 'null' && 
+                          imageUrl!.startsWith('http');
+    
+    if (hasImage) {
       return ClipOval(
         child: CachedNetworkImage(
           imageUrl: imageUrl!,

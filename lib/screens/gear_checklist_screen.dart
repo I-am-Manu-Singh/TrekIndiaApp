@@ -132,7 +132,7 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Add Tactical Gear'),
+        title: const Text('Add Trek Gear'),
         content: TextField(
           controller: ctrl,
           autofocus: true,

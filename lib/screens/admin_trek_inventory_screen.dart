@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
-import 'add_trek_screen.dart';
+import 'edit_trek_screen.dart';
+import '../models/trek.dart';
+import 'blogs_screen.dart';
 
 class AdminTrekInventoryScreen extends StatefulWidget {
   const AdminTrekInventoryScreen({super.key});
@@ -40,7 +42,7 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('DECOMMISSION TREK?'),
+        title: const Text('DECOMTREK TREK?'),
         content: const Text('This will permanently remove this expedition from the terminal. Proceed?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('ABORT')),
@@ -82,12 +84,12 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
       appBar: AppBar(
-        title: const Text('MISSION REPOSITORY', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)),
+        title: const Text('TREK REPOSITORY', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)),
         backgroundColor: isDark ? const Color(0xFF1E293B) : Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(icon: const Icon(Icons.add_box_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AddTrekScreen())).then((v) { if(v == true) _fetchTreks(); })),
+          IconButton(icon: const Icon(Icons.add_box_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const EditTrekScreen())).then((v) { if(v == true) _fetchTreks(); })),
         ],
       ),
       body: Column(
@@ -165,7 +167,7 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
                                       : const Icon(Icons.terrain, color: Colors.grey, size: 24),
                                   ),
                                 ),
-                                title: Text(trek['title'] ?? 'Strategic Expedition', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                title: Text(trek['title'] ?? 'Official Expedition', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -184,7 +186,7 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.edit_note, size: 22, color: Colors.blueAccent), 
-                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => AddTrekScreen(editTrek: trek))).then((v) { if(v == true) _fetchTreks(); })
+                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => EditTrekScreen(trek: Trek.fromJson(trek)))).then((v) { if(v == true) _fetchTreks(); })
                                     ),
                                     IconButton(icon: const Icon(Icons.delete_sweep_outlined, size: 22, color: Colors.redAccent), onPressed: () => _deleteTrek(trek['id'].toString())),
                                   ],

@@ -5,7 +5,6 @@ import '../models/trek.dart';
 import '../widgets/trek_card.dart';
 import '../services/database_service.dart';
 import 'profile_screen.dart';
-import 'blogs_screen.dart';
 import 'trek_detail_screen.dart';
 import 'chat_room_list_screen.dart';
 import 'notification_center_screen.dart';
@@ -25,6 +24,9 @@ import 'admin_bookings_screen.dart';
 import 'admin_management_hub_screen.dart';
 import 'user_gear_rental_screen.dart';
 import 'package:intl/intl.dart';
+import 'employee_terminal_screen.dart';
+import 'trekker_terminal_screen.dart';
+import '../widgets/global_unread_badge.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,13 +41,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   final DatabaseService _dbService = DatabaseService();
   final TextEditingController _searchController = TextEditingController();
   final User? _user = Supabase.instance.client.auth.currentUser;
-  final GlobalKey<ProfileScreenState> _profileKey = GlobalKey();
   
   List<Trek> _allTreks = [];
   List<Trek> _filteredTreks = [];
   bool _isLoading = true;
   String _selectedCategory = 'All';
   String _userRole = 'user';
+  String? _userName;
+  String? _userAvatar;
   Map<String, dynamic>? _activeAlert;
 
   bool get isAdmin => _userRole == 'admin';
@@ -96,9 +99,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Future<void> _fetchUserRole() async {
     try {
       if (_user != null) {
-        final profile = await Supabase.instance.client.from('profiles').select('role').eq('id', _user!.id).maybeSingle();
+        final profile = await Supabase.instance.client.from('profiles').select('role, full_name, avatar_url').eq('id', _user!.id).maybeSingle();
         if (profile != null && mounted) {
-          setState(() => _userRole = profile['role'] ?? 'user');
+          setState(() {
+            _userRole = (profile['role']?.toString().toLowerCase() ?? 'user');
+            _userName = profile['full_name'];
+            _userAvatar = profile['avatar_url'];
+          });
         }
       }
     } catch (_) {}
@@ -153,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       child: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 90, // Increased height to prevent 7px overflow
+            expandedHeight: 50, // Optimized height
             floating: true,
             pinned: true,
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -166,26 +173,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('TACTICAL DEPLOYMENT: INDIA', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1.5)),
+                    const Text('INDIA TREK DEPLOYMENT', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1.5)),
                     Text('Beautiful India', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Row(
                   children: [
                     _notificationBadge(),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.article_outlined, size: 22, color: Colors.blueAccent),
-                      tooltip: 'EXPEDITION BLOGS',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const BlogsScreen())),
-                    ),
                     const SizedBox(width: 12),
                     GestureDetector(
-                      onTap: () => setState(() => _selectedIndex = 3), // Account is at 3
+                      onTap: () => setState(() => _selectedIndex = 3),
                       child: UserAvatar(
-                        imageUrl: _user?.userMetadata?['avatar_url'],
-                        name: _user?.userMetadata?['full_name'] ?? _user?.email,
+                        imageUrl: _userAvatar,
+                        name: _userName ?? _user?.email,
                         radius: 18,
                       ),
                     ),
@@ -197,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           SliverToBoxAdapter(
             child: _buildGlobalAnnouncements(),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 12)),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -222,10 +223,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   _buildDailyInsight(),
-                  const SizedBox(height: 30),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
                   FadeInUp(
                     child: TabBar(
                       controller: _tabController,
@@ -241,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       tabs: _categories.map((c) => Tab(text: c)).toList(),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 6),
                 ],
               ),
             ),
@@ -309,34 +309,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ),
           SizedBox(
-            height: 180, // Strategic height adjustment
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              scrollDirection: Axis.horizontal,
-              itemCount: entry.value.length > 3 ? 4 : entry.value.length,
+            height: 130, // TREK OPTIMIZED: Matches TrekCard (130)
+            child: PageView.builder(
+              controller: PageController(viewportFraction: 0.9),
+              itemCount: entry.value.length,
               itemBuilder: (context, index) {
-                if (index == 3) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 10, right: 30),
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (c) => AllTreksScreen(treks: entry.value, title: '${entry.key} Expeditions')
-                            )
-                          );
-                        },
-                        child: const Text('View More'),
-                      ),
-                    ),
-                  );
-                }
                 return Container(
-                  width: MediaQuery.of(context).size.width * 0.85,
-                  margin: const EdgeInsets.only(right: 16),
-                  child: TrekCard(trek: entry.value[index]),
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  child: TrekCard(trek: entry.value[index], margin: EdgeInsets.zero),
                 );
               },
             ),
@@ -368,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('TACTICAL INTEL', style: TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  const Text('TREK INTEL', style: TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
                   const SizedBox(height: 2),
                   Text(_dailyTip, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                 ],
@@ -385,6 +365,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       stream: Supabase.instance.client
           .from('global_announcements')
           .stream(primaryKey: ['id'])
+          .order('is_urgent', ascending: false)
           .order('created_at', ascending: false),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -393,16 +374,33 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         }
 
         final items = snapshot.data!;
-        return Container(
-          height: 80,
-          margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-          child: PageView.builder(
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final a = items[index];
-              return _announcementTile(a);
-            },
-          ),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('BROADCAST INTEL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 2)),
+                  GestureDetector(
+                    onTap: _showAnnouncementsScreen,
+                    child: const Text('VIEW ALL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              height: 120,
+              margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              child: PageView.builder(
+                itemCount: items.length > 5 ? 5 : items.length,
+                itemBuilder: (context, index) {
+                  final a = items[index];
+                  return FadeInRight(child: _announcementTile(a));
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -410,22 +408,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _announcementTile(Map<String, dynamic> a) {
     final date = DateTime.parse(a['created_at']).toLocal();
-    final timeStr = DateFormat('MMM dd, HH:mm').format(date);
-    
+    final timeStr = DateFormat('MMM dd | HH:mm').format(date);
+    final senderName = a['sender_name'] ?? 'HQ COMMAND';
+
+    final bool isUrgent = a['is_urgent'] ?? false;
     return GestureDetector(
       onTap: () => _showFullAnnouncement(a),
-      onLongPress: _showAnnouncementsList,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.blue.shade900, Colors.blue.shade700]),
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          gradient: LinearGradient(
+            colors: isUrgent 
+              ? [const Color(0xFF991B1B), const Color(0xFFDC2626)] 
+              : [Colors.blue.shade900, Colors.blue.shade700]
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: (isUrgent ? Colors.red : Colors.blue).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Row(
           children: [
-            const Icon(Icons.campaign, color: Colors.white, size: 24),
-            const SizedBox(width: 12),
+            Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign, color: Colors.white, size: 28),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,11 +437,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(a['title'].toString().toUpperCase(), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w900, fontSize: 8, letterSpacing: 1.5)),
+                      Text(senderName.toString().toUpperCase(), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w900, fontSize: 8, letterSpacing: 1.5)),
                       Text(timeStr, style: const TextStyle(color: Colors.white38, fontSize: 8)),
                     ],
                   ),
-                  Text(a['content'], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text(a['content'], maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, height: 1.3)),
                 ],
               ),
             ),
@@ -447,6 +451,46 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
     );
   }
+
+  void _showFullAnnouncement(Map<String, dynamic> a) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.campaign, color: Colors.blueAccent),
+                const SizedBox(width: 12),
+                const Text('BROADCAST INTEL', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 12)),
+                const Spacer(),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+            const SizedBox(height: 30),
+            Text(a['title'] ?? 'IMPORTANT NOTICE', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(DateFormat('MMMM dd, yyyy | HH:mm').format(DateTime.parse(a['created_at']).toLocal()), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 24),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(a['content'], style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.blueGrey)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   Widget _legacyAlertWidget() {
      return Padding(
@@ -471,166 +515,188 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       );
   }
 
-  void _showFullAnnouncement(Map<String, dynamic> a) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(a['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
-        content: Text(a['content']),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('DISMISS'))],
+
+
+  void _showAnnouncementsScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: const Text('TREK BROADCASTS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 13, color: Colors.white)),
+            backgroundColor: Colors.black,
+            elevation: 0,
+          ),
+          body: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client.from('global_announcements').stream(primaryKey: ['id']).order('created_at', ascending: false),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final items = snapshot.data!;
+              if (items.isEmpty) return _buildEmptyState();
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(25),
+                itemCount: items.length,
+                itemBuilder: (context, i) {
+                   final a = items[i];
+                   final date = DateTime.parse(a['created_at']).toLocal();
+                   final bool isUrgent = a['is_urgent'] ?? false;
+                   final isDark = Theme.of(context).brightness == Brightness.dark;
+
+                   return FadeInUp(
+                     delay: Duration(milliseconds: i * 50),
+                     child: Container(
+                       margin: const EdgeInsets.only(bottom: 20),
+                       decoration: BoxDecoration(
+                         color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                         borderRadius: BorderRadius.circular(25),
+                         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 10))],
+                         border: Border.all(color: isUrgent ? Colors.redAccent.withOpacity(0.3) : (isDark ? Colors.white10 : Colors.grey.shade100)),
+                       ),
+                       child: Column(
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+                           Container(
+                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                             decoration: BoxDecoration(
+                               color: isUrgent ? Colors.redAccent : (isDark ? Colors.white10 : Colors.grey.shade50),
+                               borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+                             ),
+                             child: Row(
+                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                               children: [
+                                 Row(
+                                   children: [
+                                     Icon(isUrgent ? Icons.warning_amber_rounded : Icons.info_outline, color: isUrgent ? Colors.white : Colors.blueAccent, size: 14),
+                                     const SizedBox(width: 8),
+                                     Text(isUrgent ? 'URGENT PRIORITY' : 'OFFICIAL INTEL', style: TextStyle(color: isUrgent ? Colors.white : Colors.blueAccent, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                                   ],
+                                 ),
+                                 Text(DateFormat('MMM dd, HH:mm').format(date), style: TextStyle(color: isUrgent ? Colors.white70 : Colors.grey, fontSize: 9, fontWeight: FontWeight.bold)),
+                               ],
+                             ),
+                           ),
+                           Padding(
+                             padding: const EdgeInsets.all(20),
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Text(a['title'] ?? 'Announcement', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
+                                 const SizedBox(height: 8),
+                                 Text(a['content'], style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black54, height: 1.5)),
+                               ],
+                             ),
+                           ),
+                         ],
+                       ),
+                     ),
+                   );
+                },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
 
-  void _showAnnouncementsList() async {
-    final res = await Supabase.instance.client.from('global_announcements').select().order('created_at', ascending: false);
-    if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Text('ALL EXPEDITION ANNOUNCEMENTS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 2)),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: res.length,
-                itemBuilder: (context, i) {
-                  final a = res[i];
-                  return ListTile(
-                    title: Text(a['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(DateFormat('MMM dd, HH:mm').format(DateTime.parse(a['created_at']).toLocal())),
-                    onTap: () { Navigator.pop(context); _showFullAnnouncement(a); },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.campaign_outlined, size: 60, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text('No broadcasts in theoretical airwaves.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isAdmin = _userRole == 'admin';
+    // Determine page set based on role
+    final List<Widget> pages;
+    final List<BottomNavigationBarItem> navItems;
 
-    // Both admin and user get 4 tabs - prevents index mismatch on theme change
-    final int maxIndex = 3;
-    if (_selectedIndex > maxIndex) _selectedIndex = 0;
+    if (_userRole == 'admin') {
+      pages = [
+        _buildExploreScreen(context),
+        const ChatRoomListScreen(),
+        const AdminPanelScreen(),
+        ProfileScreen(),
+      ];
+      navItems = [
+        const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+        BottomNavigationBarItem(icon: _buildChatIcon(true), label: 'Chats'),
+        const BottomNavigationBarItem(icon: Icon(Icons.shield_outlined), label: 'Admin HQ'),
+        const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
+      ];
+    } else if (_userRole == 'guide' || _userRole == 'staff') {
+      pages = [
+        _buildExploreScreen(context),
+        const ChatRoomListScreen(),
+        const EmployeeTerminalScreen(),
+        ProfileScreen(),
+      ];
+      navItems = [
+        const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+        BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
+        const BottomNavigationBarItem(icon: Icon(Icons.terminal_outlined), label: 'Terminal'),
+        const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
+      ];
+    } else {
+      // Default User
+      pages = [
+        _buildExploreScreen(context),
+        const ChatRoomListScreen(),
+        const TrekkerTerminalScreen(),
+        ProfileScreen(),
+      ];
+      navItems = [
+        const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+        BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
+        const BottomNavigationBarItem(icon: Icon(Icons.hub_outlined), label: 'Terminal'),
+        const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
+      ];
+    }
 
-    final List<Widget> pages = isAdmin 
-      ? [
-          _buildExploreScreen(context),
-          const ChatRoomListScreen(),
-          const AdminPanelScreen(),
-          ProfileScreen(key: _profileKey),
-        ]
-      : [
-          _buildExploreScreen(context),
-          const ChatRoomListScreen(),
-          const BlogsScreen(),
-          ProfileScreen(key: _profileKey),
-        ];
+    if (_selectedIndex >= pages.length) _selectedIndex = 0;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
         heroTag: 'support_fab',
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AIGuideScreen())),
         backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.support_agent, color: Colors.white),
-      ),
+      ) : null,
       body: IndexedStack(
         index: _selectedIndex,
         children: pages,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() => _selectedIndex = index);
-          if (index == 3) {
-            _profileKey.currentState?.fetchData();
-          }
-        },
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: isAdmin 
-          ? [
-              const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
-              BottomNavigationBarItem(icon: _buildChatIcon(isAdmin), label: 'Chats'),
-              const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: 'Admin'),
-              const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
-            ]
-          : [
-              const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
-              BottomNavigationBarItem(icon: _buildChatIcon(isAdmin), label: 'Chats'),
-              const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Blogs'),
-              const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
-            ],
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          canvasColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) {
+            setState(() => _selectedIndex = index);
+          },
+          selectedItemColor: Theme.of(context).primaryColor,
+          unselectedItemColor: Colors.grey,
+          type: BottomNavigationBarType.fixed,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+          unselectedLabelStyle: const TextStyle(fontSize: 10),
+          items: navItems,
+        ),
       ),
     );
   }
 
   Widget _buildChatIcon(bool isAdmin) {
-    if (_user == null) return const Icon(Icons.chat_bubble_outline);
-    
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: Supabase.instance.client
-          .from('unread_messages')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', _user!.id),
-      builder: (context, snapshot) {
-        int count = snapshot.data?.length ?? 0;
-        bool hasMention = false;
-        
-        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-          final userName = _user?.userMetadata?['full_name'] ?? '';
-          for (var m in snapshot.data!) {
-            if (m['content']?.toString().contains('@$userName') == true) {
-              hasMention = true;
-              break;
-            }
-          }
-        }
-        
-        return Stack(
-          children: [
-            const Icon(Icons.chat_bubble_outline),
-            if (count > 0)
-              Positioned(
-                right: -8,
-                top: -6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: hasMention ? Colors.orange : Colors.red, 
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (hasMention) ...[
-                        const Text('@', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, height: 1)),
-                        const SizedBox(width: 1),
-                      ],
-                      Text(
-                        '$count', 
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, height: 1),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
+    return const GlobalUnreadBadge(icon: Icon(Icons.chat_bubble_outline));
   }
 
 

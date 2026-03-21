@@ -18,6 +18,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'dart:io';
 import 'chat_screen.dart';
+import '../widgets/user_avatar.dart';
 import 'gear_checklist_screen.dart';
 import 'edit_trek_screen.dart';
 
@@ -137,15 +138,14 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
+                    const SizedBox(height: 6),
+                    _buildLocationAndOfficialActions(),
                     const SizedBox(height: 8),
-                    _buildLocationAndRating(),
-                    const SizedBox(height: 16),
-                    _buildInteractiveActions(),
                   ],
                 ),
               ),
@@ -153,7 +153,8 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
             SliverPersistentHeader(
               pinned: true,
               delegate: _SliverAppBarDelegate(
-                Container(
+                preferredHeight: kTextTabBarHeight,
+                child: Container(
                   color: Theme.of(context).scaffoldBackgroundColor,
                   child: TabBar(
                     controller: _tabController,
@@ -227,74 +228,52 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildLocationAndRating() {
+  Widget _buildLocationAndOfficialActions() {
     return FadeInUp(
       delay: const Duration(milliseconds: 100),
       child: Row(
         children: [
           Icon(Icons.location_on, color: Theme.of(context).colorScheme.secondary, size: 20),
           const SizedBox(width: 4),
-          Text(widget.trek.location, style: const TextStyle(fontSize: 16, color: Colors.grey)),
-          const Spacer(),
-          const Icon(Icons.star, color: Colors.amber, size: 20),
-          Text(' ${widget.trek.rating}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(
+              widget.trek.location, 
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+              overflow: TextOverflow.ellipsis,
+            )
+          ),
+          const SizedBox(width: 12),
+          _tacticalIconBtn(Icons.travel_explore, 'FLYOVER', Colors.blue, _openFlyover),
+          const SizedBox(width: 8),
+          _tacticalIconBtn(Icons.support_agent, 'SUPPORT', Colors.blueGrey, _showSupportDetails),
         ],
       ),
     );
   }
 
-  Widget _buildInteractiveActions() {
-    return FadeInUp(
-      delay: const Duration(milliseconds: 150),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Tooltip(
-                  message: 'View peaks and terrain in Google Maps global 3D mode.',
-                  child: _actionButton(
-                    Icons.map_outlined, 
-                    '3D FLYOVER', 
-                    Colors.blue, 
-                    _openFlyover
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _actionButton(
-                  Icons.image_outlined, 
-                  'EXPORT IMAGE', 
-                  Colors.orangeAccent, 
-                  _exportItineraryImage
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _actionButton(
-                  Icons.picture_as_pdf_outlined, 
-                  'EXPORT PDF', 
-                  Colors.redAccent, 
-                  _exportItineraryPdf
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: _actionButton(
-              Icons.support_agent, 
-              'EXPEDITION SUPPORT & CO-ORDINATION', 
-              Colors.blueGrey, 
-              _showSupportDetails
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
+  Widget _tacticalIconBtn(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildInteractiveActions() {
+    return const SizedBox.shrink(); // Relocated to Itinerary Tab
   }
 
   void _openFlyover() {
@@ -309,48 +288,99 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
       final pdf = pw.Document();
       
       pdf.addPage(
-        pw.Page(
-          build: (context) => pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          header: (context) => pw.Column(
             children: [
-              pw.Header(level: 0, text: 'Expedition Briefing: ${widget.trek.title}'),
-              pw.Text('Location: ${widget.trek.location}'),
-              pw.Text('Difficulty: ${widget.trek.difficulty}'),
-              pw.Text('Duration: ${widget.trek.duration}'),
-              pw.Text('Max Altitude: ${widget.trek.altitude}'),
-              pw.Text('Official Price: Rs. ${widget.trek.discountedPrice.toInt()}'),
-              pw.SizedBox(height: 15),
-              pw.Text('Mission Overview:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
-              pw.Text(widget.trek.description),
-              pw.SizedBox(height: 20),
-              pw.Divider(),
-              pw.SizedBox(height: 15),
-              pw.Text('Tactical Daily Plan:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('EXPEDITION RECORD', style: pw.TextStyle(color: PdfColors.blue900, fontSize: 10, fontWeight: pw.FontWeight.bold, letterSpacing: 2)),
+                      pw.Text(widget.trek.title.toUpperCase(), style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
+                    ]
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(color: PdfColors.blue900, borderRadius: pw.BorderRadius.circular(6)),
+                    child: pw.Text('OFFICIAL BRIEFING', style: pw.TextStyle(color: PdfColors.white, fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  ),
+                ],
+              ),
               pw.SizedBox(height: 10),
-              ...widget.trek.itinerary.map((it) => pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 12),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('DAY ${it.day}: ${it.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
-                    pw.Text(it.description, style: const pw.TextStyle(fontSize: 9)),
-                    if (it.distance.isNotEmpty) pw.Text('Distance: ${it.distance}', style: pw.TextStyle(color: PdfColors.blue, fontSize: 8)),
-                  ],
-                ),
-              )).toList(),
-              pw.SizedBox(height: 20),
-              pw.Text('Inclusions:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-              pw.Text(widget.trek.inclusions.join(', '), style: const pw.TextStyle(fontSize: 9)),
+              pw.Divider(thickness: 0.5, color: PdfColors.grey300),
               pw.SizedBox(height: 10),
-              pw.Text('Gear to Carry:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-              pw.Text(widget.trek.carryList.join(', '), style: const pw.TextStyle(fontSize: 9)),
-              pw.Spacer(),
-              pw.Divider(),
-              pw.Text('TREK INDIA - OFFICIAL EXPEDITION DOCUMENT', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.blue)),
-              pw.Text('Support: +91 9876543210 | explore@trekindia.com', style: const pw.TextStyle(fontSize: 8)),
-              pw.Text('Registered Office: High Peaks Base, Manali, HP, India', style: const pw.TextStyle(fontSize: 8)),
             ],
           ),
+          footer: (context) => pw.Column(
+            children: [
+              pw.Divider(thickness: 0.5, color: PdfColors.grey300),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Generated by Trek India App', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                  pw.Text('Page ${context.pageNumber} of ${context.pagesCount}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                ],
+              )
+            ]
+          ),
+          build: (context) => [
+            pw.Row(
+              children: [
+                _pdfStatBox('LOCATION', widget.trek.location),
+                _pdfStatBox('DIFFICULTY', widget.trek.difficulty),
+                _pdfStatBox('ALTITUDE', widget.trek.altitude),
+                _pdfStatBox('DURATION', widget.trek.duration),
+              ]
+            ),
+            pw.SizedBox(height: 24),
+            pw.Text('OPERATIONAL OVERVIEW', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColors.blue800)),
+            pw.SizedBox(height: 8),
+            pw.Text(widget.trek.description, style: const pw.TextStyle(fontSize: 10, lineSpacing: 2)),
+            
+            pw.SizedBox(height: 24),
+            pw.Text('TREK DAILY PLAN (ITINERARY)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColors.blue800)),
+            pw.SizedBox(height: 12),
+            ...widget.trek.itinerary.map((it) => pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 12),
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border(left: pw.BorderSide(color: PdfColors.blue900, width: 3)),
+                color: PdfColors.grey50,
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('DAY ${it.day}: ${it.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+                      if (it.time.isNotEmpty) pw.Text(it.time, style: pw.TextStyle(color: PdfColors.orange800, fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                    ]
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(it.description, style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800)),
+                  if (it.distance.isNotEmpty) pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 4),
+                    child: pw.Text('Distance Threshold: ${it.distance}', style: pw.TextStyle(color: PdfColors.blue, fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  ),
+                ],
+              ),
+            )).toList(),
+
+            pw.SizedBox(height: 24),
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(child: _pdfCheckList('INCLUSIONS', widget.trek.inclusions)),
+                pw.SizedBox(width: 20),
+                pw.Expanded(child: _pdfCheckList('GEAR TO CARRY', widget.trek.carryList)),
+              ]
+            ),
+          ],
         ),
       );
 
@@ -391,18 +421,30 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        width: 40,
+                        height: 40,
                         decoration: const BoxDecoration(color: Color(0xFF0D47A1), shape: BoxShape.circle),
-                        child: Text('${it.day}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        alignment: Alignment.center,
+                        child: Text('${it.day}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(it.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(child: Text(it.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black))),
+                                if (it.time.isNotEmpty) Text(it.time, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
+                              ],
+                            ),
                             const SizedBox(height: 4),
                             Text(it.description, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                            if (it.distance.isNotEmpty) Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text('DISTANCE: ${it.distance}', style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold)),
+                            ),
                           ],
                         ),
                       ),
@@ -560,18 +602,34 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
           ),
         ),
         Positioned(
-          bottom: 40,
+          bottom: 20,
           right: 20,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15)),
-            child: Row(
-              children: [
-                const Icon(Icons.image_outlined, color: Colors.white, size: 14),
-                const SizedBox(width: 4),
-                Text('${images.length} Photos', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-              ],
-            ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 14),
+                    const SizedBox(width: 4),
+                    Text('${widget.trek.rating}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.image_outlined, color: Colors.white, size: 14),
+                    const SizedBox(width: 4),
+                    Text('${images.length} Photos', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -679,15 +737,16 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
   }
 
   Widget _buildCarryListGrid() {
-    return FutureBuilder<int>(
-      future: _getGearProgress(),
+    return FutureBuilder<Map<String, int>>(
+      future: _getGearProgressCounts(),
       builder: (context, snapshot) {
-        int checked = snapshot.data ?? 0;
+        final data = snapshot.data ?? {'packed': 0, 'total': widget.trek.carryList.isNotEmpty ? widget.trek.carryList.length : 6};
+        int checked = data['packed']!;
+        int total = data['total']!;
+        double progress = total == 0 ? 0.0 : checked / total;
         final items = widget.trek.carryList.isNotEmpty ? widget.trek.carryList : [
           'Trekking Shoes', 'Rucksack', 'Headtorch', 'Layered Clothing', 'Trekking Poles', 'Medical Kit'
         ];
-        int total = items.length;
-        double progress = checked / total;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -737,7 +796,7 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
               label: const Text('MANAGE MY PACKING LIST', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
             const SizedBox(height: 24),
-            const Text('MISSION READINESS: GEAR GRID', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.5, color: Colors.grey)),
+            const Text('TREK READINESS: GEAR GRID', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.5, color: Colors.grey)),
             const SizedBox(height: 16),
             GridView.builder(
               shrinkWrap: true,
@@ -812,42 +871,77 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
 
   Widget _buildOverview() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Quiz button removed
-          const SizedBox(height: 24),
-          const Text('The Expedition', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-          const SizedBox(height: 16),
-          Text(
-            widget.trek.description,
-            style: const TextStyle(fontSize: 16, height: 1.8, color: Colors.blueGrey),
-          ),
-          const SizedBox(height: 30),
-          const Text('Tactical Coordinates', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
+          const Text('Trek Coordinates', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
           _buildPrecisionCompass(),
-          const SizedBox(height: 30),
+          const SizedBox(height: 12),
           _buildSeasonalOutlook(),
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
+          if (widget.trek.packages.isNotEmpty) _buildPackagesSection(),
+          const SizedBox(height: 12),
         ],
       ),
     );
   }
 
-  Future<int> _getGearProgress() async {
+  Widget _buildPackagesSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('TREK PACKAGES', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        ...widget.trek.packages.map((pkg) => Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white10 : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.inventory_2_outlined, color: Colors.blueAccent, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(pkg.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(pkg.description, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ])),
+              Text('₹${pkg.price.toInt()}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            ],
+          ),
+        )).toList(),
+      ],
+    );
+  }
+
+  Future<Map<String, int>> _getGearProgressCounts() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return 0;
+    if (user == null) return {'packed': 0, 'total': 0};
     try {
       final res = await Supabase.instance.client
           .from('gear_checklists')
-          .select('id')
+          .select('id, is_packed')
           .eq('user_id', user.id)
-          .eq('trek_id', widget.trek.id)
-          .eq('is_packed', true);
-      return (res as List).length;
-    } catch (_) { return 0; }
+          .eq('trek_id', widget.trek.id);
+      
+      final list = res as List;
+      if (list.isEmpty) {
+         return {'packed': 0, 'total': widget.trek.carryList.isNotEmpty ? widget.trek.carryList.length : 6};
+      }
+      int packed = list.where((item) => item['is_packed'] == true).length;
+      return {'packed': packed, 'total': list.length};
+    } catch (_) { 
+       return {'packed': 0, 'total': widget.trek.carryList.isNotEmpty ? widget.trek.carryList.length : 6}; 
+    }
   }
 
   Widget _buildProPreparationGuide() {
@@ -855,12 +949,13 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
     if (widget.trek.altitude.contains('4,000') || widget.trek.altitude.contains('5,000')) temp = -5;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    return FutureBuilder<int>(
-      future: _getGearProgress(),
+    return FutureBuilder<Map<String, int>>(
+      future: _getGearProgressCounts(),
       builder: (context, snapshot) {
-        int checked = snapshot.data ?? 0;
-        int total = widget.trek.carryList.isNotEmpty ? widget.trek.carryList.length : 6;
-        double progress = checked / total;
+        final data = snapshot.data ?? {'packed': 0, 'total': widget.trek.carryList.isNotEmpty ? widget.trek.carryList.length : 6};
+        int checked = data['packed']!;
+        int total = data['total']!;
+        double progress = total == 0 ? 0.0 : checked / total;
 
         return Container(
           padding: const EdgeInsets.all(24),
@@ -883,8 +978,8 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('MISSION PREPARATION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: isDark ? Colors.white : Colors.black, letterSpacing: 1.5)),
-                      const Text('Tactical Briefing & Stamina Goals', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                      Text('TREK PREPARATION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: isDark ? Colors.white : Colors.black, letterSpacing: 1.5)),
+                      const Text('Trek Briefing & Stamina Goals', style: TextStyle(color: Colors.grey, fontSize: 10)),
                     ],
                   ),
                   Container(
@@ -1028,49 +1123,82 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
   Widget _buildItinerary() {
     return Screenshot(
       controller: _screenshotController,
-      child: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: ListView.builder(
-          padding: const EdgeInsets.all(24),
-          itemCount: widget.trek.itinerary.length,
-          itemBuilder: (context, index) {
-            final step = widget.trek.itinerary[index];
-            return FadeInLeft(
-              delay: Duration(milliseconds: 50 * index),
-              child: IntrinsicHeight(
-                child: Row(
-                  children: [
-                    Column(
-                      children: [
-                        CircleAvatar(radius: 12, backgroundColor: Theme.of(context).primaryColor, child: Text('${index+1}', style: const TextStyle(color: Colors.white, fontSize: 10))),
-                        Expanded(child: VerticalDivider(color: Theme.of(context).primaryColor.withOpacity(0.3), thickness: 2)),
-                      ],
+        child: Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _actionButton(
+                      Icons.image_outlined, 
+                      'EXPORT IMAGE', 
+                      Colors.orangeAccent, 
+                      _exportItineraryImage
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 24.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _actionButton(
+                      Icons.picture_as_pdf_outlined, 
+                      'EXPORT PDF', 
+                      Colors.redAccent, 
+                      _exportItineraryPdf
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              ...List.generate(widget.trek.itinerary.length, (index) {
+                final step = widget.trek.itinerary[index];
+                return FadeInLeft(
+                  delay: Duration(milliseconds: 50 * index),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        Column(
                           children: [
-                            Text(step.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 4),
-                            Text(step.description, style: const TextStyle(color: Colors.grey)),
-                            if (step.distance.isNotEmpty) Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Row(children: [const Icon(Icons.arrow_forward, size: 14, color: Colors.blue), const SizedBox(width: 4), Text(step.distance, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))]),
-                            )
+                            CircleAvatar(radius: 12, backgroundColor: Theme.of(context).primaryColor, child: Text('${index+1}', style: const TextStyle(color: Colors.white, fontSize: 10))),
+                            Expanded(child: VerticalDivider(color: Theme.of(context).primaryColor.withOpacity(0.3), thickness: 2)),
                           ],
                         ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            );
-          },
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 24.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text(step.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                                    if (step.time.isNotEmpty) Text(step.time, style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(step.description, style: const TextStyle(color: Colors.grey)),
+                                if (step.distance.isNotEmpty) Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Row(children: [
+                                    const Icon(Icons.directions_walk, size: 14, color: Colors.blueAccent),
+                                    const SizedBox(width: 4),
+                                    Text(step.distance, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueAccent)),
+                                  ]),
+                                )
+                              ],
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
-      ),
     );
   }
 
@@ -1141,7 +1269,11 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
                         children: [
                           Row(
                             children: [
-                              CircleAvatar(backgroundImage: NetworkImage(r['image_url'] ?? 'https://i.pravatar.cc/150?img=1')),
+                               UserAvatar(
+                                 imageUrl: r['image_url'],
+                                 name: r['user_name'],
+                                 radius: 20,
+                               ),
                               const SizedBox(width: 12),
                               Expanded(child: Text(r['user_name'] ?? 'Trekker', style: const TextStyle(fontWeight: FontWeight.bold))),
                               RatingBarIndicator(rating: double.tryParse(r['rating'].toString()) ?? 5.0, itemBuilder: (c, i) => const Icon(Icons.star, color: Colors.amber), itemCount: 5, itemSize: 15),
@@ -1229,163 +1361,227 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
 
             final double grandTotal = trekPrice + pickupPrice + calculateAddonsTotal();
 
-            return Scaffold(
-              backgroundColor: Theme.of(context).cardColor,
-              appBar: AppBar(
-                title: const Text('Customize Your Journey', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(sheetContext)),
-                centerTitle: true,
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.9,
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
               ),
-              body: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: ListView(
+              child: Column(
+                children: [
+                  // Stick Trek Header
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+                    ),
+                    child: Column(
+                      children: [
+                        Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => Navigator.pop(sheetContext)),
+                            const Text('Customize Your Journey', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+                            const SizedBox(width: 48), // Balance spacing
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                      child: Column(
                         children: [
-                          // DATE PICKER & SEASONAL INFO
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.blue.withOpacity(0.1))),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: ListView(
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Departure Date', style: TextStyle(fontSize: 12, color: Colors.blue)),
-                                        Text(DateFormat('dd MMM yyyy').format(selectedDate), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                      ],
-                                    ),
-                                    TextButton.icon(
-                                      onPressed: () async {
-                                        final date = await showDatePicker(
-                                          context: context, 
-                                          initialDate: selectedDate, 
-                                          firstDate: DateTime.now().add(const Duration(days: 7)), 
-                                          lastDate: DateTime.now().add(const Duration(days: 365))
-                                        );
-                                        if (date != null) setSheetState(() => selectedDate = date);
-                                      }, 
-                                      icon: const Icon(Icons.edit_calendar), 
-                                      label: const Text('Change')
-                                    )
-                                  ],
-                                ),
-                                const Divider(),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.wb_sunny_outlined, size: 16, color: Colors.orange),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Landscape Outlook: $seasonalOutlook', 
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)
+                                // DATE PICKER & SEASONAL INFO
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.blue.withOpacity(0.1))),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('Departure Date', style: TextStyle(fontSize: 12, color: Colors.blue)),
+                                              Text(DateFormat('dd MMM yyyy').format(selectedDate), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                            ],
+                                          ),
+                                          TextButton.icon(
+                                            onPressed: () async {
+                                              final date = await showDatePicker(
+                                                context: context, 
+                                                initialDate: selectedDate, 
+                                                firstDate: DateTime.now().add(const Duration(days: 7)), 
+                                                lastDate: DateTime.now().add(const Duration(days: 365))
+                                              );
+                                              if (date != null) setSheetState(() => selectedDate = date);
+                                            }, 
+                                            icon: const Icon(Icons.edit_calendar), 
+                                            label: const Text('Change')
+                                          )
+                                        ],
+                                      ),
+                                      const Divider(),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.wb_sunny_outlined, size: 16, color: Colors.orange),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Landscape Outlook: $seasonalOutlook', 
+                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)
+                                            )
+                                          ),
+                                        ],
                                       )
-                                    ),
-                                  ],
-                                )
+                                    ],
+                                  ),
+                                ),
+                                
+                                const SizedBox(height: 20),
+                                const Text('Pickup Point', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                                ...widget.trek.pickupOptions.map((opt) => RadioListTile<PickupOption>(
+                                  value: opt,
+                                  groupValue: selectedPickup,
+                                  title: Text(opt.location),
+                                  contentPadding: EdgeInsets.zero,
+                                  secondary: Text('+₹${opt.price.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  onChanged: (val) => setSheetState(() => selectedPickup = val),
+                                )),
+                                const Divider(),
+                                const Text('Optional Gear Rentals', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 10),
+                                if (isGearsLoading) const Center(child: CircularProgressIndicator())
+                                else Container(
+                                  height: 280,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.05), 
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: isDark ? Colors.white12 : Colors.black.withOpacity(0.05)),
+                                  ),
+                                  child: ListView.builder(
+                                    itemCount: availableGears.length,
+                                    itemBuilder: (c, idx) {
+                                      final gear = availableGears[idx];
+                                      return Container(
+                                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).cardColor,
+                                          borderRadius: BorderRadius.circular(12),
+                                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
+                                        ),
+                                        child: ListTile(
+                                          dense: true,
+                                          title: Text(gear.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          subtitle: Text('₹${gear.pricePerDay.toInt()}/day', style: const TextStyle(fontSize: 10)),
+                                          trailing: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (selectedAddons.containsKey(gear.id)) ...[
+                                                IconButton(
+                                                  onPressed: () => setSheetState(() {
+                                                    if (selectedAddons[gear.id]! > 1) {
+                                                      selectedAddons[gear.id] = selectedAddons[gear.id]! - 1;
+                                                    } else {
+                                                      selectedAddons.remove(gear.id);
+                                                    }
+                                                  }), 
+                                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20)
+                                                ),
+                                                Text('${selectedAddons[gear.id]}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                              ],
+                                              IconButton(
+                                                onPressed: () => setSheetState(() => selectedAddons[gear.id] = (selectedAddons[gear.id] ?? 0) + 1), 
+                                                icon: const Icon(Icons.add_circle, color: Colors.green, size: 24)
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
                               ],
                             ),
                           ),
-                          
-                          const SizedBox(height: 20),
-                          const Text('Pickup Point', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                          ...widget.trek.pickupOptions.map((opt) => RadioListTile<PickupOption>(
-                            value: opt,
-                            groupValue: selectedPickup,
-                            title: Text(opt.location),
-                            contentPadding: EdgeInsets.zero,
-                            secondary: Text('+₹${opt.price.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            onChanged: (val) => setSheetState(() => selectedPickup = val),
-                          )),
-                          const Divider(),
-                          const Text('Optional Gear Rentals', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 10),
-                          if (isGearsLoading) const Center(child: CircularProgressIndicator())
-                          else Container(
-                            height: 280,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          // Premium Cost Breakdown
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            margin: const EdgeInsets.only(top: 8),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.05), 
+                              color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isDark ? Colors.white12 : Colors.black.withOpacity(0.05)),
                             ),
-                            child: ListView.builder(
-                              itemCount: availableGears.length,
-                              itemBuilder: (c, idx) {
-                                final gear = availableGears[idx];
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).cardColor,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
-                                  ),
-                                  child: ListTile(
-                                    dense: true,
-                                    title: Text(gear.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    subtitle: Text('₹${gear.pricePerDay.toInt()}/day', style: const TextStyle(fontSize: 10)),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (selectedAddons.containsKey(gear.id)) ...[
-                                          IconButton(
-                                            onPressed: () => setSheetState(() {
-                                              if (selectedAddons[gear.id]! > 1) {
-                                                selectedAddons[gear.id] = selectedAddons[gear.id]! - 1;
-                                              } else {
-                                                selectedAddons.remove(gear.id);
-                                              }
-                                            }), 
-                                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20)
-                                          ),
-                                          Text('${selectedAddons[gear.id]}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        ],
-                                        IconButton(
-                                          onPressed: () => setSheetState(() => selectedAddons[gear.id] = (selectedAddons[gear.id] ?? 0) + 1), 
-                                          icon: const Icon(Icons.add_circle, color: Colors.green, size: 24)
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
+                            child: Column(
+                              children: [
+                                _totalRow('Expedition Fee', '₹${trekPrice.toInt()}'),
+                                _totalRow('Trek Pickup', '₹${pickupPrice.toInt()}'),
+                                _totalRow('Logistics Addons', '₹${calculateAddonsTotal().toInt()}'),
+                                const Divider(height: 24),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('TREK TOTAL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                                    Text('₹${grandTotal.toInt()}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: Theme.of(context).primaryColor)),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(sheetContext);
+                              _showMockPaymentFlow(grandTotal, trekPrice, pickupPrice, selectedPickup?.location ?? '', selectedDate, selectedAddons, availableGears);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black, 
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 58), 
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                              elevation: 10,
+                              shadowColor: Colors.black45,
+                            ),
+                            child: const Text('CONFIRM TREK DEPLOYMENT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
+                          ),
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
-                    const Divider(),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [const Text('Total Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text('₹${grandTotal.toInt()}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor))],
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(sheetContext);
-                        _showMockPaymentFlow(grandTotal, trekPrice, pickupPrice, selectedPickup?.location ?? '', selectedDate, selectedAddons, availableGears);
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, minimumSize: const Size(double.infinity, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                      child: const Text('PROCEED TO CHECKOUT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           }
         );
       }
+    );
+  }
+
+  Widget _totalRow(String label, String val) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(val, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+        ],
+      ),
     );
   }
 
@@ -1417,8 +1613,19 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
       'price': allGears.firstWhere((g) => g.id == e.key).pricePerDay * int.parse(widget.trek.duration.split(' ')[0])
     }).toList();
 
+   final user = Supabase.instance.client.auth.currentUser;
+
+    final profile = await Supabase.instance.client
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user!.id)
+        .single();
+
+    final String fullName = profile['full_name']; // 👈 THIS LINE WAS MISSING
+
     final String? groupId = await DatabaseService().bookTrek(
       trekId: widget.trek.id,
+      fullName: fullName, // now Dart stops crying
       trekTitle: widget.trek.title,
       trekDate: date,
       trekPrice: tp,
@@ -1427,7 +1634,6 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
       totalPrice: total,
       addons: formattedAddons,
     );
-    
     if (mounted) Navigator.pop(context);
 
     if (groupId != null && mounted) {
@@ -1452,6 +1658,7 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
     return FadeInUp(
       delay: const Duration(milliseconds: 100),
       child: GridView.count(
+        padding: EdgeInsets.zero, // TREK CRITICAL: Remove residual vertical padding
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 3,
@@ -1549,43 +1756,84 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> with SingleTickerPr
     );
   }
 
-  Widget _supportItem(IconData icon, String title, String value) {
+  Widget _supportItem(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
+            decoration: BoxDecoration(color: Colors.blueGrey.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: Colors.blueGrey, size: 20),
           ),
           const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             ],
-          )
+          ),
         ],
       ),
+    );
+  }
+
+  pw.Widget _pdfStatBox(String label, String value) {
+    return pw.Expanded(
+      child: pw.Container(
+        margin: const pw.EdgeInsets.only(right: 8),
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(color: PdfColors.grey100, borderRadius: pw.BorderRadius.circular(4)),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(label, style: pw.TextStyle(color: PdfColors.grey700, fontSize: 6, fontWeight: pw.FontWeight.bold)),
+            pw.Text(value, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _pdfCheckList(String title, List<String> items) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.blue900)),
+        pw.SizedBox(height: 8),
+        ...items.map((item) => pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 4),
+          child: pw.Row(
+            children: [
+              pw.Container(width: 4, height: 4, decoration: const pw.BoxDecoration(color: PdfColors.blue, shape: pw.BoxShape.circle)),
+              pw.SizedBox(width: 8),
+              pw.Expanded(child: pw.Text(item, style: const pw.TextStyle(fontSize: 8))),
+            ],
+          ),
+        )).toList(),
+      ],
     );
   }
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(this._widget);
+  _SliverAppBarDelegate({required this.child, required this.preferredHeight});
 
-  final Widget _widget;
+  final Widget child;
+  final double preferredHeight;
 
   @override
-  double get minExtent => kTextTabBarHeight; // Tactical reduction of dead space
+  double get minExtent => preferredHeight + (WidgetsBinding.instance.platformDispatcher.implicitView?.padding.top ?? 44) / (WidgetsBinding.instance.platformDispatcher.implicitView?.devicePixelRatio ?? 1);
   @override
-  double get maxExtent => kTextTabBarHeight;
+  double get maxExtent => preferredHeight + (WidgetsBinding.instance.platformDispatcher.implicitView?.padding.top ?? 44) / (WidgetsBinding.instance.platformDispatcher.implicitView?.devicePixelRatio ?? 1);
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return _widget;
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(top: true, bottom: false, child: child),
+    );
   }
 
   @override
@@ -1611,7 +1859,7 @@ class _MockPaymentFlowState extends State<MockPaymentFlow> {
     "Securing transaction with end-to-end encryption...",
     "Processing payment with central command bank...",
     "Finalizing mission booking details...",
-    "Mission status: CONFIRMED"
+    "Trek status: CONFIRMED"
   ];
 
   @override

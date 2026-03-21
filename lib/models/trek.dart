@@ -12,6 +12,38 @@ class PickupOption {
   }
 }
 
+class TrekPackage {
+  final String id;
+  final String trekId;
+  final String name;
+  final double price;
+  final String description;
+  final List<String> inclusions;
+  final bool isActive;
+
+  TrekPackage({
+    required this.id,
+    required this.trekId,
+    required this.name,
+    required this.price,
+    this.description = '',
+    this.inclusions = const [],
+    this.isActive = true,
+  });
+
+  factory TrekPackage.fromJson(Map<String, dynamic> json) {
+    return TrekPackage(
+      id: json['id'] ?? '',
+      trekId: json['trek_id'] ?? '',
+      name: json['name'] ?? 'Standard Package',
+      price: double.tryParse(json['price'].toString()) ?? 0.0,
+      description: json['description'] ?? '',
+      inclusions: (json['inclusions'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      isActive: json['is_active'] ?? true,
+    );
+  }
+}
+
 class TrekItinerary {
   final int day;
   final String title;
@@ -68,6 +100,7 @@ class Trek {
   final String peakElevation;
   final String trailType;
   final String orientation;
+  final List<TrekPackage> packages;
 
   Trek({
     required this.id,
@@ -96,6 +129,7 @@ class Trek {
     this.peakElevation = 'N/A',
     this.trailType = 'Mixed',
     this.orientation = 'North',
+    this.packages = const [],
   });
 
   double get discountedPrice => basePrice * (1 - (discountPercent / 100));
@@ -107,6 +141,7 @@ class Trek {
     }).toList() ?? [];
 
     var pickupList = (json['pickup_options'] as List?)?.map((i) => PickupOption.fromJson(i)).toList() ?? [];
+    var pkgsList = (json['trek_packages'] as List?)?.map((i) => TrekPackage.fromJson(i)).toList() ?? [];
     
     // Improved list parsing
     List<String> parseList(dynamic data) {
@@ -142,6 +177,7 @@ class Trek {
       peakElevation: json['peak_elevation'] ?? json['altitude'] ?? 'N/A',
       trailType: json['trail_type'] ?? 'Rugged',
       orientation: json['orientation'] ?? 'North-East',
+      packages: pkgsList,
     );
   }
 }

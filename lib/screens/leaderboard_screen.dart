@@ -96,7 +96,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: rankColor, width: 3)),
-                child: UserAvatar(imageUrl: user['avatar_url'], name: user['full_name'], radius: rank == 1 ? 40 : 30),
+                child: UserAvatar(imageUrl: user['avatar_url']?.toString(), name: user['full_name']?.toString() ?? 'Trekker', radius: rank == 1 ? 40 : 30),
               ),
               Positioned(
                 bottom: 0,
@@ -109,8 +109,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(user['full_name'], style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
-          Text('LVL ${user['level']}', style: TextStyle(color: rankColor, fontSize: 10, fontWeight: FontWeight.w900)),
+          Text(user['full_name']?.toString() ?? 'Trekker', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text('LVL ${user['level'] ?? 1}', style: TextStyle(color: rankColor, fontSize: 10, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
           Container(
             width: 70,
@@ -124,7 +124,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
             ),
             child: Center(
-              child: Text('${user['xp']} XP', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text('${user['xp'] ?? 0} XP', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -149,18 +149,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           children: [
             Text('${index + 1}', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(width: 16),
-            UserAvatar(imageUrl: user['avatar_url'], name: user['full_name'], radius: 20),
+            UserAvatar(imageUrl: user['avatar_url']?.toString(), name: user['full_name']?.toString() ?? 'Trekker', radius: 20),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(user['full_name'], style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
-                  Text('Level ${user['level']}', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 11)),
+                  Text(user['full_name']?.toString() ?? 'Trekker', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                  Text('Level ${user['level'] ?? 1}', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 11)),
                 ],
               ),
             ),
-            Text('${user['xp']} XP', style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.w900)),
+            Text('${user['xp'] ?? 0} XP', style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.w900)),
           ],
         ),
       ),

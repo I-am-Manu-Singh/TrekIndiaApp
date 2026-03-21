@@ -65,7 +65,7 @@ class _BlogsScreenState extends State<BlogsScreen> {
           .select('*, profiles(full_name, avatar_url)');
       
       if (widget.onlyMyBlogs && user != null) {
-        query = query.eq('author_id', user.id);
+        query = query.eq('user_id', user.id);
       }
 
       final response = await query.order('created_at', ascending: false);
@@ -295,7 +295,17 @@ class _BlogsScreenState extends State<BlogsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(blog['title'] ?? 'Title', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, height: 1.2)),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
+                    if (blog['tags'] != null && (blog['tags'] as List).isNotEmpty)
+                      Wrap(
+                        spacing: 6,
+                        children: (blog['tags'] as List).take(3).map((tag) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.blueGrey.withOpacity(0.1), borderRadius: BorderRadius.circular(5)),
+                          child: Text('#$tag', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                        )).toList(),
+                      ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Text('READ STORY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor, letterSpacing: 1)),
@@ -525,17 +535,11 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                     if (gallery.isNotEmpty)
                       Positioned(
                         bottom: 40,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(1 + gallery.length, (index) => Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _currentImgIdx == index ? Colors.white : Colors.white38,
-                            ),
-                          )),
+                        right: 20,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(15)),
+                          child: Text('${_currentImgIdx+1}/${1 + gallery.length}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                         ),
                       ),
                   ],
@@ -553,7 +557,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(backgroundImage: NetworkImage(widget.blog['profiles']?['avatar_url'] ?? '')),
+                      CircleAvatar(backgroundImage: (widget.blog['profiles']?['avatar_url'] != null) ? NetworkImage(widget.blog['profiles']['avatar_url']) : null),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -567,6 +571,19 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  if (widget.blog['tags'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Wrap(
+                        spacing: 8,
+                        children: (widget.blog['tags'] as List).map((t) => Chip(
+                          label: Text(t, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.05),
+                          padding: EdgeInsets.zero,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        )).toList(),
+                      ),
+                    ),
                   Text(widget.blog['title'] ?? '', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, height: 1.2)),
                   const SizedBox(height: 10),
                   Text('${widget.blog['read_time'] ?? '5 min'} read', style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),

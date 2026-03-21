@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/database_service.dart';
 
 class UserSupportScreen extends StatefulWidget {
@@ -38,7 +39,7 @@ class _UserSupportScreenState extends State<UserSupportScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
       appBar: AppBar(
-        title: const Text('MISSION SUPPORT BRIDGE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 14)),
+        title: const Text('TREK SUPPORT BRIDGE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 14)),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
@@ -111,7 +112,17 @@ class _UserSupportScreenState extends State<UserSupportScreen> {
                             decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
                             child: Text(
                               inq['admin_reply'],
-                              style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                              style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: isDark ? Colors.white70 : Colors.black87),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton.icon(
+                              onPressed: () => _showFollowUp(inq),
+                              icon: const Icon(Icons.reply, size: 16),
+                              label: const Text('SUBMIT FOLLOW-UP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                              style: TextButton.styleFrom(foregroundColor: Colors.blueAccent),
                             ),
                           ),
                         ],
@@ -121,6 +132,53 @@ class _UserSupportScreenState extends State<UserSupportScreen> {
                 );
               },
             ),
+    );
+  }
+
+  void _showFollowUp(dynamic q) {
+    final ctrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(30, 30, 30, MediaQuery.of(ctx).viewInsets.bottom + 30),
+        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('REPLY TO COMMAND', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl, 
+              maxLines: 4, 
+              style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
+              decoration: InputDecoration(hintText: 'Add your follow-up here...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(15))),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () async {
+                  if (ctrl.text.isEmpty) return;
+                  final newMsg = "${q['message']}\n\n[USER FOLLOW-UP]: ${ctrl.text}";
+                  await Supabase.instance.client.from('support_inquiries').update({
+                    'message': newMsg,
+                    'status': 'pending',
+                    'updated_at': DateTime.now().toIso8601String(),
+                  }).eq('id', q['id']);
+                  Navigator.pop(ctx);
+                  _loadData();
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                child: const Text('ENGAGE FOLLOW-UP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

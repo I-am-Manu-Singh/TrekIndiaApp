@@ -9,7 +9,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-enum AuthFlowStatus { login, signup, verify, setPassword }
+enum AuthFlowStatus { login, signup, verify, setPassword, forgotPassword }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
@@ -100,6 +100,28 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _resetPassword() async {
+    if (_emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email to recover access')));
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        _emailController.text.trim(),
+        redirectTo: 'io.supabase.trekbooking://login-callback/',
+      );
+      if (mounted) {
+        setState(() => _currentStatus = AuthFlowStatus.login);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('TREK RESET LINK DEPLOYED TO EMAIL.'), backgroundColor: Colors.green));
+      }
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     try {
       setState(() => _isLoading = true);
@@ -133,6 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
               if (_currentStatus == AuthFlowStatus.signup) _buildSignupForm(),
               if (_currentStatus == AuthFlowStatus.verify) _buildVerifyForm(),
               if (_currentStatus == AuthFlowStatus.setPassword) _buildSetPasswordForm(),
+              if (_currentStatus == AuthFlowStatus.forgotPassword) _buildForgotPasswordForm(),
               
               const SizedBox(height: 40),
               if (_currentStatus == AuthFlowStatus.login || _currentStatus == AuthFlowStatus.signup) ...[
@@ -181,6 +204,9 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (_currentStatus == AuthFlowStatus.setPassword) {
       title = "Secure Account";
       subtitle = "Set a password for future logins";
+    } else if (_currentStatus == AuthFlowStatus.forgotPassword) {
+      title = "Recover Access";
+      subtitle = "Send a tactical reset link to your email";
     }
 
     return FadeInDown(
@@ -201,10 +227,15 @@ class _LoginScreenState extends State<LoginScreen> {
         _buildTextField(_passwordController, 'Password', Icons.lock_outline, isPassword: true),
         const SizedBox(height: 30),
         _buildPrimaryButton('Login', _loginWithPassword),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => setState(() => _currentStatus = AuthFlowStatus.forgotPassword),
+          child: const Text("Forgot Trek Password?", style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 12),
         TextButton(
           onPressed: () => setState(() => _currentStatus = AuthFlowStatus.signup),
-          child: Text("Don't have an account? Sign Up with OTP", style: TextStyle(color: Theme.of(context).primaryColor)),
+          child: Text("New Personnel? Create Account with OTP", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -248,6 +279,21 @@ class _LoginScreenState extends State<LoginScreen> {
         _buildTextField(_confirmPasswordController, 'Confirm Password', Icons.lock_outline, isPassword: true),
         const SizedBox(height: 30),
         _buildPrimaryButton('Finish & Start Exploring', _finishAndSetPassword),
+      ],
+    );
+  }
+
+  Widget _buildForgotPasswordForm() {
+    return Column(
+      children: [
+        _buildTextField(_emailController, 'Recovery Email', Icons.email_outlined),
+        const SizedBox(height: 30),
+        _buildPrimaryButton('Send Reset Link', _resetPassword),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: () => setState(() => _currentStatus = AuthFlowStatus.login),
+          child: const Text("Back to Login", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        ),
       ],
     );
   }

@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'admin_squad_intelligence_screen.dart';
 import '../widgets/user_avatar.dart';
 
 class AdminBookingsScreen extends StatefulWidget {
-  final bool showAppBar;
-  const AdminBookingsScreen({super.key, this.showAppBar = false});
+  const AdminBookingsScreen({super.key});
 
   @override
   State<AdminBookingsScreen> createState() => _AdminBookingsScreenState();
@@ -15,533 +14,390 @@ class AdminBookingsScreen extends StatefulWidget {
 
 class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
   final _client = Supabase.instance.client;
+  DateTime? _selectedDate;
   bool _isLoading = true;
-  List<dynamic> _allBookings = [];
-  List<Map<String, dynamic>> _groupedMissions = [];
+  List<dynamic> _trekGroups = [];
+  int _tabIndex = 0; // 0 for Active, 1 for Archived
 
   @override
   void initState() {
     super.initState();
-    _fetchBookings();
+    _fetchGroups();
   }
 
-  Future<void> _fetchBookings() async {
+  Future<void> _fetchGroups() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _client
-          .from('bookings')
-          .select('*, trek:treks(*), profiles!inner(*), booking_addons(*, gears(*))')
-          .order('trek_date', ascending: true);
+      // 1. Fetch Raw Data (Strategic Relation Sync)
+      final allBookings = await _client.from('bookings').select('*, trek_groups(id, group_name)').order('created_at', ascending: false);
+      final allTreks = await _client.from('treks').select();
+      final allProfiles = await _client.from('profiles').select();
+      final allStaff = await _client.from('trek_group_staff').select();
 
-      if (mounted) {
-        Map<String, List<dynamic>> groups = {};
-        for (var b in response) {
-          String key = "${b['trek_id']}_${b['trek_date']}";
-          if (!groups.containsKey(key)) groups[key] = [];
-          groups[key]!.add(b);
+      final Map<String, dynamic> trekMap = {for (var t in allTreks) t['id']: t};
+      final Map<String, dynamic> profileMap = {for (var p in allProfiles) p['id']: p};
+
+      Map<String, dynamic> groups = {};
+
+      void addToGroup(String groupKey, dynamic trek, String date, dynamic profile, double price, String? realGroupId) {
+        if (trek == null) return;
+        
+        // TEMPORAL SENSOR: Filter by date if selected
+        if (_selectedDate != null) {
+           try {
+             final dParsed = DateTime.parse(date);
+             if (dParsed.year != _selectedDate!.year || dParsed.month != _selectedDate!.month || dParsed.day != _selectedDate!.day) {
+                return;
+             }
+           } catch (_) { 
+             return; 
+           }
         }
 
-        List<Map<String, dynamic>> groupedList = [];
-        groups.forEach((key, members) {
-          groupedList.add({
-            'trek': members[0]['trek'],
-            'date': members[0]['trek_date'],
-            'members': members,
-            'total_seats': members.length,
-          });
-        });
+        if (!groups.containsKey(groupKey)) {
+          groups[groupKey] = {
+            'trek_id': trek['id'],
+            'trek': trek,
+            'date': date,
+            'total_revenue': 0.0,
+            'participants': [],
+            'group_id': realGroupId, // MISSION CRITICAL: Sync with established room
+          };
+        }
+        if (profile != null) {
+          groups[groupKey]['participants'].add(profile);
+          groups[groupKey]['total_revenue'] += price;
+        }
+        // Preserve the strongest ID link
+        if (realGroupId != null && groups[groupKey]['group_id'] == null) {
+            groups[groupKey]['group_id'] = realGroupId;
+        }
+      }
 
+      // 2. Process Bookings Intel
+      for (var b in allBookings) {
+        final trekId = b['trek_id']?.toString() ?? 'GENERIC_TREK';
+        final trek = trekMap[trekId] ?? {
+          'id': trekId,
+          'trek_name': 'Unknown Tactical Deployment',
+          'trek_destination': 'Field Sector Alpha',
+          'trek_image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b'
+        };
+
+        final String bStatus = b['payment_status']?.toString().toLowerCase() ?? '';
+        final String gStatus = b['status']?.toString().toLowerCase() ?? '';
+        bool isCompleted = bStatus == 'completed' || gStatus == 'completed';
+
+        if (_tabIndex == 0 && isCompleted) continue;
+        if (_tabIndex == 1 && !isCompleted) continue;
+
+        final String rawDate = b['trek_date'] ?? b['booking_date'] ?? 'TBD';
+        final String groupKey = '${trekId}_$rawDate';
+        final userProfile = profileMap[b['user_id']];
+        
+        final String? realGroupId = b['trek_groups']?['id']?.toString() ?? b['group_id']?.toString();
+        
+        addToGroup(groupKey, trek, rawDate, userProfile, double.tryParse(b['total_price'].toString()) ?? 0, realGroupId);
+      }
+
+      // 3. Process Field Staff Intel
+      for (var s in allStaff) {
+        final tDate = s['deployment_date'] ?? ''; 
+        final tId = s['trek_id'];
+        final gKey = '${tId}_$tDate';
+        if (groups.containsKey(gKey)) {
+           final staffProfile = profileMap[s['user_id']];
+           if (staffProfile != null) {
+              groups[gKey]['participants'].add(staffProfile);
+           }
+        }
+      }
+
+      if (mounted) {
         setState(() {
-          _allBookings = response;
-          _groupedMissions = groupedList;
+          _trekGroups = groups.values.toList();
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: widget.showAppBar ? AppBar(
-        title: const Text('MISSION CONTROL', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 14)),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      ) : null,
-      body: RefreshIndicator(
-        onRefresh: _fetchBookings,
-        child: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _groupedMissions.length,
-              itemBuilder: (context, index) {
-                final mission = _groupedMissions[index];
-                final trek = mission['trek'];
-                final date = DateTime.parse(mission['date']);
-                final members = mission['members'] as List;
-
-                return FadeInUp(
-                  delay: Duration(milliseconds: index * 50),
-                  child: Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    child: InkWell(
-                      onTap: () => _showGroupManagement(members[0]),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(trek?['title'] ?? 'Strategic Expedition', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                                      const SizedBox(height: 4),
-                                      Text(DateFormat('EEEE, MMM dd yyyy').format(date), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                                  child: Text('${members.length} TREKKERS', style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
-                                )
-                              ],
-                            ),
-                            const Divider(height: 30),
-                            const Text('SQUADRON ROSTER', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 44,
-                              child: Stack(
-                                children: List.generate(members.length > 5 ? 6 : members.length, (i) {
-                                  // Drawing in reverse so index 0 is on top
-                                  final int displayCount = members.length > 5 ? 6 : members.length;
-                                  final int drawingIndex = displayCount - 1 - i;
-                                  
-                                  if (drawingIndex == 5) {
-                                     return Positioned(
-                                       left: drawingIndex * 22.0,
-                                       child: CircleAvatar(
-                                         radius: 18,
-                                         backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-                                         child: Text('+${members.length - 5}', style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold)),
-                                       ),
-                                     );
-                                  }
-                                  
-                                  final p = members[drawingIndex]['profiles'];
-                                  return Positioned(
-                                    left: drawingIndex * 22.0,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle, 
-                                        border: Border.all(color: isDark ? const Color(0xFF1E293B) : Colors.white, width: 2.5),
-                                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
-                                      ),
-                                      child: UserAvatar(imageUrl: p['avatar_url'], name: p['full_name'], radius: 18),
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => _showGroupManagement(members[0]),
-                                    icon: const Icon(Icons.groups, size: 16),
-                                    label: const Text('MANAGE MISSION SQUAD', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Theme.of(context).primaryColor,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-      ),
-    );
-  }
-
-  void _showCostBreakup(Map<String, dynamic> booking) {
-    final addons = (booking['booking_addons'] as List?) ?? [];
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 24),
-            const Text('FINANCIAL DOSSIER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
-            const SizedBox(height: 20),
-            _breakupRow('Base Trek Fee', '₹${booking['trek_price']}'),
-            _breakupRow('Pickup Service', '₹${booking['pickup_price']}'),
-            ...addons.map((a) => _breakupRow('Rental: ${a['gears']['name']} (x${a['quantity']})', '₹${a['price_at_booking']}')),
-            const Divider(height: 30),
-            _breakupRow('TOTAL COMMAND VALUE', '₹${booking['total_price']}', isTotal: true),
-            const SizedBox(height: 20),
-          ],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('BOOKINGS MANAGEMENT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+        backgroundColor: Colors.black,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.calendar_month, color: _selectedDate != null ? Colors.blueAccent : Colors.white),
+            onPressed: () async {
+               final d = await showDatePicker(
+                 context: context, 
+                 initialDate: _selectedDate ?? DateTime.now(), 
+                 firstDate: DateTime(2024), 
+                 lastDate: DateTime(2030)
+               );
+               if (d != null) {
+                 setState(() => _selectedDate = d);
+                 _fetchGroups();
+               } else if (_selectedDate != null) {
+                 setState(() => _selectedDate = null);
+                 _fetchGroups();
+               }
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(50),
+          child: Row(
+            children: [
+               _tabItem(0, 'ACTIVE SECTORS'),
+               _tabItem(1, 'MISSION ARCHIVE'),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  void _showContactHiker(Map<String, dynamic> booking) {
-    final profile = booking['profiles'];
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      builder: (c) => Container(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                UserAvatar(imageUrl: profile['avatar_url'], name: profile['full_name'], radius: 30),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              if (_selectedDate != null) Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Row(
                   children: [
-                    Text(profile['full_name'] ?? 'Tracker', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    Text(profile['role'] ?? 'user', style: const TextStyle(color: Colors.grey)),
+                    const Icon(Icons.filter_list, size: 14, color: Colors.blueAccent),
+                    const SizedBox(width: 8),
+                    Text('FILTERING DATE: ${DateFormat('MMM dd, yyyy').format(_selectedDate!)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                    const Spacer(),
+                    TextButton(onPressed: () { setState(() => _selectedDate = null); _fetchGroups(); }, child: const Text('CLEAR', style: TextStyle(fontSize: 10, color: Colors.red))),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text('Contact Info', style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
-            const SizedBox(height: 12),
-            _contactItem(Icons.phone, 'Phone Number', profile['phone_number'] ?? 'Not Provided'),
-            _contactItem(Icons.email, 'Email Address', profile['email'] ?? 'Not Linked'),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      if (profile['phone_number'] != null) launchUrl(Uri.parse('tel:${profile['phone_number']}'));
-                    },
-                    icon: const Icon(Icons.call),
-                    label: const Text('Call'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              ),
+              _buildAnalyticsCards(),
+              const SizedBox(height: 24),
+              const Text('HQ COMMAND GRID', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
+              const SizedBox(height: 16),
+              ..._trekGroups.map((g) => _buildGroupCard(g)).toList(),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildGroupCard(dynamic g) {
+    final trek = g['trek'];
+    String dateStr = 'TBD';
+    try {
+      if (g['date'] != null && g['date'].toString().isNotEmpty) {
+         dateStr = DateFormat('EEEE, MMM dd yyyy').format(DateTime.parse(g['date']));
+      }
+    } catch (_) {}
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.3 : 0.03), blurRadius: 10)],
+        border: Border.all(color: _tabIndex == 1 ? Colors.blueGrey.withOpacity(0.1) : Colors.green.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(trek['title'] ?? 'Generic Trek', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: isDark ? Colors.blue.withOpacity(0.1) : const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(8)),
+                child: Text('${g['participants'].length} TREKKERS', style: const TextStyle(color: Color(0xFF1976D2), fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(dateStr, style: const TextStyle(color: Color(0xFF1976D2), fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('₹${g['total_revenue'].toInt()}', style: const TextStyle(color: Color(0xFF4CAF50), fontSize: 16, fontWeight: FontWeight.w900)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text('SQUAD ROSTER', style: TextStyle(color: Colors.grey, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ...g['participants'].map((p) => _rosterChip(p)).toList(),
+              if (g['participants'].length > 4) 
+                _rosterMoreChip(g['participants'].length - 4),
+            ],
+          ),
+          const SizedBox(height: 24),
+          if (_tabIndex == 0) Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (c) => AdminSquadIntelligenceScreen(trekId: trek['id'], deploymentDate: g['date'])));
+                    _fetchGroups();
+                  },
+                  icon: const Icon(Icons.groups_outlined, color: Colors.white, size: 16),
+                  label: const Text('MANAGE SQUAD', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7B32),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                       if (profile['phone_number'] != null) launchUrl(Uri.parse('sms:${profile['phone_number']}'));
-                    },
-                    icon: const Icon(Icons.message),
-                    label: const Text('Text'),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                     final ok = await showDialog<bool>(
+                       context: context,
+                       builder: (c) => AlertDialog(
+                         title: const Text('MISSION COMPLETION'),
+                         content: Text('Are you sure you want to mark ${trek['title']} as COMPLETED? This will archive the deployment.'),
+                         actions: [
+                           TextButton(onPressed: () => Navigator.pop(c), child: const Text('ABORT')),
+                           ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('COMPLETE MISSION')),
+                         ],
+                       )
+                     );
+                     if (ok == true) {
+                       await _client.from('bookings').update({'payment_status': 'completed'}).eq('trek_id', trek['id']).eq('trek_date', g['date']);
+                       final Map<String, dynamic> groupPayload = {
+                           'trek_id': trek['id'],
+                           'departure_date': g['date'],
+                           'status': 'completed',
+                           'group_name': trek['title'] ?? 'Strategic Group',
+                       };
+                       if (g['group_id'] != null) {
+                           groupPayload['id'] = g['group_id'];
+                       }
+                       await _client.from('trek_groups').upsert(groupPayload);
+                       _fetchGroups();
+                     }
+                  },
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('COMPLETE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green,
+                    side: const BorderSide(color: Colors.green),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
-              ],
-            )
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  void _showGroupManagement(Map<String, dynamic> selectedBooking) {
-    final trekId = selectedBooking['trek_id'];
-    final trekDate = selectedBooking['trek_date'];
-    final members = _allBookings.where((b) => b['trek_id'] == trekId && b['trek_date'] == trekDate).toList();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (c) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                const SizedBox(height: 24),
-                Text('${selectedBooking['trek']?['title'] ?? 'Expedition'} Squadron', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                Text('Deployment Date: ${DateFormat('MMM dd, yyyy').format(DateTime.parse(trekDate))}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                const SizedBox(height: 24),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: members.length,
-                    itemBuilder: (context, i) {
-                      final m = members[i];
-                      final p = m['profiles'];
-                      final double totalPrice = double.tryParse(m['total_price'].toString()) ?? 0;
-                      final double paidAmt = double.tryParse((m['paid_amount'] ?? 0).toString()) ?? 0;
-                      final double dueAmt = totalPrice - paidAmt;
-                      final String payStatus = m['payment_status'] ?? 'Pending';
-                      final Color payColor = payStatus == 'Paid' ? Colors.green : payStatus == 'Partial' ? Colors.orange : Colors.red;
-                      final String email = p['email'] ?? m['profiles']?['email'] ?? 'No email';
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(backgroundImage: p['avatar_url'] != null ? NetworkImage(p['avatar_url']) : null, child: p['avatar_url'] == null ? const Icon(Icons.person) : null),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(p['full_name'] ?? 'Personnel', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                            if (p['role'] == 'admin' || p['role'] == 'guide') ...[
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                                decoration: BoxDecoration(color: (p['role'] == 'admin' ? Colors.red : Colors.blue).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                                                child: Text(p['role']!.toUpperCase(), style: TextStyle(color: (p['role'] == 'admin' ? Colors.red : Colors.blue), fontSize: 8, fontWeight: FontWeight.bold)),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(email, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                        Text(p['phone_number'] ?? 'No phone', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(color: payColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                                        child: Text(payStatus.toUpperCase(), style: TextStyle(color: payColor, fontSize: 9, fontWeight: FontWeight.bold)),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text('₹${paidAmt.toInt()} / ₹${totalPrice.toInt()}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                      if (dueAmt > 0)
-                                        Text('Due: ₹${dueAmt.toInt()}', style: const TextStyle(fontSize: 9, color: Colors.red, fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  _smallAction(Icons.info_outline, 'Details', () => _showContactHiker(m)),
-                                  const SizedBox(width: 8),
-                                  _smallAction(Icons.payments_outlined, 'Payment', () => _managePayment(m)),
-                                  const SizedBox(width: 8),
-                                  _smallAction(Icons.receipt_long, 'Breakup', () => _showCostBreakup(m)),
-                                  if (p['role'] != 'guide') ...[
-                                    const SizedBox(width: 8),
-                                    _smallAction(Icons.hiking, 'Set Guide', () => _appointGuide(m['id'], trekId, trekDate, setSheetState)),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+  Widget _rosterChip(dynamic p) {
+    if (p == null) return const SizedBox.shrink();
+    final String? fullName = p['full_name']?.toString();
+    final String? avatarUrl = p['avatar_url']?.toString();
+    final String initial = (fullName != null && fullName.isNotEmpty) ? fullName[0].toUpperCase() : 'T';
+    
+    return Tooltip(
+      message: fullName ?? 'Trekker',
+      child: UserAvatar(
+        radius: 14,
+        imageUrl: p?['avatar_url'],
+        name: p?['full_name'],
       ),
     );
   }
 
-  Widget _smallAction(IconData icon, String label, VoidCallback onTap) {
+  Widget _rosterMoreChip(int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
+      child: Text('+$count MORE', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+    );
+  }
+
+  Widget _buildAnalyticsCards() {
+    double totalRevenue = _trekGroups.fold(0, (sum, g) => sum + (g['total_revenue'] as double));
+    int totalParticipants = _trekGroups.fold(0, (sum, g) => sum + (g['participants'].length as int));
+
+    return Row(
+      children: [
+        Expanded(child: _analyticsCard('OFFICIAL SECTORS', '${_trekGroups.length}', Colors.blue, Icons.map_outlined)),
+        const SizedBox(width: 12),
+        Expanded(child: _analyticsCard('TOTAL STRENGTH', '$totalParticipants', Colors.orange, Icons.groups_outlined)),
+        const SizedBox(width: 12),
+        Expanded(child: _analyticsCard('HQ REVENUE', '₹${totalRevenue.toInt()}', Colors.green, Icons.account_balance_wallet_outlined)),
+      ],
+    );
+  }
+
+  Widget _analyticsCard(String label, String val, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 12),
+          Text(val, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: color)),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabItem(int index, String label) {
+    bool selected = _tabIndex == index;
     return Expanded(
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          setState(() => _tabIndex = index);
+          _fetchGroups();
+        },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
-          child: Column(
-            children: [
-              Icon(icon, size: 16, color: Theme.of(context).primaryColor),
-              const SizedBox(height: 2),
-              Text(label, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
-            ],
+          height: 50,
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? Colors.blueAccent : Colors.transparent,
+                width: 3,
+              ),
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  void _appointGuide(String bookingId, String trekId, String trekDate, StateSetter setSheetState) async {
-    // Get list of guides
-    try {
-      final guides = await _client.from('profiles').select().eq('role', 'guide');
-      if (!mounted) return;
-      
-      showDialog(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: const Text('Appoint Trek Guide'),
-          content: SizedBox(
-            width: 300,
-            height: 300,
-            child: ListView.builder(
-              itemCount: (guides as List).length,
-              itemBuilder: (ctx, i) {
-                final g = guides[i];
-                return ListTile(
-                  leading: UserAvatar(imageUrl: g['avatar_url'], name: g['full_name'], radius: 18),
-                  title: Text(g['full_name'] ?? 'Guide', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  onTap: () async {
-                    // Create a booking for the guide on the same trek date
-                    try {
-                      await _client.from('bookings').insert({
-                        'user_id': g['id'],
-                        'trek_id': trekId,
-                        'trek_date': trekDate,
-                        'total_price': 0,
-                        'trek_price': 0,
-                        'pickup_price': 0,
-                        'paid_amount': 0,
-                        'payment_status': 'Paid',
-                        'status': 'Confirmed',
-                        'pickup_location': 'Guide Assignment',
-                      });
-                      Navigator.pop(c);
-                      _fetchBookings();
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${g['full_name']} appointed as guide!')));
-                    } catch (e) {
-                      Navigator.pop(c);
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
-                  },
-                );
-              },
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.grey,
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+              letterSpacing: 1,
             ),
           ),
         ),
-      );
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading guides: $e')));
-    }
-  }
-
-  void _managePayment(Map<String, dynamic> booking) async {
-    final _paidCtrl = TextEditingController(text: (booking['paid_amount'] ?? booking['total_price']).toString());
-    final total = double.tryParse(booking['total_price'].toString()) ?? 0;
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Log Transaction'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Total Amount Due: ₹$total', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _paidCtrl,
-              decoration: const InputDecoration(labelText: 'Amount Received (INR)', border: OutlineInputBorder()),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 12),
-            const Text('Status will update to Partial or Paid automatically.', style: TextStyle(fontSize: 10, color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Update')),
-        ],
-      )
-    );
-
-    if (result == true) {
-      final double paid = double.tryParse(_paidCtrl.text) ?? 0;
-      String status = 'Pending';
-      if (paid >= total) status = 'Paid';
-      else if (paid > 0) status = 'Partial';
-
-      try {
-        await _client.from('bookings').update({
-          'paid_amount': paid,
-          'payment_status': status,
-        }).eq('id', booking['id']);
-        
-        // Also update local list to avoid fetch if needed, but fetch is safer
-        _fetchBookings();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment records updated.')));
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
-    }
-  }
-
-  Widget _breakupRow(String label, String value, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: isTotal ? Colors.black : Colors.grey, fontWeight: isTotal ? FontWeight.w900 : FontWeight.normal, fontSize: isTotal ? 16 : 14)),
-          Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: isTotal ? 18 : 14, color: isTotal ? Colors.green : Colors.black)),
-        ],
       ),
     );
   }
 
-  Widget _contactItem(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).primaryColor),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }

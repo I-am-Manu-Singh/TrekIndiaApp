@@ -8,6 +8,7 @@ import '../models/trek.dart';
 import '../services/database_service.dart';
 import '../services/preferences_service.dart';
 import '../widgets/trek_card.dart';
+import 'trek_certificate_screen.dart';
 
 class MyTripsScreen extends StatefulWidget {
   const MyTripsScreen({super.key});
@@ -23,6 +24,7 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
   List<dynamic> _upcomingBookings = [];
   List<dynamic> _pastBookings = [];
   List<Trek> _wishlistTreks = [];
+  Map<String, dynamic>? _userProfile;
 
   @override
   void initState() {
@@ -37,6 +39,14 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
       _fetchBookings(),
       _fetchWishlist(),
     ]);
+    
+    // Fetch profile for accurate certificate data
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      final res = await _client.from('profiles').select().eq('id', user.id).maybeSingle();
+      if (mounted) setState(() => _userProfile = res);
+    }
+    
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -113,7 +123,9 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
           controller: _tabController,
           indicatorColor: Colors.white,
           indicatorWeight: 4,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.6),
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
           tabs: const [
             Tab(text: 'UPCOMING'),
             Tab(text: 'COMPLETED'),
@@ -146,7 +158,7 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Explore Missions'),
+              child: const Text('Explore Treks'),
             )
           ],
         ),
@@ -195,57 +207,91 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
 
         return FadeInUp(
           delay: Duration(milliseconds: index * 100),
-          child: Column(
-            children: [
-              GestureDetector(
-                onTap: () => _showBookingDetails(booking, trek),
-                child: TrekCard(trek: trek),
-              ),
-              Transform.translate(
-                offset: const Offset(0, -26),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8)),
+              ],
+              border: Border.all(color: Colors.black.withOpacity(0.04)),
+            ),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () => _showBookingDetails(booking, trek),
+                  child: TrekCard(
+                    trek: trek, 
+                    margin: EdgeInsets.zero, 
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                ),
+                // Seamlessly integrated Action Hub
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(15)),
-                    border: Border.all(color: Colors.black.withOpacity(0.05)),
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                    border: Border.all(color: Colors.black.withOpacity(0.04)),
                   ),
                   child: Row(
                     children: [
-                      _infoBadge(Icons.calendar_today, DateFormat('dd MMM yyyy').format(DateTime.parse(booking['trek_date']))),
+                      _infoBadge(Icons.calendar_today, DateFormat('dd MMM').format(DateTime.parse(booking['trek_date']))),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: (isUpcoming ? Colors.green : Colors.blueGrey).withOpacity(0.1), borderRadius: BorderRadius.circular(5)),
-                        child: Text(isUpcoming ? 'CONFIRMED' : 'COMPLETED', style: TextStyle(color: isUpcoming ? Colors.green : Colors.blueGrey, fontSize: 8, fontWeight: FontWeight.bold)),
+                        child: Text(isUpcoming ? 'CONFIRMED' : 'COMPLETED', style: TextStyle(color: isUpcoming ? Colors.green : Colors.blueGrey, fontSize: 7, fontWeight: FontWeight.bold)),
                       ),
-                      const Spacer(),
-                      if (isUpcoming) ...[
-                        TextButton(
-                          onPressed: () => _markAsComplete(booking['id']),
-                          child: const Text('MARK COMPLETE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-                        ),
-                        if (booking['group_id'] != null)
-                          IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue, size: 18),
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (c) => ChatScreen(
-                                roomId: booking['group_id'], 
-                                title: '${trek.title} Group'
-                              )),
-                            ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              if (isUpcoming) ...[
+                                TextButton(
+                                  onPressed: () => _markAsComplete(booking['id']),
+                                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                  child: const Text('MARK COMPLETE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blueAccent)),
+                                ),
+                              ] else ...[
+                                TextButton(
+                                  onPressed: () {
+                                     // Ensure profile data is included in shared booking map
+                                     final enrichedBooking = Map<String, dynamic>.from(booking);
+                                     enrichedBooking['profiles'] = _userProfile;
+                                     Navigator.push(context, MaterialPageRoute(builder: (c) => TrekCertificateScreen(booking: enrichedBooking)));
+                                  },
+                                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                  child: const Text('GET CERTIFICATE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.amber)),
+                                ),
+                              ],
+                              if (booking['group_id'] != null)
+                                IconButton(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  constraints: const BoxConstraints(),
+                                  icon: Icon(isUpcoming ? Icons.chat_bubble_outline : Icons.forum_outlined, color: isUpcoming ? Colors.blue : Colors.blueGrey, size: 16),
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (c) => ChatScreen(
+                                      roomId: booking['group_id'], 
+                                      title: '${trek.title} Group${isUpcoming ? "" : " (Archived)"}',
+                                      isReadOnly: !isUpcoming,
+                                    )),
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
-                      const SizedBox(width: 4),
+                        ),
+                      ),
                       Text('₹${booking['total_price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -254,26 +300,46 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
 
   void _markAsComplete(String bookingId) async {
     try {
-      await _client.from('bookings').update({'status': 'Completed'}).eq('id', bookingId);
+      final booking = (_upcomingBookings + _pastBookings).firstWhere((b) => b['id'] == bookingId);
+      final trek = booking['trek'];
+      final user = _client.auth.currentUser;
+      if (user == null) return;
+
+      // TREK CRITICAL: Sync with Profile Stats
+      await DatabaseService().completeTrek(
+        userId: user.id, 
+        trekId: trek['id'],
+        distance: double.tryParse((trek['distance'] ?? 10.0).toString()) ?? 10.0
+      );
+
       _fetchData();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trek marked as completed! Summit achieved.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trek marked as completed! Profile stats synchronized.'), backgroundColor: Colors.green));
     } catch (e) {
-       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Synchronization Error: $e'), backgroundColor: Colors.red));
     }
   }
 
   void _showBookingDetails(dynamic booking, Trek trek) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (c) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('MISSION DEBRIEF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1.5)),
-            const SizedBox(height: 20),
+            Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            const Text('TREK DEBRIEF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 2)),
+            const SizedBox(height: 8),
+            Text('Operational Logs & Fiscal Data', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const SizedBox(height: 32),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
             _detailRow('Expedition:', trek.title),
             _detailRow('Date:', DateFormat('dd MMM yyyy').format(DateTime.parse(booking['trek_date']))),
             _detailRow('Pickup:', booking['pickup_location'] ?? 'Base Camp'),
@@ -292,10 +358,14 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
               ],
             ),
             const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
   }
 
   Widget _detailRow(String label, String value) {

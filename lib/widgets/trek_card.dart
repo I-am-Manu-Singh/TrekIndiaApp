@@ -6,7 +6,9 @@ import '../screens/trek_detail_screen.dart';
 
 class TrekCard extends StatelessWidget {
   final Trek trek;
-  const TrekCard({super.key, required this.trek});
+  final EdgeInsets? margin;
+  final BorderRadius? borderRadius;
+  const TrekCard({super.key, required this.trek, this.margin, this.borderRadius});
 
   @override
   Widget build(BuildContext context) {
@@ -25,14 +27,15 @@ class TrekCard extends StatelessWidget {
       },
       child: FadeInUp(
         child: Container(
-          height: 180, // Resilient height to prevent overlap
-          margin: const EdgeInsets.only(bottom: 16),
+          height: 130, // Optimized Trek Thinning for high-density mission flow
+          margin: margin ?? const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: borderRadius ?? BorderRadius.circular(20),
             color: Theme.of(context).cardColor,
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 8)),
+              BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4)),
             ],
+            border: Border.all(color: Colors.black.withOpacity(0.05)),
           ),
           child: Row(
             children: [
@@ -42,34 +45,30 @@ class TrekCard extends StatelessWidget {
                   Hero(
                     tag: 'trek_image_${trek.id}',
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(24)),
+                      borderRadius: (borderRadius ?? BorderRadius.circular(20)).copyWith(
+                        topRight: Radius.zero, bottomRight: Radius.zero,
+                      ),
                       child: CachedNetworkImage(
                         imageUrl: trek.imageUrl,
-                        width: 130,
-                        height: 180,
+                        width: 100,
+                        height: 130,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(width: 120, color: Colors.grey[200]),
+                        placeholder: (context, url) => Container(width: 100, color: Colors.grey[100]),
                       ),
                     ),
                   ),
                   Positioned(
-                    top: 10,
-                    left: 10,
+                    top: 6,
+                    left: 6,
                     child: _glassBadge(trek.rating.toString(), Icons.star, Colors.amber),
                   ),
-                  if (trek.rating >= 4.8)
-                    Positioned(
-                      bottom: 10,
-                      left: 10,
-                      child: _glassBadge('ELITE', Icons.auto_awesome, Colors.white),
-                    ),
                 ],
               ),
               
-              // 📝 RIGHT SIDE: Tactical Info
+              // 📝 RIGHT SIDE: Trek Info
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -78,68 +77,65 @@ class TrekCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              trek.title,
+                              trek.title.toUpperCase(),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: -0.2),
                             ),
                           ),
                           Text(
                             '₹${trek.discountedPrice.toInt()}',
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 12,
                               fontWeight: FontWeight.w900,
                               color: Theme.of(context).primaryColor,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.location_on, size: 10, color: Colors.grey),
+                          const Icon(Icons.location_on, size: 8, color: Colors.grey),
                           const SizedBox(width: 2),
                           Expanded(
                             child: Text(
                               trek.location,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w500),
+                              style: const TextStyle(color: Colors.grey, fontSize: 8, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      const Divider(height: 8, color: Colors.black12),
+                      const SizedBox(height: 4),
+                      const Divider(height: 1, color: Colors.black12),
                       
-                      // 🛰️ TELEMETRY GRID (The "WOW" info)
+                      // 🛰️ TELEMETRY GRID
                       Expanded(
-                        child: GridView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisExtent: 22, // Increased height per item
-                            crossAxisSpacing: 4,
-                            mainAxisSpacing: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: GridView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisExtent: 14,
+                              crossAxisSpacing: 4,
+                              mainAxisSpacing: 2,
+                            ),
+                            children: [
+                              _telemetryItem(Icons.filter_hdr_outlined, trek.peakElevation),
+                              _telemetryItem(Icons.terrain_outlined, trek.trailType),
+                              _telemetryItem(Icons.timer_outlined, trek.duration),
+                              _telemetryItem(Icons.explore_outlined, trek.orientation),
+                            ],
                           ),
-                          children: [
-                            _telemetryItem(Icons.explore_outlined, trek.orientation),
-                            _telemetryItem(Icons.gps_fixed, '${trek.latitude.toStringAsFixed(1)}, ${trek.longitude.toStringAsFixed(1)}'),
-                            _telemetryItem(Icons.filter_hdr_outlined, trek.peakElevation),
-                            _telemetryItem(Icons.terrain_outlined, trek.trailType),
-                          ],
                         ),
                       ),
                       
-                      const SizedBox(height: 12),
-                      // 🚦 DIFFICULTY & DURATION
-                      Row(
-                        children: [
-                          _miniChip(trek.duration, Colors.blue),
-                          const SizedBox(width: 12),
-                          Expanded(child: _difficultyProgress(trek.difficulty)),
-                        ],
-                      ),
+                      const SizedBox(height: 4),
+                      // 🚦 DIFFICULTY HUD
+                      _difficultyProgress(trek.difficulty),
                     ],
                   ),
                 ),

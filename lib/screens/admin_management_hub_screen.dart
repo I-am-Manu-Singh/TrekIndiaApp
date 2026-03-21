@@ -35,7 +35,7 @@ class _AdminManagementHubScreenState extends State<AdminManagementHubScreen> wit
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
           isScrollable: false,
           tabs: const [
-            Tab(icon: Icon(Icons.book_online, size: 18), text: 'MISSIONS'),
+            Tab(icon: Icon(Icons.book_online, size: 18), text: 'TREKS'),
             Tab(icon: Icon(Icons.inventory_2_outlined, size: 18), text: 'RENTALS'),
             Tab(icon: Icon(Icons.wallet, size: 18), text: 'EXPEDITION WALLET'),
           ],

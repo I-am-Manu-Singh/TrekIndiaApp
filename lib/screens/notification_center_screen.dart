@@ -5,10 +5,12 @@ import 'package:intl/intl.dart';
 import 'my_trips_screen.dart';
 import 'admin_bookings_screen.dart';
 import 'admin_support_inquiries_screen.dart';
+import 'user_gear_rental_screen.dart';
+import 'trek_training_hub.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
   final String role;
-  const NotificationCenterScreen({super.key, required this.role});
+  const NotificationCenterScreen({super.key, this.role = 'user'});
 
   @override
   State<NotificationCenterScreen> createState() => _NotificationCenterScreenState();
@@ -133,7 +135,6 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
               .select('id, status, issue_date, total_price, gear:gears(name), profiles!inner(full_name)')
               .order('issue_date', ascending: false)
               .limit(5);
-
           for (var r in rentals) {
             items.add(_AppNotification(
               icon: Icons.inventory_2,
@@ -142,6 +143,51 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
               body: '${r['profiles']?['full_name'] ?? 'User'} — ${r['gear']?['name'] ?? 'Gear'} • ₹${r['total_price']}',
               time: DateTime.tryParse(r['issue_date'] ?? '') ?? DateTime.now(),
               category: 'rental',
+            ));
+          }
+        } catch (_) {}
+      } else if (widget.role == 'employee' || widget.role == 'guide' || widget.role == 'staff') {
+        // 5a. Employee: recent attendance logs
+        try {
+          final att = await _client.from('attendance_logs').select().eq('user_id', user.id).order('date', ascending: false).limit(5);
+          for (var a in att) {
+            items.add(_AppNotification(
+              icon: Icons.today_outlined,
+              color: Colors.blue,
+              title: 'Attendance: ${a['status']?.toUpperCase() ?? 'PRESENT'}',
+              body: 'Trek record updated for ${a['date']}.',
+              time: DateTime.tryParse(a['date'] ?? '') ?? DateTime.now(),
+              category: 'attendance',
+            ));
+          }
+        } catch (_) {}
+
+        // 5b. Employee: assigned trek groups
+        try {
+          final groups = await _client.from('bookings').select('*, treks(*)').eq('user_id', user.id).order('trek_date', ascending: false).limit(5); // This is a proxy for assigned squads for now
+          for (var g in groups) {
+            items.add(_AppNotification(
+              icon: Icons.groups,
+              color: Colors.green,
+              title: 'Squad Assignment',
+              body: 'Sector ${g['treks']?['title'] ?? 'Trek'} — Assignment: ${g['trek_date']}',
+              time: DateTime.tryParse(g['booking_date'] ?? '') ?? DateTime.now(),
+              category: 'assignment',
+            ));
+          }
+        } catch (_) {}
+
+        // 5c. Employee: Payment/Payout logs
+        try {
+          final payouts = await _client.from('payment_logs').select().eq('user_id', user.id).order('created_at', ascending: false).limit(5);
+          for (var p in payouts) {
+            items.add(_AppNotification(
+              icon: Icons.account_balance_wallet,
+              color: Colors.teal,
+              title: 'Fiscal Settlement',
+              body: 'Settlement amount: ₹${p['amount']} — Status: Processed',
+              time: DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
+              category: 'payout',
             ));
           }
         } catch (_) {}
@@ -262,17 +308,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                           FadeInUp(
                             duration: const Duration(milliseconds: 200),
                             child: GestureDetector(
-                              onTap: () {
-                                if (n.category == 'booking' || n.category == 'achievement') {
-                                   Navigator.push(context, MaterialPageRoute(builder: (c) => const MyTripsScreen()));
-                                } else if (n.category == 'admin_booking' || n.category == 'booking_update') {
-                                   Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminBookingsScreen()));
-                                } else if (n.category == 'support') {
-                                   Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminSupportInquiriesScreen()));
-                                } else if (n.category == 'rental') {
-                                   // Navigate to rentals
-                                }
-                              },
+                              onTap: () => _showNotificationDetail(n),
                               child: _notificationTile(n, isDark),
                             ),
                           ),
@@ -291,6 +327,85 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     if (date == today) return 'TODAY';
     if (date == today.subtract(const Duration(days: 1))) return 'YESTERDAY';
     return DateFormat('EEEE, MMM dd').format(dt).toUpperCase();
+  }
+
+  void _showNotificationDetail(_AppNotification n) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.45,
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20)],
+        ),
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: n.color.withOpacity(0.1), shape: BoxShape.circle),
+                  child: Icon(n.icon, color: n.color, size: 28),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(n.category.toUpperCase(), style: TextStyle(color: n.color, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2)),
+                      Text(DateFormat('MMM dd, yyyy | HH:mm').format(n.time), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+            const SizedBox(height: 30),
+            Text(n.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(n.body, style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.blueGrey)),
+              ),
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (n.category == 'booking' || n.category == 'achievement') {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => MyTripsScreen()));
+                  } else if (n.category == 'admin_booking' || n.category == 'booking_update') {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => AdminBookingsScreen()));
+                  } else if (n.category == 'support') {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => AdminSupportInquiriesScreen()));
+                  } else if (n.category == 'announcement') {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Announcement details displayed above.')));
+                  } else if (n.category == 'rental') {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => UserGearRentalScreen()));
+                  } else if (n.category == 'training') {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => TrekTrainingHub()));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: n.color,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                child: const Text('PROCEED TO ACTION', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _notificationTile(_AppNotification n, bool isDark) {

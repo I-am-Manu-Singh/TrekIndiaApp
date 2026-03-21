@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trek.dart';
 import 'supabase_service.dart';
@@ -7,18 +8,30 @@ class DatabaseService {
 
   Future<List<Trek>> fetchTreks() async {
     try {
-      final response = await _client.from('treks').select();
+      // High-Fidelity Trek Fetch: Includes all associated mission packages
+      final response = await _client.from('treks').select('*, trek_packages(*)');
       return (response as List).map((e) => Trek.fromJson(e)).toList();
     } catch (e) {
-      print('Error fetching treks: $e');
-      return []; 
+      debugPrint('SITUATION ADVISORY: Primary Intelligence Hub timed out or schema mismatch. Error: $e');
+      try {
+        // Fallback Sector: Basic mission info if packages fail due to schema sync or relationship errors
+        final response = await _client.from('treks').select('*');
+        return (response as List).map((e) {
+          // Manually add empty packages to satisfy model if select(*) didn't include them
+          final data = Map<String, dynamic>.from(e);
+          if (!data.containsKey('trek_packages')) data['trek_packages'] = [];
+          return Trek.fromJson(data);
+        }).toList();
+      } catch (e2) {
+        debugPrint('TOTAL SECTOR BLACKOUT: All mission data retrieval paths failed. $e2');
+        return [];
+      }
     }
   }
 
   Future<List<Gear>> fetchGears() async {
     try {
       final response = await _client.from('gears').select();
-      print('Fetched ${response.length} gears');
       return (response as List).map((e) => Gear.fromJson(e)).toList();
     } catch (e) {
       print('Error fetching gears: $e');
@@ -39,11 +52,13 @@ class DatabaseService {
   Future<String?> bookTrek({
     required String trekId,
     required String trekTitle,
+    required String fullName,
     required DateTime trekDate,
     required double trekPrice,
     required double pickupPrice,
     required String pickupLocation,
     required double totalPrice,
+    // required User user,
     List<Map<String, dynamic>> addons = const []
   }) async {
     try {
@@ -80,7 +95,7 @@ class DatabaseService {
         'trek_price': trekPrice,
         'pickup_price': pickupPrice,
         'total_price': totalPrice,
-        'payment_status': 'Paid', // Assuming UPI/Success for demo
+        'payment_status': 'Paid',
       }).select().single();
 
       final bookingId = bookingResponse['id'];
@@ -95,13 +110,13 @@ class DatabaseService {
         }).toList());
       }
 
-      // 4. Send Welcome Message to Chat Room
-      await _client.from('messages').insert({
-        'room_id': groupId,
-        'sender_id': user.id,
-        'content': 'Hello everyone! I just joined the ${trekDate.day}/${trekDate.month} trek.',
-        'is_group_chat': true
-      });
+      // 4. Send Welcome Message
+    await _client.from('messages').insert({
+      'room_id': groupId,
+      'sender_id': user.id,
+      'content': "Hello everyone, I'm $fullName! I just joined the ${trekDate.day}/${trekDate.month} trek.",
+      'is_group_chat': true,
+    });
 
       return groupId;
     } catch (e) {
@@ -109,6 +124,7 @@ class DatabaseService {
       return null;
     }
   }
+
   Future<List<Map<String, dynamic>>> fetchGroupMembers(String groupId) async {
     try {
       final response = await _client
@@ -119,15 +135,6 @@ class DatabaseService {
     } catch (e) {
       print('Error fetching members: $e');
       return [];
-    }
-  }
-
-  Future<void> removeFromGroup(String bookingId) async {
-    try {
-      // In this app, removing from group is essentially canceling the booking or setting group_id to null
-      await _client.from('bookings').update({'group_id': null}).eq('id', bookingId);
-    } catch (e) {
-      print('Error removing member: $e');
     }
   }
 
@@ -189,7 +196,7 @@ class DatabaseService {
           .from('support_inquiries')
           .select('*, profiles(full_name, avatar_url)')
           .order('created_at', ascending: false);
-      return response as List<Map<String, dynamic>>;
+      return (response as List).map((e) => Map<String, dynamic>.from(e)).toList();
     } catch (e) {
       print('Error fetching inquiries: $e');
       return [];
@@ -200,12 +207,13 @@ class DatabaseService {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return [];
+      
       final response = await _client
           .from('support_inquiries')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', ascending: false);
-      return response as List<Map<String, dynamic>>;
+      return (response as List).map((e) => Map<String, dynamic>.from(e)).toList();
     } catch (e) {
       print('Error fetching my inquiries: $e');
       return [];
@@ -242,11 +250,59 @@ class DatabaseService {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return;
-      final profile = await _client.from('profiles').select('xp').eq('id', user.id).single();
-      final currentXp = profile['xp'] as int? ?? 0;
-      await _client.from('profiles').update({'xp': currentXp + amount}).eq('id', user.id);
+      
+      final profile = await _client.from('profiles').select('xp, level').eq('id', user.id).maybeSingle();
+      if (profile == null) return;
+      
+      int currentXP = int.tryParse(profile['xp']?.toString() ?? '0') ?? 0;
+      
+      int newXP = currentXP + amount;
+      int newLevel = (newXP / 1000).floor() + 1;
+      
+      await _client.from('profiles').update({
+        'xp': newXP,
+        'level': newLevel,
+      }).eq('id', user.id);
     } catch (e) {
-      print('Error updating XP: $e');
+      print('SITUATION ADVISORY: Achievement sync failed. Error: $e');
+    }
+  }
+
+  Future<void> completeTrek({required String userId, required String trekId, double distance = 10.0}) async {
+    try {
+      // 1. Update Booking Status
+      await _client.from('bookings').update({'status': 'Completed'}).eq('user_id', userId).eq('trek_id', trekId);
+
+      // 2. Fetch Profile to update stats
+      final profile = await _client.from('profiles').select('xp, level, total_distance, trek_count').eq('id', userId).maybeSingle();
+      if (profile == null) return;
+
+      int currentXP = int.tryParse(profile['xp']?.toString() ?? '0') ?? 0;
+      double currentDist = double.tryParse((profile['total_distance'] ?? 0).toString()) ?? 0;
+      int currentTreks = int.tryParse((profile['trek_count'] ?? 0).toString()) ?? 0;
+
+      int newXP = currentXP + 500; // Large reward for trek completion
+      double newDist = currentDist + distance;
+      int newTreks = currentTreks + 1;
+      int newLevel = (newXP / 1000).floor() + 1;
+
+      // 3. Update Profile
+      await _client.from('profiles').update({
+        'xp': newXP,
+        'level': newLevel,
+        'total_distance': newDist,
+        'total_treks': newTreks, // Ensure this matches UI field name
+        'trek_count': newTreks,  // Compatibility fallback
+      }).eq('id', userId);
+
+      // 4. Log Achievement
+      await _client.from('achievement_unlocks').insert({
+        'user_id': userId,
+        'achievement_type': 'Trek-Completion',
+        'data': {'trek_id': trekId, 'distance': distance}
+      });
+    } catch (e) {
+      print('Error completing trek: $e');
     }
   }
 }

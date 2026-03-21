@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/preferences_service.dart';
@@ -14,11 +15,24 @@ class UnreadBadge extends StatefulWidget {
 class _UnreadBadgeState extends State<UnreadBadge> {
   DateTime? _lastRead;
   Stream<List<Map<String, dynamic>>>? _messageStream;
+  StreamSubscription? _readSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchLastRead();
+    // Trek subscription to global read receipts
+    _readSubscription = PreferencesService().readStream.listen((roomId) {
+      if (roomId == widget.roomId) {
+        _fetchLastRead();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _readSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchLastRead() async {
@@ -27,7 +41,6 @@ class _UnreadBadgeState extends State<UnreadBadge> {
     
     setState(() {
       _lastRead = lr;
-      // Filter stream at query level to minimize data transfer
       _messageStream = Supabase.instance.client
           .from('messages')
           .stream(primaryKey: ['id'])
@@ -49,17 +62,24 @@ class _UnreadBadgeState extends State<UnreadBadge> {
         // Count unread messages (newer than lastRead and not sent by current user)
         int unreadCount = 0;
         bool hasMention = false;
-        final userName = Supabase.instance.client.auth.currentUser?.userMetadata?['full_name'] ?? '';
+        final user = Supabase.instance.client.auth.currentUser;
+        final userName = user?.userMetadata?['full_name'] ?? '';
+        final firstName = userName.contains(' ') ? userName.split(' ').first : userName;
+
+        final lowerUserName = userName.toLowerCase();
+        final lowerFirstName = firstName.toLowerCase();
 
         for (var msg in snapshot.data!) {
           final createdAt = DateTime.parse(msg['created_at']);
-          if (createdAt.isAfter(_lastRead!) && msg['sender_id'] != currentUserId) {
+          if (createdAt.isAfter(_lastRead ?? DateTime.fromMillisecondsSinceEpoch(0)) && msg['sender_id'] != currentUserId) {
             unreadCount++;
-            final content = msg['content']?.toString() ?? '';
-            final firstName = userName.split(' ')[0];
-            if (content.contains('@$userName') || content.contains('@$firstName')) {
-              hasMention = true;
-            }
+            final content = (msg['content'] ?? '').toString().toLowerCase();
+            
+            // Trek Mention Detection: Case-insensitive check
+            bool isMe = lowerUserName.isNotEmpty && content.contains('@$lowerUserName') || 
+                        lowerFirstName.isNotEmpty && content.contains('@$lowerFirstName');
+            
+            if (isMe) hasMention = true;
           }
         }
 

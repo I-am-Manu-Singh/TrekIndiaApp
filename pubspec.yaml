@@ -56,6 +56,9 @@ dependencies:
   path_provider: ^2.1.5
   screenshot: ^3.0.0
   flutter_tts: ^4.2.5
+  fl_chart: ^1.2.0
+  wakelock_plus: ^1.4.0
+  lottie: ^3.3.2
 
 dev_dependencies:
   flutter_test:

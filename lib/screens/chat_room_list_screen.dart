@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:intl/intl.dart';
 import 'chat_screen.dart';
+import 'admin_support_inquiries_screen.dart';
 import '../widgets/unread_badge.dart';
-
 class ChatRoomListScreen extends StatefulWidget {
   const ChatRoomListScreen({super.key});
 
@@ -15,8 +16,8 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
   List<dynamic> _rooms = [];
-  List<dynamic> _broadcasts = [];
   String _role = 'user';
+  int _activeTabIndex = 0; // 0 for Active, 1 for Completed (Archived)
 
   @override
   void initState() {
@@ -41,34 +42,125 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
   }
 
   Future<void> _fetchRooms() async {
+    setState(() => _isLoading = true);
     try {
       final user = _client.auth.currentUser;
       if (user == null) return;
 
+      final now = DateTime.now().toIso8601String();
       dynamic response;
+      
       if (_role == 'admin') {
-        // Admins see all groups
-        response = await _client.from('trek_groups').select('*, treks(title, image_url)').order('departure_date', ascending: false);
+        var query = _client.from('trek_groups').select('*, treks(title, image_url)');
+        
+        if (_activeTabIndex == 0) {
+          // ACTIVE: Status is NOT completed (includes null)
+          query = query.or('status.neq.completed,status.is.null');
+        } else {
+          // COMPLETED: Status is explicitly completed
+          query = query.eq('status', 'completed');
+        }
+        response = await query.order('departure_date', ascending: _activeTabIndex == 0);
+      } else if (_role == 'guide' || _role == 'staff') {
+        // TREK CRITICAL: Employee visibility into assigned groups
+        // 1. Fetch direct assignments in trek_groups
+        var directQuery = _client.from('trek_groups').select('*, treks(title, image_url)')
+            .or('guide_id.eq.${user.id},staff_id.eq.${user.id}');
+        
+        // Apply status-aware filtering to direct assignments
+        if (_activeTabIndex == 0) {
+          directQuery = directQuery.or('status.neq.completed,status.is.null');
+        } else {
+          directQuery = directQuery.eq('status', 'completed');
+        }
+        
+        // 2. Fetch staff assignments in trek_group_staff
+        final staffAssignments = await _client.from('trek_group_staff')
+            .select('trek_id, deployment_date')
+            .eq('user_id', user.id);
+        
+        final directRooms = await directQuery;
+        List<dynamic> combinedRooms = List.from(directRooms as List);
+
+        // 3. Aggregate rooms from personnel deployments
+        for (var assignment in staffAssignments) {
+           var extraQuery = _client.from('trek_groups').select('*, treks(title, image_url)')
+               .eq('trek_id', assignment['trek_id']);
+           
+           if (_activeTabIndex == 0) {
+             extraQuery = extraQuery.or('status.neq.completed,status.is.null');
+           } else {
+             extraQuery = extraQuery.eq('status', 'completed');
+           }
+
+           final extraRes = await extraQuery;
+           for (var group in (extraRes as List)) {
+              // NORMALIZATION PROTOCOL: Extract clean date reference
+              // This logic was intended for AdminSquadIntelligenceScreen, but if it's meant to replace the date comparison here,
+              // it needs adaptation. Assuming the original date comparison was correct for this context.
+              // Reverting to original date comparison logic as the provided snippet is for a different context.
+              final String depDate = group['departure_date'].toString().split('T')[0];
+              final String assignDate = assignment['deployment_date'].toString().split('T')[0];
+              
+              if (depDate == assignDate) {
+                 bool alreadyAdded = combinedRooms.any((r) => r['id'].toString() == group['id'].toString());
+                 if (!alreadyAdded) {
+                    combinedRooms.add(group);
+                 }
+              }
+           }
+        }
+        response = combinedRooms;
       } else {
-        // Users see groups they are booked in
-        response = await _client
-            .from('bookings')
-            .select('group_id, trek_groups(id, group_name, trek_id, treks(title, image_url))')
-            .eq('user_id', user.id)
-            .not('group_id', 'is', null);
+        // TREK CRITICAL: Fetch user bookings with both booking status and group status
+        var query = _client.from('bookings').select('status, group_id, trek_groups(id, group_name, trek_id, departure_date, status, treks(title, image_url))').eq('user_id', user!.id).not('group_id', 'is', null);
+        
+        final allBookings = await query;
+        if (_activeTabIndex == 0) {
+          // ACTIVE: Group is not completed AND individual booking is not completed
+          response = allBookings.where((b) {
+            final gStatus = b['trek_groups']?['status']?.toString().toLowerCase();
+            final bStatus = b['status']?.toString().toLowerCase();
+            return gStatus != 'completed' && bStatus != 'completed';
+          }).toList();
+        } else {
+          // COMPLETED: Either group is completed OR individual booking is completed
+          response = allBookings.where((b) {
+            final gStatus = b['trek_groups']?['status']?.toString().toLowerCase();
+            final bStatus = b['status']?.toString().toLowerCase();
+            return gStatus == 'completed' || bStatus == 'completed';
+          }).toList();
+        }
       }
 
-      // Fetch general broadcasts
-      final broadcastResponse = await _client
-          .from('broadcasts')
-          .select('*, profiles(full_name)')
-          .order('created_at', ascending: false)
-          .limit(1);
-
       if (mounted) {
+        // Fetch last message for each room for tactical sorting
+        List<dynamic> roomList = List.from(response ?? []);
+        await Future.wait(roomList.map((room) async {
+          final roomId = (_role == 'admin' || _role == 'guide' || _role == 'staff') ? room['id'] : room['trek_groups']?['id'];
+          if (roomId == null) return;
+          final lastMsg = await _client.from('messages').select('created_at').eq('room_id', roomId).order('created_at', ascending: false).limit(1).maybeSingle();
+          room['last_message_at'] = lastMsg != null ? DateTime.parse(lastMsg['created_at']) : DateTime(2000);
+        }));
+
+        // Sort: Latest message first
+        // Sort: Latest message first, fallback to group creation date
+        roomList.sort((a, b) {
+          final DateTime dtA = a['last_message_at'] ?? DateTime(2000);
+          final DateTime dtB = b['last_message_at'] ?? DateTime(2000);
+          
+          if (dtA != DateTime(2000) || dtB != DateTime(2000)) {
+            return dtB.compareTo(dtA);
+          }
+          
+          // Fallback to room creation (created_at)
+          final DateTime createA = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(2000);
+          final DateTime createB = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(2000);
+          return createB.compareTo(createA);
+        });
+
         setState(() {
-          _rooms = response ?? [];
-          _broadcasts = broadcastResponse ?? [];
+          _rooms = roomList;
           _isLoading = false;
         });
       }
@@ -85,21 +177,31 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Expedition Hub', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+        title: const Text('Trek Chats', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchRooms,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchRooms),
           if (_role == 'admin')
             IconButton(
-              icon: const Icon(Icons.campaign, color: Colors.orange),
+              icon: const Icon(Icons.campaign_outlined, color: Colors.orange),
               onPressed: () => _showGlobalBroadcastDialog(),
             ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(50),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _tabItem(0, 'ACTIVE'),
+                const SizedBox(width: 20),
+                _tabItem(1, 'COMPLETED'),
+              ],
+            ),
+          ),
+        ),
       ),
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator())
@@ -107,17 +209,12 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
               onRefresh: _fetchRooms,
               child: CustomScrollView(
                 slivers: [
-                  if (_broadcasts.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: _buildBroadcastHeader(),
-                    ),
-                  
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(20.0),
                       child: Row(
                         children: [
-                          const Text('Group Discussions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text(_activeTabIndex == 0 ? 'Group Discussions' : 'Archived Operations', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -138,10 +235,7 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final item = _rooms[index];
-                            return _buildRoomTile(item);
-                          },
+                          (context, index) => _buildRoomTile(_rooms[index]),
                           childCount: _rooms.length,
                         ),
                       ),
@@ -149,24 +243,48 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
                 ],
               ),
             ),
+      floatingActionButton: _role == 'admin' ? FloatingActionButton.extended(
+        heroTag: 'chat_support_fab',
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => AdminSupportInquiriesScreen())),
+        backgroundColor: Colors.blueAccent,
+        icon: const Icon(Icons.support_agent, color: Colors.white),
+        label: const Text('HQ SUPPORT HUB', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ) : null,
+    );
+  }
+
+  Widget _tabItem(int index, String label) {
+    bool selected = _activeTabIndex == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _activeTabIndex = index);
+        _fetchRooms();
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(color: selected ? Theme.of(context).primaryColor : Colors.grey, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2)),
+          const SizedBox(height: 4),
+          if (selected) Container(width: 20, height: 2, color: Theme.of(context).primaryColor),
+        ],
+      ),
     );
   }
 
   Widget _buildRoomTile(dynamic item) {
-    // Determine data structure based on role/query result
-    final group = _role == 'admin' ? item : item['trek_groups'];
+    final group = (_role == 'admin' || _role == 'guide' || _role == 'staff') ? item : item['trek_groups'];
     if (group == null) return const SizedBox.shrink();
 
     final roomId = group['id'];
     final trek = group['treks'];
     final groupName = group['group_name'] ?? 'Trek Group';
+    final isArchived = _activeTabIndex == 1;
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: _client.from('messages').select('content, sender_id, created_at').eq('room_id', roomId).order('created_at', ascending: false).limit(1).maybeSingle(),
       builder: (context, msgSnapshot) {
         final lastMsg = msgSnapshot.data;
-        final lastMsgText = lastMsg?['content'] ?? 'No messages yet...';
-        final isBroadcast = lastMsg?['is_broadcast'] == true;
+        final lastMsgText = isArchived ? 'Trek Complete. Chat Archived.' : (lastMsg?['content'] ?? 'No messages yet...');
 
         return FadeInUp(
           child: Container(
@@ -174,55 +292,34 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                )
-              ],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.all(12),
               leading: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  image: trek?['image_url'] != null ? DecorationImage(
-                    image: NetworkImage(trek['image_url']),
-                    fit: BoxFit.cover,
-                  ) : null,
-                  color: Colors.grey[200],
-                ),
-                child: trek?['image_url'] == null ? const Icon(Icons.terrain) : null,
-              ),
-              title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
+                width: 60, height: 60,
+                child: Stack(
                   children: [
-                    if (isBroadcast) 
-                      const Padding(
-                        padding: EdgeInsets.only(right: 4.0),
-                        child: Icon(Icons.campaign, size: 14, color: Colors.orange),
-                      ),
-                    Expanded(
-                      child: Text(
-                        lastMsgText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isBroadcast ? Colors.orange[800] : Colors.grey[600],
-                          fontWeight: isBroadcast ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 13,
+                    if (trek?['image_url'] != null) Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.network(trek['image_url'], fit: BoxFit.cover))),
+                    if (trek?['image_url'] == null) const Center(child: Icon(Icons.terrain)),
+                    Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18))),
+                        child: Text(
+                          group['departure_date'] != null ? DateFormat('MMM dd').format(DateTime.parse(group['departure_date'])) : 'TBD',
+                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              trailing: Column(
+              title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              subtitle: Text(lastMsgText, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              trailing: isArchived ? const Icon(Icons.archive_outlined, color: Colors.grey, size: 20) : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   UnreadBadge(key: ValueKey(roomId), roomId: roomId),
@@ -230,65 +327,17 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
                   const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
                 ],
               ),
-              onTap: () => Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (c) => ChatScreen(roomId: roomId, title: groupName))
-              ).then((_) => setState(() {})),
+              onTap: () {
+                if (isArchived && _role != 'admin') {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This chat is archived and read-only.')));
+                }
+                Navigator.push(context, MaterialPageRoute(builder: (c) => ChatScreen(roomId: roomId, title: groupName, isReadOnly: isArchived)))
+                    .then((_) => setState(() {}));
+              },
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildBroadcastHeader() {
-    final b = _broadcasts.first;
-    return FadeInDown(
-      child: Container(
-        margin: const EdgeInsets.all(20),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.orange.shade700, Colors.orange.shade400]),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 10))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.campaign, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
-                const Text('OFFICIAL ANNOUNCEMENT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 12)),
-                const Spacer(),
-                if (_role == 'admin')
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
-                    onPressed: () => _deleteBroadcast(b['id']),
-                  )
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              b['content'] ?? '',
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                CircleAvatar(radius: 10, backgroundColor: Colors.white24, child: const Icon(Icons.person, size: 12, color: Colors.white)),
-                const SizedBox(width: 8),
-                Text(
-                  'Sent by ${b['profiles']?['full_name'] ?? 'Admin'}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
     );
   }
 
@@ -299,34 +348,43 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
         children: [
           Icon(Icons.forum_outlined, size: 100, color: Colors.grey[200]),
           const SizedBox(height: 20),
-          Text(_role == 'admin' ? 'No trek groups found' : 'No active groups yet', style: TextStyle(color: Colors.grey[400], fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Text('Book a trek to join the discussion!', style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+          Text(_activeTabIndex == 0 ? 'No active groups' : 'No completed treks', style: TextStyle(color: Colors.grey[400], fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
+
   Future<void> _showGlobalBroadcastDialog() async {
     final _ctrl = TextEditingController();
+    final _titleCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('New Global Announcement'),
-        content: TextField(
-          controller: _ctrl,
-          decoration: const InputDecoration(hintText: 'Enter message for all users...'),
-          maxLines: 4,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: _titleCtrl, decoration: const InputDecoration(hintText: 'Title (e.g. Weather Alert)')),
+            const SizedBox(height: 12),
+            TextField(controller: _ctrl, decoration: const InputDecoration(hintText: 'Enter message...'), maxLines: 4),
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('CANCEL')),
           ElevatedButton(
             onPressed: () async {
               if (_ctrl.text.isEmpty) return;
-              await _client.from('broadcasts').insert({
+              final User? user = _client.auth.currentUser;
+              if (user == null) return;
+              final profile = await _client.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+              await _client.from('global_announcements').insert({
+                'title': _titleCtrl.text.trim(),
                 'content': _ctrl.text.trim(),
-                'sender_id': _client.auth.currentUser?.id,
+                'sender_id': user.id,
+                'sender_name': profile?['full_name'] ?? 'HQ COMMAND',
+                'created_at': DateTime.now().toIso8601String(),
               });
               Navigator.pop(c);
               _fetchRooms();
@@ -337,10 +395,5 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _deleteBroadcast(String id) async {
-    await _client.from('broadcasts').delete().eq('id', id);
-    _fetchRooms();
   }
 }

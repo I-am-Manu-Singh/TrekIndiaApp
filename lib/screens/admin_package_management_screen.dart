@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trek.dart';
 import '../services/database_service.dart';
 import 'edit_trek_screen.dart';
-import 'add_trek_screen.dart';
 
 class AdminPackageManagementScreen extends StatefulWidget {
   const AdminPackageManagementScreen({super.key});
@@ -84,7 +83,7 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
         foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () async {
-            final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => const AddTrekScreen()));
+            final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => const EditTrekScreen()));
             if (r == true) _loadTreks();
           }),
         ],

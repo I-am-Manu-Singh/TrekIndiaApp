@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:intl/intl.dart';
 
 class AdminWalletScreen extends StatefulWidget {
   const AdminWalletScreen({super.key});
@@ -48,32 +49,42 @@ class _AdminWalletScreenState extends State<AdminWalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return _isLoading 
-      ? const Center(child: CircularProgressIndicator())
-      : Column(
-          children: [
-            _buildBalanceCard(),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Text('RECENT REVENUE TRANSACTIONS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _transactions.length,
-                itemBuilder: (context, index) {
-                  final t = _transactions[index];
-                  return ListTile(
-                    leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.add, color: Colors.white, size: 16)),
-                    title: Text(t['profiles']?['full_name'] ?? 'Trekker Payment', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    subtitle: Text(t['trek_id'] ?? 'Expedition Mission', style: const TextStyle(fontSize: 10)),
-                    trailing: Text('+₹${t['total_price']}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w900)),
-                  );
-                },
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('OFFICIAL REVENUE LEDGER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 2)),
+        backgroundColor: Colors.black,
+        elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.white, size: 20), onPressed: _fetchWalletData),
+        ],
+      ),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+            children: [
+              _buildBalanceCard(),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Text('RECENT TREK FUNDING RECEIPTS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
               ),
-            ),
-          ],
-        );
+              ..._transactions.map((t) => _transactionTile(t)).toList(),
+            ],
+          ),
+    );
+  }
+
+  Widget _transactionTile(dynamic t) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
+        child: const Icon(Icons.download_for_offline_outlined, color: Colors.green, size: 20),
+      ),
+      title: Text(t['profiles']?['full_name'] ?? 'Trekker Payment', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      subtitle: Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(t['created_at'])), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      trailing: Text('+₹${t['paid_amount'] ?? t['total_price']}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w900, fontSize: 14)),
+    );
   }
 
   Widget _buildBalanceCard() {

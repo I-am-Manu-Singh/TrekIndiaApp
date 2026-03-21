@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
+import '../services/database_service.dart';
 
 class AdminGroupDetailScreen extends StatefulWidget {
   final String trekId;
@@ -232,7 +233,7 @@ class _AdminGroupDetailScreenState extends State<AdminGroupDetailScreen> {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Complete Expedition?'),
-        content: const Text('This will mark all participants in this group as having completed the trek. They will receive completion badges.'),
+        content: const Text('This will mark all participants in this group as having completed the trek. They will receive completion badges and XP.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Confirm', style: TextStyle(color: Colors.green))),
@@ -244,19 +245,76 @@ class _AdminGroupDetailScreenState extends State<AdminGroupDetailScreen> {
 
     try {
       setState(() => _isLoading = true);
-      await Supabase.instance.client
-          .from('bookings')
-          .update({'status': 'Completed'})
-          .eq('trek_id', widget.trekId)
-          .eq('trek_date', widget.date);
+      
+      final db = DatabaseService();
+      // Get trek details for distance
+      final trekRes = await Supabase.instance.client.from('treks').select('distance').eq('id', widget.trekId).single();
+      double dist = double.tryParse(trekRes['distance']?.toString() ?? '10') ?? 10.0;
+
+      for (var booking in _usersInGroup) {
+        if (booking['profiles']?['id'] != null) {
+          await db.completeTrek(
+            userId: booking['profiles']['id'],
+            trekId: widget.trekId,
+            distance: dist,
+          );
+        }
+      }
+      
+      // EXPLICITLY MARK GROUP AS COMPLETED IN LOGISTICS REGISTRY
+      await Supabase.instance.client.from('trek_groups').update({'status': 'completed'}).eq('trek_id', widget.trekId).eq('departure_date', widget.date);
       
       _hasChanges = true;
       _fetchUsers();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Expedition marked as COMPLETED!')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Expedition marked as COMPLETED! All participants awarded XP.')));
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _refundBooking(dynamic booking) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('EXECUTE FINANCIAL REVERSAL?'),
+        content: Text('Authorize a refund of ₹${booking['total_price']} for ${booking['profiles']?['full_name']}? This will archive the booking and record an operational expense.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('ABORT')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('CONFIRM REFUND', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      setState(() => _isLoading = true);
+      await Supabase.instance.client.from('bookings').update({
+        'payment_status': 'Refunded',
+        'status': 'Cancelled',
+      }).eq('id', booking['id']);
+
+      await Supabase.instance.client.from('payment_logs').insert({
+        'user_id': booking['user_id'],
+        'amount': booking['total_price'],
+        'payment_type': 'REFUND',
+        'booking_id': booking['id'],
+        'is_incoming': false,
+      });
+
+      _hasChanges = true;
+      _fetchUsers();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Trek Reversal Error: $e')));
       }
     }
   }
@@ -325,6 +383,7 @@ class _AdminGroupDetailScreenState extends State<AdminGroupDetailScreen> {
             onPressed: () => Navigator.pop(context, _hasChanges),
           ),
         ),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Column(
           children: [
             Container(
@@ -337,8 +396,8 @@ class _AdminGroupDetailScreenState extends State<AdminGroupDetailScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Trek Schedule:', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                      Text(widget.date, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text('Trek Schedule:', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey, fontWeight: FontWeight.bold)),
+                      Text(widget.date, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
                     ],
                   ),
                 ],
@@ -396,6 +455,7 @@ class _AdminGroupDetailScreenState extends State<AdminGroupDetailScreen> {
                                           onSelected: (val) {
                                             if (val == 'payment') _updatePaymentStatus(booking['id'], paymentStatus);
                                             if (val == 'leader') _toggleLeader(booking['id'], booking['is_leader'] == true);
+                                            if (val == 'refund') _refundBooking(booking);
                                             if (val == 'remove') _removeUserFromGroup(booking['id']);
                                           },
                                           itemBuilder: (context) => [
@@ -404,6 +464,7 @@ class _AdminGroupDetailScreenState extends State<AdminGroupDetailScreen> {
                                               value: 'leader', 
                                               child: Text(booking['is_leader'] == true ? 'Remove Leader' : 'Appoint Leader', style: const TextStyle(color: Colors.blue))
                                             ),
+                                            const PopupMenuItem(value: 'refund', child: Text('Issue Refund', style: TextStyle(color: Colors.orange))),
                                             const PopupMenuItem(value: 'remove', child: Text('Remove User', style: TextStyle(color: Colors.red))),
                                           ],
                                         ),
@@ -430,25 +491,52 @@ class _AdminGroupDetailScreenState extends State<AdminGroupDetailScreen> {
                                           ),
                                         ),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
-                                          color: paymentStatus == 'Paid' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50,
                                           borderRadius: const BorderRadius.vertical(bottom: Radius.circular(15)),
+                                          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
                                         ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        child: Column(
                                           children: [
-                                            Text('Total: ₹${booking['total_price']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: paymentStatus == 'Paid' ? Colors.green : Colors.orange,
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              child: Text(
-                                                paymentStatus,
-                                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                              ),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                const Text('Trek Base Price:', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                Text('₹${booking['trek_price'] ?? 0}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87)),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                const Text('Logistics & Gear:', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                Text('₹${(double.tryParse(booking['total_price']?.toString() ?? '0') ?? 0) - (double.tryParse(booking['trek_price']?.toString() ?? '0') ?? 0)}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87)),
+                                              ],
+                                            ),
+                                            const Divider(height: 20),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                const Text('TOTAL RECORD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+                                                Row(
+                                                  children: [
+                                                    Text('₹${booking['total_price']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.green)),
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: paymentStatus == 'Paid' ? Colors.green : Colors.orange,
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: Text(
+                                                        paymentStatus.toUpperCase(),
+                                                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),

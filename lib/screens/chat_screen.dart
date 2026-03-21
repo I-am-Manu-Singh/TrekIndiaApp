@@ -10,8 +10,9 @@ import '../services/preferences_service.dart';
 class ChatScreen extends StatefulWidget {
   final String roomId;
   final String title;
+  final bool isReadOnly;
 
-  const ChatScreen({super.key, required this.roomId, required this.title});
+  const ChatScreen({super.key, required this.roomId, required this.title, this.isReadOnly = false});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -55,7 +56,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _deleteMessage(String messageId, String senderId) async {
     if (_currentUser?.id != senderId && _userRole != 'admin') {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tactical Error: You can only scrub your own transmissions.'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trek Error: You can only scrub your own transmissions.'), backgroundColor: Colors.red));
       return;
     }
 
@@ -109,6 +110,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _updateLastReadInCloud();
+    PreferencesService().setLastRead(widget.roomId); // Update local tactical status on egress
     NotificationService.activeRoomId = null;
     _messageController.removeListener(_onMessageChanged);
     _messageController.dispose();
@@ -121,6 +123,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await Supabase.instance.client.from('profiles').update({
         'last_read_at': DateTime.now().toIso8601String(),
       }).eq('id', _currentUser.id);
+      PreferencesService().setLastRead(widget.roomId); // Trek sync
     } catch (_) {}
   }
 
@@ -152,7 +155,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _messageController.clear();
     try {
-      // Primary Tactical Insert
+      // Primary Trek Insert
       await Supabase.instance.client.from('messages').insert({
         'room_id': widget.roomId,
         'sender_id': _currentUser.id,
@@ -240,6 +243,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 final messages = snapshot.data!;
                 if (messages.isEmpty) return const Center(child: Text('No messages yet.'));
 
+                // Trek Sync: Mark as read when new intel arrives while on-station
+                if (messages.isNotEmpty) {
+                  PreferencesService().setLastRead(widget.roomId);
+                }
+
                 return ListView.builder(
                   reverse: true,
                   padding: const EdgeInsets.all(16),
@@ -299,7 +307,38 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           if (_showMentionList && _mentionFilteredMembers.isNotEmpty)
             _buildMentionOverlay(),
-          _buildMessageInput(),
+          if (!widget.isReadOnly) 
+             _buildMessageInput()
+          else
+             Container(
+               width: double.infinity,
+               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+               decoration: BoxDecoration(
+                 color: Theme.of(context).cardColor,
+                 border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.1))),
+               ),
+               child: Column(
+                 mainAxisSize: MainAxisSize.min,
+                 children: [
+                   const Icon(Icons.archive_outlined, color: Colors.grey, size: 24),
+                   const SizedBox(height: 12),
+                   Text(
+                     'MISSION PROTOCOL CONCLUDED',
+                     style: TextStyle(
+                       color: Colors.grey.shade400,
+                       fontWeight: FontWeight.w900,
+                       fontSize: 10,
+                       letterSpacing: 2,
+                     ),
+                   ),
+                   const SizedBox(height: 4),
+                   const Text(
+                     'This chat has been marked as archived and read-only due to trek completeion.',
+                     style: TextStyle(color: Colors.grey, fontSize: 12),
+                   ),
+                 ],
+               ),
+             ),
         ],
       ),
     );
@@ -587,7 +626,7 @@ class _ChatBubbleState extends State<_ChatBubble> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: widget.isMe 
-                    ? const Color(0xFF1E293B) // Tactical Navy for sender
+                    ? const Color(0xFF1E293B) // Trek Navy for sender
                     : (Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200),
                   borderRadius: BorderRadius.circular(20).copyWith(
                     bottomRight: widget.isMe ? const Radius.circular(0) : const Radius.circular(20),

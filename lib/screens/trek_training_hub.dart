@@ -6,6 +6,8 @@ import '../services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:lottie/lottie.dart';
 import 'leaderboard_screen.dart';
 
 class TrekTrainingHub extends StatefulWidget {
@@ -25,7 +27,7 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
 
   final List<Map<String, dynamic>> _trainings = [
     {
-      'title': 'Mission Prep: Warm Up',
+      'title': 'Trek Prep: Warm Up',
       'category': 'Warm Up',
       'desc': 'Joint mobility & muscle activation',
       'time': '5 min',
@@ -34,11 +36,11 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
       'icon': Icons.bolt,
       'kcal': 50,
       'exercises': [
-        {'name': 'Joint Rotations', 'duration': 60, 'instr': 'Rotate neck, shoulders, wrists, and ankles clockwise and counter-clockwise.', 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHYzeXNyZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVUn7iM8FMEU24/giphy.gif'},
-        {'name': 'Dynamic Leg Swings', 'duration': 60, 'instr': 'Hold a wall and swing each leg forward and back for 30s.', 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHYzeXNyZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKMGfNlT2nUu8lq/giphy.gif'},
-        {'name': 'Arm Circles', 'duration': 60, 'instr': 'Extend arms out and make small circles, gradually increasing size.', 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHYzeXNyZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4ZzR4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVfM8iM8FMEU24/giphy.gif'},
-        {'name': 'Cat-Cow Stretch', 'duration': 60, 'instr': 'On all fours, arch your back up then dip it down while breathing deeply.', 'gif': 'https://media.giphy.com/media/3o7TKVfM8iM8FMEU24/giphy.gif'},
-        {'name': 'Torso Twists', 'duration': 60, 'instr': 'Keep feet planted and rotate your upper body side to side.', 'gif': 'https://media.giphy.com/media/3o7TKVfM8iM8FMEU24/giphy.gif'},
+        {'name': 'Joint Rotations', 'duration': 60, 'instr': 'Rotate neck, shoulders, wrists, and ankles clockwise and counter-clockwise.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_tljiz8mg.json'},
+        {'name': 'Dynamic Leg Swings', 'duration': 60, 'instr': 'Hold a wall and swing each leg forward and back for 30s.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_skm7pq.json'},
+        {'name': 'Arm Circles', 'duration': 60, 'instr': 'Extend arms out and make small circles, gradually increasing size.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_tljiz8mg.json'},
+        {'name': 'Cat-Cow Stretch', 'duration': 60, 'instr': 'On all fours, arch your back up then dip it down while breathing deeply.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_skm7pq.json'},
+        {'name': 'Torso Twists', 'duration': 60, 'instr': 'Keep feet planted and rotate your upper body side to side.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_tljiz8mg.json'},
       ]
     },
     {
@@ -51,11 +53,11 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
       'icon': Icons.directions_walk,
       'kcal': 150,
       'exercises': [
-        {'name': 'Reverse Lunges', 'duration': 45, 'instr': 'Step back and lower your hip until both knees are bent at 90 degrees.'},
-        {'name': 'Step-Ups', 'duration': 45, 'instr': 'Step onto a chair or box, drive your other knee high, then step down.'},
-        {'name': 'Plank Hold', 'duration': 60, 'instr': 'Maintain a straight line from head to heels on your forearms.'},
-        {'name': 'Push-Ups', 'duration': 45, 'instr': 'Lower your chest to the floor and push back up, keeping core tight.'},
-        {'name': 'Mountain Climbers', 'duration': 45, 'instr': 'In plank position, drive knees to chest alternating rapidly.'},
+        {'name': 'Reverse Lunges', 'duration': 45, 'instr': 'Step back and lower your hip until both knees are bent at 90 degrees.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_skm7pq.json'},
+        {'name': 'Step-Ups', 'duration': 45, 'instr': 'Step onto a chair or box, drive your other knee high, then step down.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_skm7pq.json'},
+        {'name': 'Plank Hold', 'duration': 60, 'instr': 'Maintain a straight line from head to heels on your forearms.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_skm7pq.json'},
+        {'name': 'Push-Ups', 'duration': 45, 'instr': 'Lower your chest to the floor and push back up, keeping core tight.', 'lottie': 'https://assets4.lottiefiles.com/packages/lf20_q7vD61.json'},
+        {'name': 'Mountain Climbers', 'duration': 45, 'instr': 'In plank position, drive knees to chest alternating rapidly.', 'lottie': 'https://assets5.lottiefiles.com/packages/lf20_skm7pq.json'},
       ]
     },
     {
@@ -68,11 +70,11 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
       'icon': Icons.fitness_center,
       'kcal': 250,
       'exercises': [
-        {'name': 'Goblet Squats', 'duration': 45, 'instr': 'Hold a weight at chest level and squat deep, keeping back straight.'},
-        {'name': 'Weighted Calf Raises', 'duration': 45, 'instr': 'Hold dumbbells and rise onto your toes, then lower slowly.'},
-        {'name': 'Dumbbell Deadlifts', 'duration': 45, 'instr': 'Hinge at hips to lower weights to shins, then snap back up.'},
-        {'name': 'Overhead Press', 'duration': 45, 'instr': 'Press weights from shoulders to full extension above your head.'},
-        {'name': 'Single Leg Step-ups', 'duration': 45, 'instr': 'Hold weights and step up slowly to build stability.'},
+        {'name': 'Goblet Squats', 'duration': 45, 'instr': 'Hold a weight at chest level and squat deep, keeping back straight.', 'lottie': 'https://assets4.lottiefiles.com/packages/lf20_q7vD61.json'},
+        {'name': 'Weighted Calf Raises', 'duration': 45, 'instr': 'Hold dumbbells and rise onto your toes, then lower slowly.', 'lottie': 'https://assets4.lottiefiles.com/packages/lf20_q7vD61.json'},
+        {'name': 'Dumbbell Deadlifts', 'duration': 45, 'instr': 'Hinge at hips to lower weights to shins, then snap back up.', 'lottie': 'https://assets4.lottiefiles.com/packages/lf20_q7vD61.json'},
+        {'name': 'Overhead Press', 'duration': 45, 'instr': 'Press weights from shoulders to full extension above your head.', 'lottie': 'https://assets4.lottiefiles.com/packages/lf20_q7vD61.json'},
+        {'name': 'Single Leg Step-ups', 'duration': 45, 'instr': 'Hold weights and step up slowly to build stability.', 'lottie': 'https://assets4.lottiefiles.com/packages/lf20_q7vD61.json'},
       ]
     },
     {
@@ -85,11 +87,11 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
       'icon': Icons.spa,
       'kcal': 30,
       'exercises': [
-        {'name': 'Hamstring Stretch', 'duration': 60, 'instr': 'Sit and reach for your toes, hold for 30s each side.'},
-        {'name': 'Child\'s Pose', 'duration': 60, 'instr': 'Kneel and reach forward on the floor, breathing deeply.'},
-        {'name': 'Quad Stretch', 'duration': 60, 'instr': 'Stand on one leg and pull the other heel to your glute.'},
-        {'name': 'Pigeon Pose', 'duration': 60, 'instr': 'Lower one knee forward and stretch the other leg behind you.'},
-        {'name': 'Deep Breathing', 'duration': 60, 'instr': 'Close eyes and focus on 4-count inhale and 6-count exhale.'},
+        {'name': 'Hamstring Stretch', 'duration': 60, 'instr': 'Sit and reach for your toes, hold for 30s each side.', 'lottie': 'https://assets2.lottiefiles.com/packages/lf20_LpxW8F.json'},
+        {'name': 'Child\'s Pose', 'duration': 60, 'instr': 'Kneel and reach forward on the floor, breathing deeply.', 'lottie': 'https://assets2.lottiefiles.com/packages/lf20_LpxW8F.json'},
+        {'name': 'Quad Stretch', 'duration': 60, 'instr': 'Stand on one leg and pull the other heel to your glute.', 'lottie': 'https://assets2.lottiefiles.com/packages/lf20_LpxW8F.json'},
+        {'name': 'Pigeon Pose', 'duration': 60, 'instr': 'Lower one knee forward and stretch the other leg behind you.', 'lottie': 'https://assets2.lottiefiles.com/packages/lf20_LpxW8F.json'},
+        {'name': 'Deep Breathing', 'duration': 60, 'instr': 'Close eyes and focus on 4-count inhale and 6-count exhale.', 'lottie': 'https://assets2.lottiefiles.com/packages/lf20_LpxW8F.json'},
       ]
     }
   ];
@@ -101,13 +103,21 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
   }
 
   Future<void> _loadData() async {
-    final logs = await _db.fetchTrainingLogs();
-    if (mounted) {
-      setState(() {
-        _logs = logs;
-        _calculateStats();
-        _isLoading = false;
-      });
+    try {
+      final logs = await _db.fetchTrainingLogs();
+      if (mounted) {
+        setState(() {
+          _logs = logs;
+          try {
+            _calculateStats();
+          } catch (e) {
+            debugPrint('Conditioning Stats Sync Error: $e');
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -155,10 +165,11 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('CONDITIONING DEPOT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+        title: const Text('CONDITIONING DEPOT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16, color: Colors.white)),
+        backgroundColor: Colors.black,
+        elevation: 0,
       ),
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator(color: Colors.orangeAccent))
@@ -175,7 +186,7 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
                   const SizedBox(height: 16),
                   _buildHeatMap(),
                   const SizedBox(height: 32),
-                  _buildSectionTitle('MISSION REQUISITES'),
+                  _buildSectionTitle('TREK REQUISITES'),
                   const SizedBox(height: 20),
                   ..._trainings.map((t) => _trainingCard(t)).toList(),
                 ],
@@ -270,7 +281,7 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   Text(doneToday ? 'MISSION READY' : 'STANDING BY', style: TextStyle(color: doneToday ? Colors.greenAccent : Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                   Text(doneToday ? 'TREK READY' : 'STANDING BY', style: TextStyle(color: doneToday ? Colors.greenAccent : Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                    Text(doneToday ? 'Daily conditioning cycle complete.' : 'Your 24h prep cycle is pending execution.', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 11)),
                 ],
               ),
@@ -432,6 +443,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
   void dispose() {
     _timer?.cancel();
     _tts.stop();
+    WakelockPlus.disable(); // Release screen lock on mission abort
     NotificationService.clearWorkoutNotifications();
     super.dispose();
   }
@@ -452,6 +464,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     }
 
     setState(() => _isActive = true);
+    WakelockPlus.enable(); // Engage screen stabilization
     final current = widget.exercises[_currentIndex];
     
     // Initial instruction when starting an exercise
@@ -508,7 +521,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
 
   Future<void> _finishWorkout() async {
     _timer?.cancel();
-    _speak("Mission Accomplished. You've burned ${widget.kcal} calories.");
+    _speak("Trek Accomplished. You've burned ${widget.kcal} calories.");
     NotificationService.clearWorkoutNotifications();
 
     final totalSecs = widget.exercises.fold(0, (sum, e) => sum + (e['duration'] as int));
@@ -527,7 +540,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
         builder: (c) => AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('MISSION ACCOMPLISHED', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          title: const Text('TREK ACCOMPLISHED', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -556,6 +569,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final current = widget.exercises[_currentIndex];
+    final size = MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -570,118 +584,130 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white70), 
-                        onPressed: () {
-                          _timer?.cancel();
-                          NotificationService.clearWorkoutNotifications();
-                          Navigator.pop(context);
-                        }
-                      ),
-                      Column(
-                        children: [
-                          Text('EXERCISE ${_currentIndex + 1}/${widget.exercises.length}', 
-                                style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1)),
-                          Container(
-                            height: 4, width: 60,
-                            margin: const EdgeInsets.only(top: 4),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(2),
-                              child: LinearProgressIndicator(
-                                value: (_currentIndex + 1) / widget.exercises.length,
-                                backgroundColor: Colors.white10,
-                                valueColor: const AlwaysStoppedAnimation(Colors.orangeAccent),
-                              ),
-                            ),
-                          )
-                        ],
-                      ),
-                      const SizedBox(width: 48),
-                    ],
-                  ),
-                  const Spacer(),
-                  FadeInDown(
-                    key: ValueKey(_currentIndex),
-                    child: Column(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom - 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
                       children: [
-                        Text(current['name'].toString().toUpperCase(), 
-                             textAlign: TextAlign.center,
-                             style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                          child: Text(widget.title.toUpperCase(), 
-                                      style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.white70), 
+                              onPressed: () {
+                                _timer?.cancel();
+                                NotificationService.clearWorkoutNotifications();
+                                Navigator.pop(context);
+                              }
+                            ),
+                            Column(
+                              children: [
+                                Text('EXERCISE ${_currentIndex + 1}/${widget.exercises.length}', 
+                                      style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1)),
+                                Container(
+                                  height: 4, width: 60,
+                                  margin: const EdgeInsets.only(top: 4),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(2),
+                                    child: LinearProgressIndicator(
+                                      value: (_currentIndex + 1) / widget.exercises.length,
+                                      backgroundColor: Colors.white10,
+                                      valueColor: const AlwaysStoppedAnimation(Colors.orangeAccent),
+                                    ),
+                                  ),
+                                )
+                              ],
+                            ),
+                            const SizedBox(width: 48),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        FadeInDown(
+                          key: ValueKey(_currentIndex),
+                          child: Column(
+                            children: [
+                              Text(current['name'].toString().toUpperCase(), 
+                                   textAlign: TextAlign.center,
+                                   style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                                child: Text(widget.title.toUpperCase(), 
+                                            style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 30),
-                  if (current['gif'] != null)
-                    FadeIn(
-                      key: ValueKey('gif_${_currentIndex}'),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Image.network(
-                          current['gif'],
-                          height: 180,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (c, e, s) => Container(
-                            height: 180, 
-                            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
-                            child: const Icon(Icons.fitness_center, color: Colors.white24, size: 48)
+                    
+                    const SizedBox(height: 24),
+                    if (current['lottie'] != null)
+                      FadeIn(
+                        key: ValueKey('lottie_${_currentIndex}'),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Lottie.network(
+                            current['lottie'],
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.contain,
+                            animate: _isActive,
+                            errorBuilder: (c, e, s) => Container(
+                              height: 120, 
+                              decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
+                              child: const Icon(Icons.fitness_center, color: Colors.white24, size: 48)
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 30),
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 280,
-                        height: 280,
-                        child: CircularProgressIndicator(
-                          value: _timeLeft / current['duration'],
-                          strokeWidth: 15,
-                          backgroundColor: Colors.white10,
-                          valueColor: AlwaysStoppedAnimation<Color>(_isActive ? Colors.orangeAccent : Colors.white24),
+                    
+                    const SizedBox(height: 24),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 220,
+                          height: 220,
+                          child: CircularProgressIndicator(
+                            value: _timeLeft / current['duration'],
+                            strokeWidth: 12,
+                            backgroundColor: Colors.white10,
+                            valueColor: AlwaysStoppedAnimation<Color>(_isActive ? Colors.orangeAccent : Colors.white24),
+                          ),
                         ),
-                      ),
-                      Text('$_timeLeft', style: const TextStyle(color: Colors.white, fontSize: 100, fontWeight: FontWeight.w900)),
-                    ],
-                  ),
-                  const SizedBox(height: 60),
-                  FadeInUp(
-                    key: ValueKey(_currentIndex + 100),
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.info_outline, color: Colors.white30, size: 20),
-                          const SizedBox(height: 12),
-                          Text(current['instr'], 
-                               textAlign: TextAlign.center, 
-                               style: GoogleFonts.outfit(color: Colors.white70, fontSize: 15, fontStyle: FontStyle.italic, height: 1.5)),
+                        Text('$_timeLeft', style: const TextStyle(color: Colors.white, fontSize: 80, fontWeight: FontWeight.w900)),
+                      ],
+                    ),
+
+                    const SizedBox(height: 32),
+                    FadeInUp(
+                      key: ValueKey(_currentIndex + 100),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.info_outline, color: Colors.white30, size: 16),
+                            const SizedBox(height: 8),
+                            Text(current['instr'], 
+                                 textAlign: TextAlign.center, 
+                                 style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13, fontStyle: FontStyle.italic, height: 1.4)),
                         ],
                       ),
                     ),
                   ),
-                  const Spacer(),
+
+                  const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -699,13 +725,13 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
                       GestureDetector(
                         onTap: _startTimer,
                         child: Container(
-                          padding: const EdgeInsets.all(28),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: Colors.orangeAccent,
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 5)],
+                            boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.3), blurRadius: 15, spreadRadius: 2)],
                           ),
-                          child: Icon(_isActive ? Icons.pause : Icons.play_arrow, color: Colors.black, size: 48),
+                          child: Icon(_isActive ? Icons.pause : Icons.play_arrow, color: Colors.black, size: 40),
                         ),
                       ),
                       _actionBtn(Icons.skip_next, () {
@@ -719,10 +745,11 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _actionBtn(IconData icon, VoidCallback onTap) {
     return Container(

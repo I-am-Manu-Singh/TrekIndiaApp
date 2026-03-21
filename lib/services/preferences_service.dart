@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferencesService {
@@ -6,6 +7,10 @@ class PreferencesService {
   PreferencesService._internal();
 
   static const String _savedTreksKey = 'saved_treks';
+  
+  // Trek Event Bus for Read Receipts
+  final _readStreamController = StreamController<String>.broadcast();
+  Stream<String> get readStream => _readStreamController.stream;
 
   Future<List<String>> getSavedTreks() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,7 +38,10 @@ class PreferencesService {
 
   Future<void> setLastRead(String roomId) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_read_$roomId', DateTime.now().toIso8601String());
+    final now = DateTime.now().toIso8601String();
+    await prefs.setString('last_read_$roomId', now);
+    // Broadcast update to all tactical listen nodes
+    _readStreamController.add(roomId);
   }
 
   Future<DateTime> getLastRead(String roomId) async {

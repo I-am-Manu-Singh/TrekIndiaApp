@@ -3,6 +3,10 @@ import 'package:animate_do/animate_do.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'legal/privacy_policy_screen.dart';
+import 'legal/terms_of_service_screen.dart';
+import 'legal/refund_policy_screen.dart';
+import 'legal/safety_protocols_screen.dart';
 
 class AppInfoScreen extends StatelessWidget {
   const AppInfoScreen({super.key});
@@ -62,25 +66,35 @@ class AppInfoScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 48),
-            _buildSectionTitle('OPERATIONAL CONTACTS'),
-            const SizedBox(height: 16),
-            _infoTile(Icons.phone_outlined, 'Tactical Support', phoneNumber, () => _launchUrl('tel:$phoneNumber'), isDark),
-            _infoTile(Icons.email_outlined, 'Mission Control', supportEmail, () => _launchUrl('mailto:$supportEmail'), isDark),
-            _infoTile(Icons.language_outlined, 'Digital Domain', website, () => _launchUrl(website), isDark),
-            const SizedBox(height: 32),
-            _buildSectionTitle('FLANK ENGAGEMENT'),
-            const SizedBox(height: 16),
-            _infoTile(Icons.share_outlined, 'Share Frequency', 'Broadcast this app to your squad', () {
-              Share.share('Join me on the most epic treks in India! Download Trek India Expeditions now: $website');
-            }, isDark),
-            _infoTile(Icons.star_outline, 'Rate Expedition', 'Quantify your mission experience', () {
-              // Usually a store link or in_app_review. For now, a mock or website link.
-              _launchUrl(website); 
-            }, isDark),
-            const SizedBox(height: 32),
-            _buildSectionTitle('SOCIAL FREQUENCIES'),
-            const SizedBox(height: 16),
+
+          const SizedBox(height: 12),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _smallActionBtn(
+                    icon: Icons.share_outlined,
+                    label: 'Share',
+                    onTap: () {
+                      Share.share(
+                        'Join me on the most epic treks in India! Download Trek India Expeditions now: $website',
+                      );
+                    },
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 10),
+                  _smallActionBtn(
+                    icon: Icons.star_outline,
+                    label: 'Rate',
+                    onTap: () {
+                      _launchUrl(website);
+                    },
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -90,9 +104,26 @@ class AppInfoScreen extends StatelessWidget {
                 _socialBtn(FontAwesomeIcons.youtube, () => _launchUrl('https://youtube.com'), isDark),
               ],
             ),
-            const SizedBox(height: 30), // Reduced from 60
+            const SizedBox(height: 12),
+            _buildSectionTitle('OPERATIONAL CONTACTS'),
+            const SizedBox(height: 12),
+            _infoTile(Icons.phone_outlined, 'Trek Support', phoneNumber, () => _launchUrl('tel:$phoneNumber'), isDark),
+            _infoTile(Icons.email_outlined, 'Trek Control', supportEmail, () => _launchUrl('mailto:$supportEmail'), isDark),
+            _infoTile(Icons.language_outlined, 'Digital Domain', website, () => _launchUrl(website), isDark),
+            const SizedBox(height: 12),
+            _buildSectionTitle('IMPORTANT DOCUMENTS'),
+        const SizedBox(height: 12),
+        _infoTile(Icons.privacy_tip_outlined, 'Privacy Policy', 'Data protection protocols', 
+          () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen())), isDark),
+        _infoTile(Icons.gavel_outlined, 'Terms of Service', 'Trek engagement rules', 
+          () => Navigator.push(context, MaterialPageRoute(builder: (c) => const TermsOfServiceScreen())), isDark),
+        _infoTile(Icons.monetization_on_outlined, 'Refund Policy', 'Fiscal cancellation intel', 
+          () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RefundPolicyScreen())), isDark),
+        _infoTile(Icons.health_and_safety_outlined, 'Safety Protocols', 'Trek survival rules', 
+          () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SafetyProtocolsScreen())), isDark),
+        const SizedBox(height: 30), // Reduced from 60
             Text('© 2026 Trek India Expeditions. All Rights Reserved.', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey.withOpacity(0.5), fontSize: 10)),
-            const Text('E2E ENCRYPTED MISSION DATA', style: TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
+            const Text('E2E ENCRYPTED TREK DATA', style: TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
           ],
         ),
       ),
@@ -132,7 +163,41 @@ class AppInfoScreen extends StatelessWidget {
       ),
     );
   }
-
+Widget _smallActionBtn({
+  required IconData icon,
+  required String label,
+  required VoidCallback onTap,
+  required bool isDark,
+}) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.white24 : Colors.black12,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: isDark ? Colors.white : Colors.black87),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   Widget _socialBtn(dynamic icon, VoidCallback onTap, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
