@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import '../services/database_service.dart';
 
 class AdminBroadcastScreen extends StatefulWidget {
   const AdminBroadcastScreen({super.key});
@@ -63,11 +64,11 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
               const SizedBox(height: 24),
               _modalInput(titleCtrl, 'Intel Headline...', 1),
               const SizedBox(height: 16),
-              _modalInput(contentCtrl, 'Trek Briefing Content...', 5),
+              _modalInput(contentCtrl, 'Trip Briefing Content...', 5),
               const SizedBox(height: 20),
               SwitchListTile(
                 title: const Text('Priority: Urgent', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                subtitle: const Text('Forces popup on all active terminals', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                subtitle: const Text('Forces popup on all active dashboards', style: TextStyle(color: Colors.white38, fontSize: 10)),
                 value: isUrgent,
                 activeColor: Colors.redAccent,
                 onChanged: (v) => setModalState(() => isUrgent = v),
@@ -84,12 +85,25 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
                       'content': contentCtrl.text.trim(),
                       'is_urgent': isUrgent,
                       'sender_id': _client.auth.currentUser?.id,
-                      'sender_name': 'HQ COMMAND',
+                      'sender_name': 'TRIP INDIA CONTROL',
                       'created_at': DateTime.now().toIso8601String(),
                     };
 
                     try {
                       await _client.from('global_announcements').insert(data);
+                      
+                      // Notify all users
+                      final usersRes = await _client.from('profiles').select('id');
+                      final db = DatabaseService();
+                      for (var user in usersRes) {
+                        await db.createNotification(
+                          userId: user['id'],
+                          title: 'New Announcement: ${data['title']}',
+                          body: data['content']?.toString() ?? '',
+                          category: 'announcement',
+                        );
+                      }
+
                       if (mounted) Navigator.pop(ctx);
                       _loadBroadcasts();
                     } catch (e) {
@@ -141,15 +155,15 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          'GLOBAL BROADCAST CENTER',
+          'TRIP BROADCAST CENTER',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 14,
-            color: isDark ? Colors.white : Colors.black87,
+            color: Colors.white,
             letterSpacing: 2.5,
           ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         actions: [
           IconButton(
@@ -172,12 +186,19 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
               ),
             ],
           ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateModal,
-        backgroundColor: Colors.blueAccent,
-        icon: const Icon(Icons.campaign, color: Colors.white),
-        label: const Text('NEW BROADCAST', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
+      floatingActionButton: FloatingActionButton(
+  onPressed: _showCreateModal,
+  backgroundColor: Colors.redAccent,
+  elevation: 8,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(16),
+  ),
+  child: const Icon(
+    Icons.campaign,
+    color: Colors.white,
+    size: 26,
+  ),
+),
     );
   }
 
@@ -200,10 +221,11 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
   }
 
   Widget _statMini(String label, String val) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
-        Text(val, style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontWeight: FontWeight.w900, fontSize: 18)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        Text(val, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w900, fontSize: 18)),
+        Text(label, style: TextStyle(color: isDark ? Colors.white38 : Colors.black45, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
       ],
     );
   }
@@ -238,10 +260,10 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
                     children: [
                       Icon(isUrgent ? Icons.warning_amber_rounded : Icons.info_outline, color: isUrgent ? Colors.redAccent : Colors.blueAccent, size: 14),
                       const SizedBox(width: 8),
-                      Text(isUrgent ? 'URGENT PRIORITY' : 'STANDARD INTEL', style: TextStyle(color: isUrgent ? Colors.redAccent : Colors.blueAccent, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      Text(isUrgent ? 'URGENT PRIORITY' : 'STANDARD INFO', style: TextStyle(color: isUrgent ? Colors.redAccent : Colors.blueAccent, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
                     ],
                   ),
-                  Text(date, style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                  Text(date, style: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 9)),
                 ],
               ),
             ),
@@ -250,9 +272,15 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(b['title'] ?? 'NO SUBJECT', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(b['title'] ?? 'NO SUBJECT', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
-                  Text(b['content'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 180),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Text(b['content'] ?? '', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13, height: 1.5)),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -262,8 +290,8 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
                            await _client.from('global_announcements').delete().eq('id', b['id']);
                            _loadBroadcasts();
                          },
-                         icon: const Icon(Icons.delete_outline, color: Colors.white24, size: 16),
-                         label: const Text('RESCIND', style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold)),
+                         icon: Icon(Icons.delete_outline, color: isDark ? Colors.white24 : Colors.black26, size: 16),
+                         label: Text('RESCIND', style: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 10, fontWeight: FontWeight.bold)),
                        ),
                     ],
                   ),

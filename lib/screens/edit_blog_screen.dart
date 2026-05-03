@@ -44,13 +44,13 @@ class _EditBlogScreenState extends State<EditBlogScreen> {
 
     final profileRes = await _client.from('profiles').select('role').eq('id', user.id).maybeSingle();
     final role = profileRes?['role']?.toString().toUpperCase() ?? 'USER';
-    final authorId = widget.blog['author_id'];
+    final authorId = widget.blog['user_id'] ?? widget.blog['author_id'];
 
     if (role == 'ADMIN' || user.id == authorId) {
       if (mounted) setState(() => _isAuthorized = true);
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UNAUTHORIZED: ONLY THE TREK ARCHITECT OR HQ CAN EDIT THIS INTEL.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UNAUTHORIZED: ONLY THE TRIP ARCHITECT OR TRIP INDIA CAN EDIT THIS INFO.')));
         Navigator.pop(context);
       }
     }
@@ -66,11 +66,11 @@ class _EditBlogScreenState extends State<EditBlogScreen> {
         'content': _contentCtrl.text.trim(),
         'gallery': _imageUrls.where((u) => u.isNotEmpty).toList(),
         'tags': _tags,
-        'category': _tags.isNotEmpty ? _tags.first : 'Trekking',
+        'category': _tags.isNotEmpty ? _tags.first : 'Tripking',
       }).eq('id', widget.blog['id']);
       if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('INTEL SYNCHRONIZED SUCCESSFULLY.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('INFO SYNCHRONIZED SUCCESSFULLY.')));
       }
     } catch (e) {
       if (mounted) {
@@ -85,8 +85,8 @@ class _EditBlogScreenState extends State<EditBlogScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FBF9),
       appBar: AppBar(
-        title: const Text('EDIT STORY INTEL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-        backgroundColor: const Color(0xFF2E7B32),
+        title: const Text('EDIT STORY INFO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.delete_outline, color: Colors.white), onPressed: () => _confirmDelete()),
@@ -141,7 +141,7 @@ class _EditBlogScreenState extends State<EditBlogScreen> {
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 child: _isSaving 
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('SYNCHRONIZE INTEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2)),
+                  : const Text('SYNCHRONIZE INFO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2)),
               ),
             ),
             const SizedBox(height: 40),

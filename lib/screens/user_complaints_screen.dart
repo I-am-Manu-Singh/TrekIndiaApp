@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import '../services/database_service.dart';
 
 class UserComplaintsScreen extends StatefulWidget {
   const UserComplaintsScreen({super.key});
@@ -47,7 +48,7 @@ class _UserComplaintsScreenState extends State<UserComplaintsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('NEW INTEL REPORT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+            const Text('NEW INFO REPORT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
             const SizedBox(height: 24),
             const Text('REPORT CLASSIFICATION', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             const SizedBox(height: 12),
@@ -61,13 +62,13 @@ class _UserComplaintsScreenState extends State<UserComplaintsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text('INTEL DETAILS', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            const Text('INFO DETAILS', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             const SizedBox(height: 12),
             TextField(
               controller: contentCtrl,
               maxLines: 5,
               decoration: InputDecoration(
-                hintText: 'Describe the situation for HQ attention...',
+                hintText: 'Describe the situation for TRIP INDIA attention...',
                 hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade200)),
               ),
@@ -89,14 +90,30 @@ class _UserComplaintsScreenState extends State<UserComplaintsScreen> {
                     'created_at': DateTime.now().toIso8601String(),
                   });
 
+                  // Notify Admins
+                  try {
+                    final admins = await _client.from('profiles').select('id').eq('role', 'admin');
+                    final db = DatabaseService();
+                    for (var admin in admins) {
+                      await db.createNotification(
+                        userId: admin['id'],
+                        title: 'New Complaint/Report',
+                        body: '${user.userMetadata?['full_name'] ?? 'A traveler'} submitted a $selectedType.',
+                        category: 'support',
+                      );
+                    }
+                  } catch (e) {
+                    debugPrint('Admin notify error: $e');
+                  }
+
                   if (mounted) {
                     Navigator.pop(ctx);
                     _fetchMyComplaints();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report transmitted to HQ.')));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted to TRIP INDIA.')));
                   }
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7B32), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), elevation: 0),
-                child: const Text('TRANSMIT TO HQ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), elevation: 0),
+                child: const Text('TRANSMIT TO TRIP INDIA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
               ),
             ),
           ],
@@ -111,7 +128,7 @@ class _UserComplaintsScreenState extends State<UserComplaintsScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('USER COMPLAINTS & REPORTS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-        backgroundColor: const Color(0xFF2E7B32),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: _isLoading 
@@ -179,7 +196,7 @@ class _UserComplaintsScreenState extends State<UserComplaintsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('COMMAND RESPONSE:', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 8, color: Color(0xFF1976D2), letterSpacing: 1)),
+                  const Text('CONTROL RESPONSE:', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 8, color: Color(0xFF1976D2), letterSpacing: 1)),
                   const SizedBox(height: 4),
                   Text(c['admin_reply'], style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black87)),
                 ],

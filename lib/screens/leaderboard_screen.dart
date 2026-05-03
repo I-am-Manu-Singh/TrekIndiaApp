@@ -96,7 +96,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: rankColor, width: 3)),
-                child: UserAvatar(imageUrl: user['avatar_url']?.toString(), name: user['full_name']?.toString() ?? 'Trekker', radius: rank == 1 ? 40 : 30),
+                child: UserAvatar(imageUrl: user['avatar_url']?.toString(), name: user['full_name']?.toString() ?? 'Trip', radius: rank == 1 ? 40 : 30),
               ),
               Positioned(
                 bottom: 0,
@@ -109,7 +109,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(user['full_name']?.toString() ?? 'Trekker', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(user['full_name']?.toString() ?? 'Trip', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
           Text('LVL ${user['level'] ?? 1}', style: TextStyle(color: rankColor, fontSize: 10, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
           Container(
@@ -149,13 +149,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           children: [
             Text('${index + 1}', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(width: 16),
-            UserAvatar(imageUrl: user['avatar_url']?.toString(), name: user['full_name']?.toString() ?? 'Trekker', radius: 20),
+            UserAvatar(imageUrl: user['avatar_url']?.toString(), name: user['full_name']?.toString() ?? 'Trip', radius: 20),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(user['full_name']?.toString() ?? 'Trekker', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                  Text(user['full_name']?.toString() ?? 'Trip', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
                   Text('Level ${user['level'] ?? 1}', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 11)),
                 ],
               ),
@@ -176,7 +176,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           const SizedBox(height: 24),
           const Text('THE HALL IS CURRENTLY EMPTY', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
           const SizedBox(height: 8),
-          const Text('Complete expeditions and training to earn your place here.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text('Complete trips and training to earn your place here.', style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: _loadLeaders,

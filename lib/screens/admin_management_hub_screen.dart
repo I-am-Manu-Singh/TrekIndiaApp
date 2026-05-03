@@ -3,6 +3,8 @@ import 'admin_bookings_screen.dart';
 import 'admin_rental_tracking_screen.dart';
 import 'payment_ledger_screen.dart';
 
+import 'admin_category_management_screen.dart';
+
 class AdminManagementHubScreen extends StatefulWidget {
   final int initialTabIndex;
   const AdminManagementHubScreen({super.key, this.initialTabIndex = 0});
@@ -17,14 +19,14 @@ class _AdminManagementHubScreenState extends State<AdminManagementHubScreen> wit
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTabIndex);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Expedition Control HQ', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+        title: const Text('Management Hub TRIP INDIA', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         bottom: TabBar(
@@ -32,12 +34,13 @@ class _AdminManagementHubScreenState extends State<AdminManagementHubScreen> wit
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 8),
           isScrollable: false,
           tabs: const [
-            Tab(icon: Icon(Icons.book_online, size: 18), text: 'TREKS'),
+            Tab(icon: Icon(Icons.book_online, size: 18), text: 'TRIPS'),
             Tab(icon: Icon(Icons.inventory_2_outlined, size: 18), text: 'RENTALS'),
-            Tab(icon: Icon(Icons.wallet, size: 18), text: 'EXPEDITION WALLET'),
+            Tab(icon: Icon(Icons.wallet, size: 18), text: 'WALLETS'),
+            Tab(icon: Icon(Icons.category, size: 18), text: 'CATEGORIES'),
           ],
         ),
       ),
@@ -47,6 +50,7 @@ class _AdminManagementHubScreenState extends State<AdminManagementHubScreen> wit
           AdminBookingsScreen(),
           AdminRentalTrackingScreen(),
           PaymentLedgerScreen(),
+          AdminCategoryManagementScreen(),
         ],
       ),
     );

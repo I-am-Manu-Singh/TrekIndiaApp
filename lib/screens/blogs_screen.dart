@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/glass_shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -26,8 +27,89 @@ class _BlogsScreenState extends State<BlogsScreen> {
   String _selectedCategory = 'All';
   String _userRole = 'user';
   final _searchCtrl = TextEditingController();
+  RealtimeChannel? _blogSubscription;
 
-  final List<String> _categories = ['All', 'Summit', 'Trekking', 'Life', 'Wellness'];
+  final List<String> _categories = ['All', 'Summit', 'Tripking', 'Life', 'Wellness', 'Review', 'Gear', 'Wildlife', 'History', 'Solo', 'Group'];
+
+  Future<void> _fetchBlogs({bool showLoading = true}) async {
+    try {
+      if (showLoading) setState(() => _isLoading = true);
+      final user = Supabase.instance.client.auth.currentUser;
+      // Manual join due to schema cache issues
+      final blogsRes = await Supabase.instance.client
+          .from('blogs')
+          .select('*')
+          .order('created_at', ascending: false);
+      
+      final blogsList = List<Map<String, dynamic>>.from(blogsRes);
+      final authorIds = blogsList.map((b) => b['user_id'] ?? b['author_id']).where((id) => id != null).toSet().toList();
+      
+      final profilesRes = authorIds.isEmpty 
+          ? [] 
+          : await Supabase.instance.client
+              .from('profiles')
+              .select('id, full_name, avatar_url')
+              .filter('id', 'in', authorIds);
+          
+      final profilesMap = {for (var p in profilesRes) p['id']: p};
+      
+      final List<dynamic> enrichedBlogs = blogsList.map((b) {
+        final blog = Map<String, dynamic>.from(b);
+        final uid = b['user_id'] ?? b['author_id'];
+        blog['user_id'] = uid;
+        blog['profiles'] = profilesMap[uid];
+        return blog;
+      }).toList();
+      
+      
+
+      List<dynamic> finalBlogs = enrichedBlogs;
+      if (widget.onlyMyBlogs && user != null) {
+        finalBlogs = enrichedBlogs.where((b) => b['user_id'] == user.id).toList();
+      }
+      
+      if (mounted) {
+        setState(() {
+          _allBlogs = finalBlogs;
+          _filterAndSortBlogs();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('BLOG FETCH ERROR: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _filterAndSortBlogs() {
+    List<dynamic> filtered = _allBlogs;
+    
+    // Category Filter
+    if (_selectedCategory != 'All') {
+      filtered = filtered.where((b) => 
+        (b['category'] ?? '').toString().toLowerCase() == _selectedCategory.toLowerCase() ||
+        (b['tags'] as List?)?.any((t) => t.toString().toLowerCase() == _selectedCategory.toLowerCase()) == true
+      ).toList();
+    }
+    
+    // Search Filter
+    if (_searchCtrl.text.isNotEmpty) {
+      final q = _searchCtrl.text.toLowerCase();
+      filtered = filtered.where((b) => 
+        (b['title'] ?? '').toString().toLowerCase().contains(q) ||
+        (b['content'] ?? '').toString().toLowerCase().contains(q)
+      ).toList();
+    }
+
+    // Sort
+    if (_activeFilter == 'Recent') {
+      filtered.sort((a, b) => (b['created_at'] as String).compareTo(a['created_at'] as String));
+    } else {
+      filtered.sort((a, b) => (b['upvotes_count'] ?? 0).compareTo(a['upvotes_count'] ?? 0));
+    }
+
+    setState(() => _filteredBlogs = filtered);
+  }
 
   @override
   void initState() {
@@ -37,6 +119,22 @@ class _BlogsScreenState extends State<BlogsScreen> {
     }
     _fetchBlogs();
     _checkEligibility();
+    _setupRealtime();
+  }
+
+  void _setupRealtime() {
+    _blogSubscription = Supabase.instance.client
+        .channel('public:blogs')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'blogs',
+          callback: (payload) {
+            debugPrint('BLOGS LIST: Realtime Update Detected');
+            _fetchBlogs(showLoading: false);
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _checkEligibility() async {
@@ -57,72 +155,25 @@ class _BlogsScreenState extends State<BlogsScreen> {
     }
   }
 
-  Future<void> _fetchBlogs() async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      var query = Supabase.instance.client
-          .from('blogs')
-          .select('*, profiles(full_name, avatar_url)');
-      
-      if (widget.onlyMyBlogs && user != null) {
-        query = query.eq('user_id', user.id);
-      }
-
-      final response = await query.order('created_at', ascending: false);
-      
-      if (mounted) {
-        setState(() {
-          _allBlogs = response;
-          if (_selectedCategory == 'All') {
-            _filteredBlogs = response;
-          } else {
-            _filteredBlogs = response.where((b) => (b['category'] ?? '').toString().toLowerCase() == _selectedCategory.toLowerCase()).toList();
-          }
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   void _applyFilter(String filter) {
-    setState(() {
-      _activeFilter = filter;
-      if (filter == 'Recent') {
-        _filteredBlogs.sort((a, b) => (b['created_at'] as String).compareTo(a['created_at'] as String));
-      } else if (filter == 'Trending' || filter == 'Popular') {
-        _filteredBlogs.sort((a, b) => (b['upvotes_count'] ?? 0).compareTo(a['upvotes_count'] ?? 0));
-      }
-    });
+    _activeFilter = filter;
+    _filterAndSortBlogs();
   }
 
   void _selectCategory(String cat) {
-    setState(() {
-      _selectedCategory = cat;
-      if (cat == 'All') {
-        _filteredBlogs = _allBlogs;
-      } else {
-        _filteredBlogs = _allBlogs.where((b) => (b['category'] ?? '').toString().toLowerCase() == cat.toLowerCase()).toList();
-      }
-      _applyFilter(_activeFilter);
-    });
+    _selectedCategory = cat;
+    _filterAndSortBlogs();
   }
 
   void _filterBlogs(String query) {
-    setState(() {
-      _filteredBlogs = _allBlogs.where((b) => 
-        (b['title'] as String).toLowerCase().contains(query.toLowerCase()) ||
-        (b['content'] as String).toLowerCase().contains(query.toLowerCase())
-      ).toList();
-    });
+    _filterAndSortBlogs();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.onlyMyBlogs ? 'My Stories' : 'The Trekker Daily', style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+        title: Text(widget.onlyMyBlogs ? 'My Blogs' : 'The Trip Daily', style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -139,8 +190,8 @@ class _BlogsScreenState extends State<BlogsScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchBlogs),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+      body: _isLoading 
+          ? _buildFullPageShimmer()
           : CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
@@ -160,7 +211,12 @@ class _BlogsScreenState extends State<BlogsScreen> {
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   sliver: _isLoading 
-                    ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+                    ? SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildShimmerCard(),
+                          childCount: 3,
+                        ),
+                      )
                     : _filteredBlogs.isEmpty
                     ? const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text('No stories found.', style: TextStyle(color: Colors.grey)))))
                     : SliverList(
@@ -222,24 +278,35 @@ class _BlogsScreenState extends State<BlogsScreen> {
   }
 
   Widget _filterChip(String label) {
-    bool selected = _activeFilter == label;
-    return GestureDetector(
-      onTap: () => _applyFilter(label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? Theme.of(context).primaryColor : Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: selected ? [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : null,
+  bool selected = _activeFilter == label;
+
+  return GestureDetector(
+    onTap: () => _applyFilter(label),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: selected ? const Color(0xFFD32F2F) : Colors.transparent,
+            width: 2.5,
+          ),
         ),
-        child: Text(label, style: TextStyle(color: selected ? Colors.white : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
       ),
-    );
-  }
+      child: Text(
+        label,
+        style: TextStyle(
+          color: selected ? const Color(0xFFD32F2F) : Colors.grey,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
+    ),
+  );
+}
 
   Widget _buildBlogCard(Map<String, dynamic> blog) {
     final user = Supabase.instance.client.auth.currentUser;
-    final isAuthor = user != null && blog['author_id'] == user.id;
+    final isAuthor = user != null && blog['user_id'] == user.id;
     final isAdmin = _userRole == 'admin';
     
     return FadeInUp(
@@ -252,8 +319,10 @@ class _BlogsScreenState extends State<BlogsScreen> {
         ),
         child: InkWell(
           onTap: () async {
-            await Navigator.push(context, MaterialPageRoute(builder: (context) => BlogDetailScreen(blog: blog)));
-            _fetchBlogs(); // Re-fetch to sync upvotes and comments count
+            final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => BlogDetailScreen(blog: blog)));
+            if (result == true) {
+              _fetchBlogs(showLoading: false);
+            }
           },
           borderRadius: BorderRadius.circular(25),
           child: Column(
@@ -308,11 +377,17 @@ class _BlogsScreenState extends State<BlogsScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
+                        UserAvatar(
+                          imageUrl: blog['profiles']?['avatar_url'], 
+                          name: blog['profiles']?['full_name'],
+                          radius: 14,
+                        ),
+                        const SizedBox(width: 8),
+                        Text('By ${blog['profiles']?['full_name'] ?? 'Trip'}', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                        const Spacer(),
                         Text('READ STORY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor, letterSpacing: 1)),
                         const SizedBox(width: 4),
                         Icon(Icons.arrow_forward, size: 14, color: Theme.of(context).primaryColor),
-                        const Spacer(),
-                        Text('By ${blog['profiles']?['full_name'] ?? 'Trekker'}', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                       ],
                     )
                   ],
@@ -352,14 +427,62 @@ class _BlogsScreenState extends State<BlogsScreen> {
 
   Widget _upvoteIndicator(int count) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-      child: Row(
-        children: [
-          const Icon(Icons.arrow_upward, size: 14, color: Colors.orange),
-          const SizedBox(width: 4),
-          Text('$count', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFFFF8C00), Color(0xFFFF4500)]),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))
         ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.thumb_up, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            '$count', 
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShimmerCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+      ),
+      child: GlassShimmer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ShimmerBlock(width: double.infinity, height: 220, borderRadius: 25),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const ShimmerBlock(width: 200, height: 20),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const ShimmerBlock(width: 30, height: 30, shape: BoxShape.circle),
+                      const SizedBox(width: 10),
+                      const ShimmerBlock(width: 100, height: 12),
+                      const Spacer(),
+                      const ShimmerBlock(width: 60, height: 25, borderRadius: 12),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -412,6 +535,26 @@ class _BlogsScreenState extends State<BlogsScreen> {
       ),
     );
   }
+
+  Widget _buildFullPageShimmer() {
+    return GlassShimmer(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              height: 40,
+              margin: const EdgeInsets.only(bottom: 20),
+              child: Row(
+                children: List.generate(5, (i) => const ShimmerBlock(width: 80, height: 40, margin: EdgeInsets.only(right: 10), borderRadius: 10)),
+              ),
+            ),
+            ...List.generate(3, (i) => _buildShimmerCard()),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class BlogDetailScreen extends StatefulWidget {
@@ -429,6 +572,10 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
   bool _isUpvoted = false;
   int _upvoteCount = 0;
   int _currentImgIdx = 0;
+  bool _isPostingComment = false;
+  bool _somethingChanged = false;
+  RealtimeChannel? _detailSubscription;
+  Map<String, dynamic>? _myProfile;
 
   @override
   void initState() {
@@ -436,18 +583,88 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
     _upvoteCount = widget.blog['upvotes_count'] ?? 0;
     _fetchComments();
     _checkUpvoteStatus();
+    _setupRealtime();
+    _fetchMyProfile();
   }
 
-  Future<void> _fetchComments() async {
+  Future<void> _fetchMyProfile() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      final res = await Supabase.instance.client.from('profiles').select().eq('id', user.id).maybeSingle();
+      if (mounted) setState(() => _myProfile = res);
+    }
+  }
+
+  void _setupRealtime() {
+    _detailSubscription = Supabase.instance.client
+        .channel('blog_detail_${widget.blog['id']}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'blog_comments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'blog_id',
+            value: widget.blog['id'],
+          ),
+          callback: (payload) {
+            debugPrint('BLOG DETAIL: Comments updated');
+            _fetchComments();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'blogs',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.blog['id'],
+          ),
+          callback: (payload) {
+            debugPrint('BLOG DETAIL: Blog metadata updated');
+            if (payload.newRecord != null) {
+              if (mounted) setState(() {
+                _upvoteCount = payload.newRecord!['upvotes_count'] ?? 0;
+              });
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _detailSubscription?.unsubscribe();
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchComments({bool showLoading = true}) async {
     try {
+      if (showLoading) setState(() => _isLoadingComments = true);
+      final blogId = widget.blog['id'];
+      debugPrint('DEBUG: Fetching comments for Blog ID: $blogId');
+      
       final res = await Supabase.instance.client
           .from('blog_comments')
-          .select('*, profiles(full_name, avatar_url)')
-          .eq('blog_id', widget.blog['id'])
+          .select('*, profiles:user_id(*)')
+          .eq('blog_id', blogId)
           .order('created_at', ascending: false);
+      
+      debugPrint('DEBUG: Comments fetched count: ${res.length}');
+      debugPrint('DEBUG: First comment raw: ${res.isNotEmpty ? res[0] : "NONE"}');
+      
       if (mounted) setState(() { _comments = res; _isLoadingComments = false; });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingComments = false);
+    } catch (e) {
+      debugPrint('DEBUG: Fetch Error: $e');
+      // Final attempt: Simple select
+      try {
+        final res = await Supabase.instance.client.from('blog_comments').select('*').eq('blog_id', widget.blog['id']);
+        if (mounted) setState(() { _comments = res; _isLoadingComments = false; });
+      } catch (_) {
+        if (mounted) setState(() => _isLoadingComments = false);
+      }
     }
   }
 
@@ -464,15 +681,40 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     
+    final originalStatus = _isUpvoted;
+    final originalCount = _upvoteCount;
+
+    // Optimistic UI Update
+    if (mounted) {
+      setState(() {
+        if (_isUpvoted) {
+          _isUpvoted = false;
+          if (_upvoteCount > 0) _upvoteCount--;
+        } else {
+          _isUpvoted = true;
+          _upvoteCount++;
+        }
+        _somethingChanged = true;
+      });
+    }
+
     try {
-      if (_isUpvoted) {
+      if (originalStatus) {
         await Supabase.instance.client.from('blog_upvotes').delete().eq('blog_id', widget.blog['id']).eq('user_id', user.id);
-        if (mounted) setState(() { _isUpvoted = false; if (_upvoteCount > 0) _upvoteCount--; });
       } else {
         await Supabase.instance.client.from('blog_upvotes').insert({'blog_id': widget.blog['id'], 'user_id': user.id});
-        if (mounted) setState(() { _isUpvoted = true; _upvoteCount++; });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('UPVOTE ERROR: $e');
+      // Rollback on failure
+      if (mounted) {
+        setState(() {
+          _isUpvoted = originalStatus;
+          _upvoteCount = originalCount;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update upvote: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Future<void> _postComment() async {
@@ -482,19 +724,64 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
     if (user == null) return;
 
     try {
-      await Supabase.instance.client.from('blog_comments').insert({'blog_id': widget.blog['id'], 'user_id': user.id, 'content': msg});
+      setState(() => _isPostingComment = true);
+      
+      // Optimistic UI: Add to local list immediately
+      final tempComment = {
+        'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        'blog_id': widget.blog['id'],
+        'user_id': user.id,
+        'content': msg,
+        'created_at': DateTime.now().toIso8601String(),
+        'profiles': _myProfile ?? {
+          'full_name': 'You',
+          'avatar_url': null,
+        }
+      };
+      
+      if (mounted) {
+        setState(() {
+          _comments.insert(0, tempComment);
+        });
+      }
+
+      await Supabase.instance.client.from('blog_comments').insert({
+        'blog_id': widget.blog['id'], 
+        'user_id': user.id, 
+        'content': msg
+      });
+      
       _commentCtrl.clear();
-      _fetchComments();
-    } catch (_) {}
+      _somethingChanged = true;
+      
+      // Refresh to get the real ID and profile data from server
+      await _fetchComments();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comment added successfully!'), backgroundColor: Colors.green));
+    } catch (e) {
+      debugPrint('COMMENT ERROR: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not post comment: $e'), backgroundColor: Colors.red));
+        _fetchComments(); // Revert local list to server state
+      }
+    } finally {
+      if (mounted) setState(() => _isPostingComment = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final List<dynamic> gallery = widget.blog['gallery'] ?? [];
     final user = Supabase.instance.client.auth.currentUser;
-    final isOwner = user != null && widget.blog['author_id'] == user.id;
+    final authorId = widget.blog['user_id'];
+    final isOwner = user != null && authorId == user.id;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _somethingChanged);
+      },
+      child: Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -502,7 +789,13 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
             pinned: true,
             leading: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: CircleAvatar(backgroundColor: Colors.black38, child: const BackButton(color: Colors.white)),
+              child: CircleAvatar(
+                backgroundColor: Colors.black38, 
+                child: BackButton(
+                  color: Colors.white,
+                  onPressed: () => Navigator.pop(context, _somethingChanged),
+                )
+              ),
             ),
             actions: [
               if (isOwner)
@@ -515,7 +808,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                 ),
               IconButton(
                 icon: const Icon(Icons.share, color: Colors.white),
-                onPressed: () => Share.share('Check out this trek story: ${widget.blog['title']} on Trek India!'),
+                onPressed: () => Share.share('Check out this trip story: ${widget.blog['title']} on Trip India!'),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -534,14 +827,32 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                     ),
                     if (gallery.isNotEmpty)
                       Positioned(
-                        bottom: 40,
-                        right: 20,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(15)),
-                          child: Text('${_currentImgIdx+1}/${1 + gallery.length}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        bottom: 20,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(1 + gallery.length, (idx) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: _currentImgIdx == idx ? 20 : 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: _currentImgIdx == idx ? Colors.white : Colors.white54,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          )),
                         ),
                       ),
+                    Positioned(
+                      bottom: 20,
+                      right: 20,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(15)),
+                        child: Text('${_currentImgIdx+1}/${1 + gallery.length}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -557,12 +868,16 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(backgroundImage: (widget.blog['profiles']?['avatar_url'] != null) ? NetworkImage(widget.blog['profiles']['avatar_url']) : null),
+                      UserAvatar(
+                        imageUrl: widget.blog['profiles']?['avatar_url'], 
+                        name: widget.blog['profiles']?['full_name'],
+                        radius: 20,
+                      ),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(widget.blog['profiles']?['full_name'] ?? 'Trekker', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(widget.blog['profiles']?['full_name'] ?? 'Trip', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(widget.blog['created_at'])), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                         ],
                       ),
@@ -599,7 +914,9 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                   const SizedBox(height: 20),
                   _buildCommentInput(),
                   const SizedBox(height: 20),
-                  _isLoadingComments ? const Center(child: CircularProgressIndicator()) : _buildCommentsList(),
+                  _isLoadingComments 
+                    ? _buildCommentsShimmer()
+                    : _buildCommentsList(),
                   const SizedBox(height: 100),
                 ],
               ),
@@ -607,23 +924,41 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
           )
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _upvoteButton() {
     return InkWell(
       onTap: _toggleUpvote,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: _isUpvoted ? Colors.orange : Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
+          gradient: _isUpvoted 
+            ? const LinearGradient(colors: [Color(0xFFFF8C00), Color(0xFFFF4500)])
+            : LinearGradient(colors: [Colors.grey.withOpacity(0.05), Colors.grey.withOpacity(0.1)]),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: _isUpvoted ? [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.arrow_upward, color: _isUpvoted ? Colors.white : Colors.orange, size: 18),
-            const SizedBox(width: 8),
-            Text('$_upvoteCount', style: TextStyle(color: _isUpvoted ? Colors.white : Colors.orange, fontWeight: FontWeight.bold)),
+            Icon(
+              _isUpvoted ? Icons.thumb_up : Icons.thumb_up_outlined, 
+              color: _isUpvoted ? Colors.white : Colors.orange, 
+              size: 20
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '$_upvoteCount', 
+              style: TextStyle(
+                color: _isUpvoted ? Colors.white : Colors.orange, 
+                fontWeight: FontWeight.w900,
+                fontSize: 15
+              )
+            ),
           ],
         ),
       ),
@@ -631,23 +966,47 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
   }
 
   Widget _buildCommentInput() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _commentCtrl,
-            decoration: InputDecoration(
-              hintText: 'Add a comment...',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              filled: true,
-              fillColor: Theme.of(context).cardColor,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(35),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _commentCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Share your thoughts...',
+                hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 10),
+              ),
+              style: const TextStyle(fontSize: 14),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        CircleAvatar(backgroundColor: Colors.black, child: IconButton(icon: const Icon(Icons.send, color: Colors.white, size: 18), onPressed: _postComment)),
-      ],
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: _isPostingComment ? null : _postComment,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: [Colors.black87, Colors.black]),
+              ),
+              child: Center(
+                child: _isPostingComment 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -664,10 +1023,28 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
       )
     );
     if (confirmed == true) {
+      // Optimistic UI: Remove from local list first
+      final originalComments = List.from(_comments);
+      if (mounted) {
+        setState(() {
+          _comments.removeWhere((c) => c['id'] == commentId);
+          _somethingChanged = true;
+        });
+      }
+
       try {
         await Supabase.instance.client.from('blog_comments').delete().eq('id', commentId);
-        _fetchComments();
-      } catch (_) {}
+        // Realtime will handle the update if active, but we already updated locally.
+        // We still fetch to ensure consistency if needed, but in background.
+        _fetchComments(showLoading: false);
+      } catch (e) {
+        debugPrint('DELETE ERROR: $e');
+        // Rollback on error
+        if (mounted) {
+          setState(() => _comments = originalComments);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete comment. Please try again.'), backgroundColor: Colors.red));
+        }
+      }
     }
   }
 
@@ -676,7 +1053,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
     
     final user = Supabase.instance.client.auth.currentUser;
     // Checking admin status via email pattern for the detail view context
-    final bool isAdmin = (user != null && (user.email == 'admin@trek.com' || user.email?.contains('admin') == true)); 
+    final bool isAdmin = (user != null && (user.email == 'admin@trip.com' || user.email?.contains('admin') == true)); 
 
     return ListView.builder(
       padding: EdgeInsets.zero,
@@ -686,44 +1063,90 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
       itemBuilder: (context, i) {
         final c = _comments[i];
         final bool isMyComment = user != null && c['user_id'] == user.id;
+        final profile = c['profiles'] ?? c['user'];
+        final isDark = Theme.of(context).brightness == Brightness.dark;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 20),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              UserAvatar(imageUrl: c['profiles']?['avatar_url'], name: c['profiles']?['full_name'], radius: 18),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        return FadeInUp(
+          duration: Duration(milliseconds: 300 + (i * 100)),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.03) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Text(c['profiles']?['full_name'] ?? 'Trekker', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(width: 8),
-                        Text(DateFormat('MMM dd').format(DateTime.parse(c['created_at'])), style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                        const Spacer(),
-                        if (isMyComment || isAdmin)
-                          IconButton(
-                            icon: const Icon(Icons.delete, size: 18),
-                            color: Colors.red,
-                            onPressed: () => _deleteComment(c['id']),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                    UserAvatar(imageUrl: profile?['avatar_url'], name: profile?['full_name'], radius: 18),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(profile?['full_name'] ?? 'Traveler', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                          Text(
+                            DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(c['created_at'])), 
+                            style: const TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.bold)
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(c['content'] ?? '', style: const TextStyle(fontSize: 14, color: Colors.blueGrey, height: 1.4)),
+                    if (isMyComment || isAdmin)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        color: Colors.red.withOpacity(0.7),
+                        onPressed: () => _deleteComment(c['id']),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    c['content'] ?? '', 
+                    style: TextStyle(
+                      fontSize: 14, 
+                      color: isDark ? Colors.white70 : Colors.black87, 
+                      height: 1.5,
+                      letterSpacing: 0.2
+                    )
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
+  Widget _buildCommentsShimmer() {
+    return GlassShimmer(
+      child: Column(
+        children: List.generate(3, (i) => Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const ShimmerBlock(width: 32, height: 32, shape: BoxShape.circle),
+                  const SizedBox(width: 12),
+                  const ShimmerBlock(width: 100, height: 12),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const ShimmerBlock(width: double.infinity, height: 40, borderRadius: 12),
+            ],
+          ),
+        )),
+      ),
+    );
+  }
 }

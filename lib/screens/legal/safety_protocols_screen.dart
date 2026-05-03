@@ -11,7 +11,7 @@ class SafetyProtocolsScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('SAFETY PROTOCOLS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 13, color: Colors.white)),
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -20,7 +20,7 @@ class SafetyProtocolsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FadeInDown(
-              child: Text('EXPEDITION SAFETY STANDARDS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87, letterSpacing: 1)),
+              child: Text('TRIP SAFETY STANDARDS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87, letterSpacing: 1)),
             ),
             const SizedBox(height: 10),
             FadeInDown(
@@ -29,11 +29,11 @@ class SafetyProtocolsScreen extends StatelessWidget {
             ),
             const Divider(height: 60, thickness: 1),
             
-            _buildSection(context, 'I. PRE-TREK BRIEFING', 'All trekkers must undergo a mandatory tactical briefing before departure. This covers route terrain, weather expectations, and communications protocols.'),
-            _buildSection(context, 'II. MEDICAL CLEARANCE', 'Operatives must present valid medical certification. Our team reserves the right to deny participation if physical conditioning markers are not met.'),
-            _buildSection(context, 'III. FIELD GEAR STANDARDS', 'Only certified gear (either personal or issued by our HQ) is permitted. Our guides perform a multi-point equipment check before deployment.'),
-            _buildSection(context, 'IV. EMERGENCY EVACUATION', 'In case of severe altitude sickness (AMS) or injury, a satellite-linked evacuation protocol is triggered. Extraction costs are covered by the specific mission insurance.'),
-            _buildSection(context, 'V. WILDLIFE ENCOUNTERS', 'Strict non-interference protocols are in effect. Trekkers must follow guide instructions during any interaction with local fauna.'),
+            _buildSection(context, 'I. PRE-TRIP BRIEFING', 'All trips must undergo a mandatory details briefing before departure. This covers route terrain, weather expectations, and communications protocols.'),
+            _buildSection(context, 'II. MEDICAL CLEARANCE', 'Participants must present valid medical certification. Our team reserves the right to deny participation if physical fitness requirements are not met.'),
+            _buildSection(context, 'III. FIELD GEAR STANDARDS', 'Only certified gear (either personal or issued by our TRIP INDIA) is permitted. Our guides perform a multi-point equipment check before trip.'),
+            _buildSection(context, 'IV. EMERGENCY EVACUATION', 'In case of severe altitude sickness (AMS) or injury, a satellite-linked evacuation protocol is triggered. Extraction costs are covered by the specific trip insurance.'),
+            _buildSection(context, 'V. WILDLIFE ENCOUNTERS', 'Strict non-interference protocols are in effect. Trips must follow guide instructions during any interaction with local fauna.'),
             
             const SizedBox(height: 50),
             Container(
@@ -43,7 +43,7 @@ class SafetyProtocolsScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.warning_amber_rounded, color: Colors.red, size: 30),
                   SizedBox(width: 20),
-                  Expanded(child: Text('SAFETY IS NON-NEGOTIABLE. Violating guide instructions results in immediate mission termination without refund.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.redAccent))),
+                  Expanded(child: Text('SAFETY IS NON-NEGOTIABLE. Violating guide instructions results in immediate trip termination without refund.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.redAccent))),
                 ],
               ),
             ),
@@ -62,7 +62,7 @@ class SafetyProtocolsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.blueAccent, letterSpacing: 1.5)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFFD32F2F), letterSpacing: 1.5)),
             const SizedBox(height: 12),
             Text(content, style: TextStyle(fontSize: 14, height: 1.6, color: isDark ? Colors.white70 : Colors.black54)),
           ],

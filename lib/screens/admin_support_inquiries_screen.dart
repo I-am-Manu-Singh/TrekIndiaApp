@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import '../services/database_service.dart';
 
 class AdminSupportInquiriesScreen extends StatefulWidget {
   const AdminSupportInquiriesScreen({super.key});
@@ -25,8 +26,8 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final iRes = await _client.from('support_inquiries').select('*, profiles(*)').order('created_at', ascending: false);
-      final cRes = await _client.from('complaints').select('*, profiles(*)').order('created_at', ascending: false);
+      final iRes = await _client.from('support_inquiries').select('*, profiles(id, full_name, avatar_url, role)').order('created_at', ascending: false);
+      final cRes = await _client.from('complaints').select('*, profiles(id, full_name, avatar_url, role)').order('created_at', ascending: false);
       if (mounted) {
         setState(() {
           _inquiries = iRes;
@@ -36,8 +37,15 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
       }
     } catch (e) {
       if (mounted) {
-        debugPrint('HQ SUPPORT ERROR: $e');
+        debugPrint('TRIP INDIA SUPPORT ERROR: $e');
         setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('UNABLE TO SYNC SUPPORT DATA: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          )
+        );
       }
     }
   }
@@ -49,8 +57,8 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text('HQ SUPPORT HUB', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 2)),
-          backgroundColor: Colors.black,
+          title: const Text('SUPPORT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 2)),
+          backgroundColor: const Color(0xFFD32F2F),
           elevation: 0,
           actions: [
             IconButton(icon: const Icon(Icons.refresh, color: Colors.blueAccent), onPressed: _loadData),
@@ -60,7 +68,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
               Tab(text: 'ENQUIRIES'),
               Tab(text: 'COMPLAINTS'),
             ],
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1),
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1, color: Colors.blueAccent),
           ),
         ),
         body: _isLoading 
@@ -81,7 +89,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
       children: [
         _buildEnquiryAnalytics(),
         const SizedBox(height: 32),
-        const Text('TACTICAL INQUIRIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+        const Text('TECHNICAL INQUIRIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
         const SizedBox(height: 16),
         if (_inquiries.isEmpty) _emptyState('NO ACTIVE ENQUIRIES')
         else ..._inquiries.map((q) => _buildEnquiryCard(q)).toList(),
@@ -115,7 +123,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
       childAspectRatio: 1.2,
       children: [
         _statCard('$pending', 'AWAITING RESPONSE', Icons.mark_email_unread_outlined, Colors.orange),
-        _statCard('$resolved', 'DOCKETS CLOSED', Icons.verified_outlined, Colors.green),
+        _statCard('$resolved', 'INQUIRIES RESOLVED', Icons.verified_outlined, Colors.green),
         _statCard('${_inquiries.length}', 'TOTAL ENQUIRIES', Icons.analytics_outlined, Colors.blue),
       ],
     );
@@ -197,7 +205,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(profile?['full_name'] ?? 'Trekker', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(profile?['full_name'] ?? 'Trip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
                     Text(DateFormat('MMM dd, HH:mm').format(DateTime.parse(q['created_at'])), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
@@ -206,9 +214,14 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
             ],
           ),
           const SizedBox(height: 16),
-          Text(q['subject'] ?? 'INQUIRY', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+          Text(q['subject'] ?? 'INQUIRY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: isDark ? Colors.white : Colors.black87)),
           const SizedBox(height: 8),
-          Text(q['message'] ?? '', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 120),
+            child: SingleChildScrollView(
+              child: Text(q['message'] ?? '', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
+            ),
+          ),
           const SizedBox(height: 24),
           if (isResolved)
             _replyBox(q['admin_reply'] ?? 'Resolved.')
@@ -218,7 +231,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
               child: ElevatedButton(
                 onPressed: () => _resolveEnquiry(q),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('POST HQ RESPONSE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                child: const Text('ADD RESPONSE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
               ),
             ),
         ],
@@ -249,7 +262,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(profile?['full_name'] ?? 'Trekker', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(profile?['full_name'] ?? 'Trip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
                     Text(DateFormat('MMM dd, HH:mm').format(DateTime.parse(c['created_at'])), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
@@ -264,7 +277,12 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
              child: Text(c['type']?.toUpperCase() ?? 'FIELD ISSUE', style: const TextStyle(color: Colors.red, fontSize: 8, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 12),
-          Text(c['content'] ?? '', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 150),
+            child: SingleChildScrollView(
+              child: Text(c['content'] ?? '', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
+            ),
+          ),
           const SizedBox(height: 24),
           if (isResolved)
             _replyBox(c['admin_reply'] ?? 'Field issue resolved.')
@@ -274,7 +292,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
               child: ElevatedButton(
                 onPressed: () => _resolveComplaint(c),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('TAKEDOWN ISSUE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                child: const Text('RESOLVE ISSUE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
               ),
             ),
         ],
@@ -298,9 +316,14 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('HQ RESPONSE:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 8, color: Colors.grey)),
+          const Text('ADMIN RESPONSE:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 8, color: Colors.grey)),
           const SizedBox(height: 4),
-          Text(reply, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 100),
+            child: SingleChildScrollView(
+              child: Text(reply, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+            ),
+          ),
         ],
       ),
     );
@@ -320,17 +343,26 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
            child: Column(
              mainAxisSize: MainAxisSize.min,
              children: [
-                const Text('POST HQ RESPONSE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                const Text('ADD RESPONSE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
                 const SizedBox(height: 20),
                 TextField(controller: ctrl, maxLines: 4, decoration: const InputDecoration(hintText: 'Enter formal response...', border: OutlineInputBorder())),
                 const SizedBox(height: 20),
                 SizedBox(width: double.infinity, height: 50, child: ElevatedButton(
                   onPressed: () async {
                     await _client.from('support_inquiries').update({'admin_reply': ctrl.text, 'status': 'Resolved'}).eq('id', q['id']);
+                    
+                    final db = DatabaseService();
+                    await db.createNotification(
+                      userId: q['user_id'],
+                      title: 'Support Response Received',
+                      body: 'An admin has replied to your inquiry: "${q['subject']}"',
+                      category: 'support',
+                    );
+
                     Navigator.pop(ctx);
                     _loadData();
                   },
-                  child: const Text('SEND RESPONSE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: const Text('SEND RESPONSE', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                 )),
                 const SizedBox(height: 30),
              ],
@@ -361,6 +393,15 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
                 SizedBox(width: double.infinity, height: 50, child: ElevatedButton(
                   onPressed: () async {
                     await _client.from('complaints').update({'admin_reply': ctrl.text, 'status': 'resolved'}).eq('id', c['id']);
+                    
+                    final db = DatabaseService();
+                    await db.createNotification(
+                      userId: c['user_id'],
+                      title: 'Complaint Resolved',
+                      body: 'Your field complaint has been addressed and resolved.',
+                      category: 'support',
+                    );
+
                     Navigator.pop(ctx);
                     _loadData();
                   },

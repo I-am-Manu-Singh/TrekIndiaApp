@@ -4,14 +4,14 @@ import '../widgets/user_avatar.dart';
 import 'admin_attendance_screen.dart';
 import 'package:animate_do/animate_do.dart';
 
-class AdminPersonnelManagementScreen extends StatefulWidget {
-  const AdminPersonnelManagementScreen({super.key});
+class AdminEmployeeManagementScreen extends StatefulWidget {
+  const AdminEmployeeManagementScreen({super.key});
 
   @override
-  State<AdminPersonnelManagementScreen> createState() => _AdminPersonnelManagementScreenState();
+  State<AdminEmployeeManagementScreen> createState() => _AdminEmployeeManagementScreenState();
 }
 
-class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagementScreen> {
+class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementScreen> {
   final _client = Supabase.instance.client;
   String _searchQuery = '';
   String _filterRole = 'ALL';
@@ -21,8 +21,7 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('FLEET PERSONNEL REGISTRY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white, letterSpacing: 1.5)),
-        backgroundColor: Colors.black,
+        title: const Text('STAFF DIRECTORY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white, letterSpacing: 1.5)),
         elevation: 0,
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
@@ -50,19 +49,26 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
           );
         }
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddPersonnelModal(),
-        backgroundColor: Colors.blueAccent,
-        icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-        label: const Text('DEPLOY PERSONNEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
-      ),
+      floatingActionButton: FloatingActionButton(
+  onPressed: () => _showAddPersonnelModal(),
+  backgroundColor: Colors.blueAccent,
+  elevation: 8,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(16),
+  ),
+  child: const Icon(
+    Icons.person_add_alt_1,
+    color: Colors.white,
+    size: 26,
+  ),
+),
     );
   }
 
   Widget _buildHeader(int count) {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(color: Colors.black, borderRadius: BorderRadius.vertical(bottom: Radius.circular(30))),
+      decoration: const BoxDecoration(color: Color(0xFFD32F2F), borderRadius: BorderRadius.vertical(bottom: Radius.circular(30))),
       child: Column(
         children: [
            _buildSearchBar(),
@@ -70,8 +76,8 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
            _buildFilters(),
            const SizedBox(height: 20),
            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-             const Text('REGISTERED PERSONNEL', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-             Text('$count ASSETS', style: const TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+             const Text('TOTAL STAFF', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+             Text('$count MEMBERS', style: const TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold)),
            ]),
         ],
       ),
@@ -109,7 +115,7 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
         decoration: const InputDecoration(
           icon: Icon(Icons.search, color: Colors.white38),
           border: InputBorder.none,
-          hintText: 'Search by unique identifier...',
+          hintText: 'Search by name or email...',
           hintStyle: TextStyle(color: Colors.white24, fontSize: 14),
         ),
       ),
@@ -140,13 +146,28 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
                 padding: const EdgeInsets.all(22),
                 child: Row(
                   children: [
-                    UserAvatar(radius: 26, imageUrl: p['avatar_url'], name: p['full_name']),
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        UserAvatar(radius: 26, imageUrl: p['avatar_url'], name: p['full_name']),
+                        if (p['aadhar_url'] != null || p['medical_certificate_url'] != null)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(color: Colors.blueAccent, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.white, width: 1.5)),
+                              child: const Icon(Icons.verified, color: Colors.white, size: 10),
+                            ),
+                          ),
+                      ],
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p['full_name']?.toUpperCase() ?? 'PERSONNEL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.5, color: isDark ? Colors.white : Colors.black87)),
+                          Text(p['full_name']?.toUpperCase() ?? 'STAFF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.5, color: isDark ? Colors.white : Colors.black87)),
                           const SizedBox(height: 4),
                           Row(
                             children: [
@@ -217,14 +238,14 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
                 ),
                 const SizedBox(height: 16),
                 Text(p['full_name'] ?? 'Personnel', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
-                Text(p['email'] ?? 'hidden@hq.com', style: const TextStyle(color: Colors.grey)),
+                Text(p['email'] ?? 'support@tripindia.com', style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 32),
                 const Align(alignment: Alignment.centerLeft, child: Text('ROLE MANAGEMENT', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2))),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: currentRole,
                   decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 16)),
-                  items: ['user', 'admin', 'guide', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
+                  items: ['user', 'admin', 'staff', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
                   onChanged: (v) async {
                     if (v == null) return;
                     await _client.from('profiles').update({'role': v}).eq('id', p['id']);
@@ -233,7 +254,7 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
                 ),
                 const SizedBox(height: 32),
                 const SizedBox(height: 32),
-                const Align(alignment: Alignment.centerLeft, child: Text('MISSION ANALYTICS (TASKS)', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2))),
+                const Align(alignment: Alignment.centerLeft, child: Text('TRIP HISTORY', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2))),
                 const SizedBox(height: 16),
                 _taskAnalytics(p),
                 const SizedBox(height: 32),
@@ -245,6 +266,10 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
                 const SizedBox(height: 16),
                 _editableFinancials(p, setModalState),
                 const SizedBox(height: 32),
+                const Align(alignment: Alignment.centerLeft, child: Text('ACCESS & PERMISSIONS', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2))),
+                const SizedBox(height: 16),
+                _permissionsManagement(p, setModalState),
+                const SizedBox(height: 32),
                 Row(children: [
                   Expanded(child: _actionBtn(Icons.assignment_ind_outlined, 'ATTENDANCE', Colors.blue.shade50, Colors.blue, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => AdminAttendanceScreen(userId: p['id'], userName: p['full_name'] ?? 'Personnel'))))),
                   const SizedBox(width: 16),
@@ -252,6 +277,20 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
                   const SizedBox(width: 16),
                   Expanded(child: _actionBtn(Icons.money, 'PAYOUTS', Colors.orange.shade50, Colors.orange, onTap: () => _processPayout(p))),
                 ]),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _removeEmployee(p['id'], p['full_name']),
+                    icon: const Icon(Icons.person_remove_outlined, color: Colors.red),
+                    label: const Text('REMOVE FROM STAFF (Demote to User)', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Colors.redAccent),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 40),
               ],
             ),
@@ -320,11 +359,52 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
           child: ElevatedButton.icon(
             onPressed: () => _delegateTask(p),
             icon: const Icon(Icons.assignment_ind_outlined, color: Colors.white, size: 18),
-            label: const Text('DELEGATE TREK TASK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            label: const Text('ASSIGN TRIP TASK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _permissionsManagement(dynamic p, StateSetter setModalState) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    bool canManage = p['can_manage_trips'] == true;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200)
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Trip/Package Customization', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
+              const Text('Allow staff to add or edit trips', style: TextStyle(fontSize: 10, color: Colors.grey)),
+            ],
+          ),
+          Switch(
+            value: canManage,
+            activeColor: Colors.blueAccent,
+            onChanged: (val) async {
+              setModalState(() => p['can_manage_trips'] = val);
+              try {
+                // If column doesn't exist, this will fail gracefully but update UI
+                await _client.from('profiles').update({'can_manage_trips': val}).eq('id', p['id']);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permissions Updated.')));
+              } catch (_) {
+                // Ignore error if column not added to profiles yet
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permissions sync failed. Ensure DB schema is updated.')));
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -376,17 +456,51 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
     try {
        await _client.from('profiles').update({key: val}).eq('id', p['id']);
        setModalState(() => p[key] = val);
-       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('TREK UPDATE: $label SYNCED'), backgroundColor: Colors.black));
+       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('TRIP UPDATE: $label SYNCED'), backgroundColor: Colors.black));
     } catch (e) {
        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OFFICIAL FAILURE: $e'), backgroundColor: Colors.red));
     }
   }
 
   void _delegateTask(dynamic p) {
-    // Navigate to employee tasks screen with pre-filled ID or just open a simple task creator here
     Navigator.pop(context); // Close detail modal
-    Navigator.pushNamed(context, '/employee_tasks'); 
-    // In a real app, we would pass arguments to pre-select the user
+    Navigator.pushNamed(context, '/admin_tasks', arguments: p['id']); 
+  }
+
+  Future<void> _removeEmployee(String userId, String? userName) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('REMOVE FROM STAFF?'),
+        content: Text('Are you sure you want to demote ${userName ?? 'this user'}? They will immediately lose access to the Employee Dashboard, Group Details, and Staff Group Chats. Their role will revert to a standard Traveler.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('CANCEL')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('REMOVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _client.from('profiles').update({
+        'role': 'user',
+        'can_manage_trips': false,
+      }).eq('id', userId);
+      
+      if (mounted) {
+        Navigator.pop(context); // close the detail modal
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('STAFF REMOVED. Member demoted to standard user.'), backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('FAILED TO TERMINATE: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Widget _taskAnalytics(dynamic p) {
@@ -440,14 +554,14 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
     final double netPayout = (salary + allowance - deduction).clamp(0, double.infinity);
 
     if (netPayout <= 0 && salary > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Insufficient payout balance for this asset.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Insufficient payout balance for this staff member.')));
       return;
     }
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('OFFICIAL PAYOUT'),
+        title: const Text('PROCESS PAYOUT'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,12 +570,12 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
             _payoutRow('Allowance', allowance),
             _payoutRow('Leave Deductions', -deduction, isRed: true),
             const Divider(),
-            _payoutRow('NET DEPLOYMENT', netPayout, isBold: true),
+            _payoutRow('NET PAYOUT', netPayout, isBold: true),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('ABORT')),
-          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('CONFIRM DEPLOYMENT')),
+          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('CONFIRM PAYOUT')),
         ],
       )
     );
@@ -476,7 +590,7 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
           'created_at': DateTime.now().toIso8601String(),
         });
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PAYOUT DEPLOYED SUCCESSFULLY.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PAYOUT PROCESSED SUCCESSFULLY.')));
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PAYOUT FAILED: $e')));
       }
@@ -542,7 +656,7 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
 
   void _showAddPersonnelModal() {
     final emailCtrl = TextEditingController();
-    String? selectedRole = 'guide';
+    String? selectedRole = 'staff';
     bool isSearching = false;
     Map<String, dynamic>? foundUser;
 
@@ -556,12 +670,12 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('DEPLOY NEW PERSONNEL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+              const Text('ADD NEW STAFF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
               const SizedBox(height: 24),
               TextField(
                 controller: emailCtrl,
                 decoration: InputDecoration(
-                  labelText: 'USER EMAIL IDENTIFIER',
+                  labelText: 'USER EMAIL',
                   labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey),
                   suffixIcon: IconButton(
                     icon: isSearching ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search),
@@ -586,11 +700,11 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
                 DropdownButtonFormField<String>(
                   value: selectedRole,
                   decoration: InputDecoration(
-                    labelText: 'DEPLOY AS...',
+                    labelText: 'ADD AS...',
                     labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                   ),
-                  items: ['admin', 'guide', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
+                  items: ['admin', 'staff', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
                   onChanged: (v) => setModalState(() => selectedRole = v),
                 ),
                 const SizedBox(height: 32),
@@ -602,13 +716,13 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
                       try {
                         await _client.from('profiles').update({'role': selectedRole}).eq('id', foundUser!['id']);
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ASSET DEPLOYED SUCCESSFULLY.'), backgroundColor: Colors.green));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('STAFF ADDED SUCCESSFULLY.'), backgroundColor: Colors.green));
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DEPLOYMENT FAILED: $e'), backgroundColor: Colors.red));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('STAFF NOT ADDED: $e'), backgroundColor: Colors.red));
                       }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                    child: const Text('CONFIRM DEPLOYMENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    child: const Text('CONFIRM TRIP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
                   ),
                 ),
               ] else if (isSearching == false && emailCtrl.text.isNotEmpty)
@@ -638,7 +752,7 @@ class _AdminPersonnelManagementScreenState extends State<AdminPersonnelManagemen
           CircleAvatar(backgroundImage: u['avatar_url'] != null ? NetworkImage(u['avatar_url']) : null, child: u['avatar_url'] == null ? const Icon(Icons.person) : null),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(u['full_name']?.toUpperCase() ?? 'UNKNOWN ASSET', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
+            Text(u['full_name']?.toUpperCase() ?? 'UNKNOWN USER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
             Text(u['email'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 11)),
           ])),
         ],

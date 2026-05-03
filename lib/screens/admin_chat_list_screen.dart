@@ -40,7 +40,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
 
             // Fetch group info for date
             final groupInfo = await Supabase.instance.client
-                .from('trek_groups')
+                .from('trip_groups')
                 .select('departure_date, group_name')
                 .eq('id', roomId)
                 .maybeSingle();
@@ -70,15 +70,16 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Customer Support Chats', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.black,
+        title: const Text('TRIP INDIA SUPPORT CHATS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 13, color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
+        elevation: 0,
         foregroundColor: Colors.white,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminSupportInquiriesScreen())),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: const Color(0xFFD32F2F),
         icon: const Icon(Icons.support_agent, color: Colors.white),
-        label: const Text('HQ SUPPORT REGISTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+        label: const Text('TRIP INDIA SUPPORT REGISTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator()) 
@@ -122,7 +123,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(room['date'] != null ? 'Departure: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(room['date']))}' : 'No mission date', style: const TextStyle(fontSize: 11)),
+                        Text(room['date'] != null ? 'Departure: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(room['date']))}' : 'No trip date', style: const TextStyle(fontSize: 11)),
                         const SizedBox(height: 4),
                         Text('Recent Intel: ${room['message'] ?? "No messages"}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
                       ],

@@ -1,35 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
-import 'edit_trek_screen.dart';
-import '../models/trek.dart';
+import 'edit_trip_screen.dart';
+import '../models/trip.dart';
 import 'blogs_screen.dart';
 
-class AdminTrekInventoryScreen extends StatefulWidget {
-  const AdminTrekInventoryScreen({super.key});
+class AdminTripInventoryScreen extends StatefulWidget {
+  const AdminTripInventoryScreen({super.key});
 
   @override
-  State<AdminTrekInventoryScreen> createState() => _AdminTrekInventoryScreenState();
+  State<AdminTripInventoryScreen> createState() => _AdminTripInventoryScreenState();
 }
 
-class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
+class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
-  List<dynamic> _treks = [];
+  List<dynamic> _trips = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchTreks();
+    _fetchTrips();
   }
 
-  Future<void> _fetchTreks() async {
+  Future<void> _fetchTrips() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _client.from('treks').select().order('title', ascending: true);
+      final res = await _client.from('trips').select().order('title', ascending: true);
       if (mounted) {
         setState(() {
-          _treks = res;
+          _trips = res;
           _isLoading = false;
         });
       }
@@ -38,12 +38,12 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
     }
   }
 
-  Future<void> _deleteTrek(String id) async {
+  Future<void> _deleteTrip(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('DECOMTREK TREK?'),
-        content: const Text('This will permanently remove this expedition from the terminal. Proceed?'),
+        title: const Text('REMOVE TRIP?'),
+        content: const Text('This will permanently remove this trip from the dashboard. Proceed?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('ABORT')),
           ElevatedButton(
@@ -57,9 +57,9 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
 
     if (confirmed == true) {
       try {
-        await _client.from('treks').delete().eq('id', id);
-        _fetchTreks();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trek decommissioned successfully.')));
+        await _client.from('trips').delete().eq('id', id);
+        _fetchTrips();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trip decomtriped successfully.')));
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
@@ -68,13 +68,13 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
 
   String _searchQuery = '';
   String _selectedCategory = 'All';
-  final List<String> _categories = ['All', 'Adventure Trek', 'Religious Trek', 'Yatra', 'Weekend Trek', 'International Trek'];
+  final List<String> _categories = ['All', 'Adventure Trip', 'Religious Trip', 'Yatra', 'Weekend Trip', 'International Trip'];
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    final filteredTreks = _treks.where((t) {
+    final filteredTrips = _trips.where((t) {
       final matchesSearch = (t['title'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
                             (t['location'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase());
       final matchesCat = _selectedCategory == 'All' || t['category'] == _selectedCategory;
@@ -84,12 +84,12 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
       appBar: AppBar(
-        title: const Text('TREK REPOSITORY', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)),
+        title: const Text('TRIP INVENTORY', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)),
         backgroundColor: isDark ? const Color(0xFF1E293B) : Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(icon: const Icon(Icons.add_box_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const EditTrekScreen())).then((v) { if(v == true) _fetchTreks(); })),
+          IconButton(icon: const Icon(Icons.add_box_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const EditTripScreen())).then((v) { if(v == true) _fetchTrips(); })),
         ],
       ),
       body: Column(
@@ -100,7 +100,7 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
             child: TextField(
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Search terminal for missions...',
+                hintText: 'Search dashboard for trips...',
                 hintStyle: const TextStyle(color: Colors.white60, fontSize: 12),
                 prefixIcon: const Icon(Icons.search, color: Colors.white70, size: 20),
                 filled: true,
@@ -133,14 +133,14 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
           Expanded(
             child: _isLoading 
                 ? const Center(child: CircularProgressIndicator())
-                : filteredTreks.isEmpty 
-                    ? Center(child: Text('No missions found in terminal.', style: TextStyle(color: isDark ? Colors.grey : Colors.grey[600])))
+                : filteredTrips.isEmpty 
+                    ? Center(child: Text('No trips found in dashboard.', style: TextStyle(color: isDark ? Colors.grey : Colors.grey[600])))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: filteredTreks.length,
+                        itemCount: filteredTrips.length,
                         itemBuilder: (context, index) {
-                          final trek = filteredTreks[index];
-                          final hasImage = trek['image_url'] != null && trek['image_url'].toString().isNotEmpty;
+                          final trip = filteredTrips[index];
+                          final hasImage = trip['image_url'] != null && trip['image_url'].toString().isNotEmpty;
                           
                           return FadeInUp(
                             delay: Duration(milliseconds: index * 50),
@@ -163,21 +163,21 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
                                     child: hasImage 
-                                      ? Image.network(trek['image_url'], fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image, size: 20))
+                                      ? Image.network(trip['image_url'], fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image, size: 20))
                                       : const Icon(Icons.terrain, color: Colors.grey, size: 24),
                                   ),
                                 ),
-                                title: Text(trek['title'] ?? 'Official Expedition', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                title: Text(trip['title'] ?? 'Official Trip', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 4),
-                                    Text('${trek['location']} • ₹${trek['base_price']}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                    Text('${trip['location']} • ₹${trip['base_price']}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                     const SizedBox(height: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                                      child: Text(trek['category']?.toUpperCase() ?? 'ADVENTURE', style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 8, fontWeight: FontWeight.bold)),
+                                      child: Text(trip['category']?.toUpperCase() ?? 'ADVENTURE', style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 8, fontWeight: FontWeight.bold)),
                                     ),
                                   ],
                                 ),
@@ -186,9 +186,9 @@ class _AdminTrekInventoryScreenState extends State<AdminTrekInventoryScreen> {
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.edit_note, size: 22, color: Colors.blueAccent), 
-                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => EditTrekScreen(trek: Trek.fromJson(trek)))).then((v) { if(v == true) _fetchTreks(); })
+                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => EditTripScreen(trip: Trip.fromJson(trip)))).then((v) { if(v == true) _fetchTrips(); })
                                     ),
-                                    IconButton(icon: const Icon(Icons.delete_sweep_outlined, size: 22, color: Colors.redAccent), onPressed: () => _deleteTrek(trek['id'].toString())),
+                                    IconButton(icon: const Icon(Icons.delete_sweep_outlined, size: 22, color: Colors.redAccent), onPressed: () => _deleteTrip(trip['id'].toString())),
                                   ],
                                 ),
                               ),

@@ -3,11 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 
 class GearChecklistScreen extends StatefulWidget {
-  final String trekId;
-  final String trekTitle;
+  final String tripId;
+  final String tripTitle;
   final List<String> carryList;
 
-  const GearChecklistScreen({super.key, required this.trekId, required this.trekTitle, this.carryList = const []});
+  const GearChecklistScreen({super.key, required this.tripId, required this.tripTitle, this.carryList = const []});
 
   @override
   State<GearChecklistScreen> createState() => _GearChecklistScreenState();
@@ -19,11 +19,11 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
   bool _isLoading = true;
 
   final List<String> _defaultGear = [
-    'Trekking Shoes',
+    'Tripking Shoes',
     'Rucksack (50L-60L)',
     'Warm Down Jacket',
     'Thermal Innerwear',
-    'Trekking Pants x2',
+    'Tripking Pants x2',
     'Full Sleeve T-Shirts x3',
     'Woolen Socks x3',
     'Gloves (Waterproof)',
@@ -50,7 +50,7 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
           .from('gear_checklists')
           .select('*')
           .eq('user_id', _currentUser!.id)
-          .eq('trek_id', widget.trekId)
+          .eq('trip_id', widget.tripId)
           .order('created_at', ascending: true);
 
       if (response.isEmpty && mounted) {
@@ -59,7 +59,7 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
         for (final item in gearToUse) {
           await Supabase.instance.client.from('gear_checklists').insert({
             'user_id': _currentUser!.id,
-            'trek_id': widget.trekId,
+            'trip_id': widget.tripId,
             'item_name': item,
             'is_packed': false,
           });
@@ -69,7 +69,7 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
             .from('gear_checklists')
             .select('*')
             .eq('user_id', _currentUser!.id)
-            .eq('trek_id', widget.trekId)
+            .eq('trip_id', widget.tripId)
             .order('created_at', ascending: true);
         
         if (mounted) {
@@ -117,7 +117,7 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
     try {
       await Supabase.instance.client.from('gear_checklists').insert({
         'user_id': _currentUser!.id,
-        'trek_id': widget.trekId,
+        'trip_id': widget.tripId,
         'item_name': name,
         'is_packed': false,
       });
@@ -132,7 +132,7 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Add Trek Gear'),
+        title: const Text('Add Trip Gear'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -154,60 +154,115 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentUser == null) {
-      return Scaffold(
-        appBar: AppBar(title: Text('Gear Checklist - ${widget.trekTitle}')),
-        body: const Center(child: Text('Please log in to manage your gear checklist.')),
-      );
-    }
+   if (_currentUser == null) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text(
+        'Gear Checklist - ${widget.tripTitle}',
+        style: const TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 16,
+          color: Colors.white,
+          letterSpacing: 1.5,
+        ),
+      ),
+      backgroundColor: const Color(0xFFD32F2F),
+      elevation: 0,
+    ),
+    body: const Center(
+      child: Text(
+        'Please log in to manage your gear checklist.',
+      ),
+    ),
+  );
+}
 
     final packedCount = _checklist.where((item) => item['is_packed'] == true).length;
     final totalCount = _checklist.length;
     final progress = totalCount == 0 ? 0.0 : packedCount / totalCount;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Gear Tracker', style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
+     appBar: AppBar(
+  title: const Text(
+    'Gear Tracker',
+    style: TextStyle(
+      fontWeight: FontWeight.w700,
+      fontSize: 18,
+      letterSpacing: 0.5,
+    ),
+  ),
+  centerTitle: true,
+  backgroundColor: const Color(0xFFD32F2F), // your previous red
+  foregroundColor: Colors.white,
+  elevation: 0,
+  surfaceTintColor: Colors.transparent, // avoids weird overlay
+),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
-                  ),
-                  child: FadeInDown(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.trekTitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('LOADOUT PROGRESS', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                            Text('$packedCount / $totalCount ITEMS', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 10)),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 8,
-                            backgroundColor: Colors.white10,
-                            valueColor: AlwaysStoppedAnimation<Color>(progress == 1.0 ? Colors.greenAccent : Colors.white),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
+  padding: const EdgeInsets.all(24),
+  decoration: const BoxDecoration(
+    color: Color(0xFFD32F2F), // <-- same red as AppBar
+    borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+  ),
+  child: FadeInDown(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.tripTitle,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'LOADOUT PROGRESS',
+              style: TextStyle(
+                color: Colors.white70, // <-- softer than grey on red
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+            Text(
+              '$packedCount / $totalCount ITEMS',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white, // <-- green looked weird on red
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: Colors.white24,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              progress == 1.0
+                  ? Colors.greenAccent // keep success feedback
+                  : Colors.white,
+            ),
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
@@ -262,13 +317,19 @@ class _GearChecklistScreenState extends State<GearChecklistScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddDialog,
-        backgroundColor: Colors.black,
-        elevation: 8,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('ADD CUSTOM GEAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
+     floatingActionButton: FloatingActionButton(
+  onPressed: _showAddDialog,
+  backgroundColor: Colors.black,
+  elevation: 8,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(16),
+  ),
+  child: const Icon(
+    Icons.add,
+    color: Colors.white,
+    size: 26,
+  ),
+),
     );
   }
 }

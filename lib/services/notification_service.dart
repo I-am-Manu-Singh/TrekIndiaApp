@@ -37,9 +37,9 @@ class NotificationService {
     required String roomId,
   }) async {
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'trek_chats',
-      'Trek Group Chats',
-      channelDescription: 'Notifications for trek group messages',
+      'trip_chats',
+      'Trip Group Chats',
+      channelDescription: 'Notifications for trip group messages',
       importance: Importance.max,
       priority: Priority.high,
     );
@@ -72,8 +72,8 @@ class NotificationService {
     int? maxProgress,
   }) async {
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'trek_workouts',
-      'Trek Conditioning',
+      'trip_workouts',
+      'Trip Conditioning',
       channelDescription: 'Active workout progress and instructions',
       importance: Importance.low,
       priority: Priority.low,
@@ -101,6 +101,69 @@ class NotificationService {
     await _notificationsPlugin.cancel(999);
   }
 
+  static Future<void> showRefundNotification({
+    required String tripName,
+    required String bookingId,
+  }) async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'trip_refunds',
+      'Trip Refunds',
+      channelDescription: 'Notifications for trip refunds and cancellations',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
+    );
+
+    await _notificationsPlugin.show(
+      bookingId.hashCode,
+      'Refund Ready: $tripName',
+      'Your refund advice for $tripName is now ready for download in the dashboard.',
+      notificationDetails,
+      payload: 'refund_$bookingId',
+    );
+  }
+
+  static RealtimeChannel? _bookingChannel;
+
+  static void listenToBookingChanges() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || _bookingChannel != null) return;
+
+    _bookingChannel = Supabase.instance.client.channel('public:bookings')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'bookings',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'user_id',
+          value: user.id,
+        ),
+        callback: (payload) async {
+          final oldStatus = payload.oldRecord['status'];
+          final newStatus = payload.newRecord['status'];
+          
+          if (oldStatus != 'cancelled' && newStatus == 'cancelled') {
+            // Fetch trip title
+            try {
+              final tripId = payload.newRecord['trip_id'];
+              final tripRes = await Supabase.instance.client.from('trips').select('title').eq('id', tripId).single();
+              
+              showRefundNotification(
+                tripName: tripRes['title'] ?? 'Trip',
+                bookingId: payload.newRecord['id'],
+              );
+            } catch (_) {}
+          }
+        },
+      )
+      ..subscribe();
+  }
+
   static String? activeRoomId;
   static RealtimeChannel? _messageChannel;
 
@@ -108,11 +171,11 @@ class NotificationService {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null || _messageChannel != null) return;
 
-    _messageChannel = Supabase.instance.client.channel('public:messages')
+    _messageChannel = Supabase.instance.client.channel('public:chat_messages')
       ..onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: 'public',
-        table: 'messages',
+        table: 'chat_messages',
         callback: (payload) async {
           final newMessage = payload.newRecord;
           if (newMessage['sender_id'] == user.id) return;

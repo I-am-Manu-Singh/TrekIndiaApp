@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:animate_do/animate_do.dart';
-import 'package:intl/intl.dart';
+import '../widgets/glass_shimmer.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:animate_do/animate_do.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -18,9 +19,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Map<String, dynamic> _stats = {
     'revenue': 0.0,
     'bookings': 0,
-    'treks': 0,
+    'trips': 0,
     'enquiries': 0,
-    'personnel': 0,
+    'staff': 0,
     'reports': 0,
     'complaints': 0,
   };
@@ -37,10 +38,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final broadcastRes = await _client.from('global_announcements').select().order('created_at', ascending: false);
       final bookingRes = await _client.from('bookings').select('total_price, paid_amount, booking_date');
-      final trekRes = await _client.from('trek_groups').select('id').gte('departure_date', DateTime.now().toIso8601String());
+      final tripRes = await _client.from('trip_groups').select('id').gte('departure_date', DateTime.now().toIso8601String());
       final enquiryRes = await _client.from('support_inquiries').select('id').eq('status', 'pending');
       final profileRes = await _client.from('profiles').select('id, role').neq('role', 'user');
-      final complaintRes = await _client.from('user_complaints').select('id').eq('status', 'pending');
+      final complaintRes = await _client.from('complaints').select('id').or('status.eq.pending,status.eq.Pending');
+      final taskRes = await _client.from('employee_tasks').select('id').eq('status', 'Pending');
 
       double revenue = 0;
       Map<int, double> monthlyRev = {};
@@ -67,11 +69,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _stats = {
             'revenue': revenue,
             'bookings': bookingRes.length,
-            'treks': trekRes.length,
+            'trips': tripRes.length,
             'enquiries': enquiryRes.length,
-            'personnel': profileRes.length,
-            'reports': enquiryRes.length, // Proxy
+            'staff': profileRes.length,
+            'reports': enquiryRes.length, 
             'complaints': complaintRes.length,
+            'tasks': taskRes.length,
           };
           _isLoading = false;
         });
@@ -86,24 +89,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FBF9),
       appBar: AppBar(
-        title: const Text('HQ COMMAND CENTER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 1.5)),
-        backgroundColor: Colors.black,
+        title: const Text('ADMIN DASHBOARD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 1.5)),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.refresh, color: Colors.white, size: 20), onPressed: _loadDashboardData),
-          IconButton(icon: const Icon(Icons.add_circle, color: Colors.blueAccent, size: 20), onPressed: () => _showBroadcastModal()),
+          IconButton(icon: const Icon(Icons.add_circle, color: Colors.white, size: 20), onPressed: () => _showBroadcastModal()),
         ],
       ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
+        ? _buildDashboardShimmer()
         : RefreshIndicator(
             onRefresh: _loadDashboardData,
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                _buildIntelligenceGraph(),
+                _buildAnalyticsGraph(),
                 const SizedBox(height: 32),
-                const Text('TREK METRICS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
+                const Text('KEY METRICS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
                 const SizedBox(height: 16),
                 GridView.count(
                   crossAxisCount: 2,
@@ -113,16 +116,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1.6,
                   children: [
-                    _statCard('TOTAL REVENUE', '₹${(_stats['revenue'] / 1000).toStringAsFixed(1)}K', Icons.payments, Colors.green, onTap: () => Navigator.pushNamed(context, '/hq_finance')),
-                    _statCard('TOTAL BOOKINGS', '${_stats['bookings']}', Icons.assignment, Colors.blue, onTap: () => Navigator.pushNamed(context, '/admin_bookings')),
-                    _statCard('FIELD PERSONNEL', '${_stats['personnel']}', Icons.people, Colors.orange, onTap: () => Navigator.pushNamed(context, '/admin_staff')),
-                    _statCard('ACTIVE REPORTS', '${_stats['reports']}', Icons.analytics, Colors.purple, onTap: () => Navigator.pushNamed(context, '/chat_rooms')),
-                    _statCard('COMPLAINTS', '${_stats['complaints']}', Icons.report_problem, Colors.red, onTap: () => Navigator.pushNamed(context, '/admin_complaints')),
-                    _statCard('PENDING INTEL', '${_stats['enquiries']}', Icons.support_agent, Colors.indigo, onTap: () => Navigator.pushNamed(context, '/chat_rooms')),
+                    _statCard('TOTAL REVENUE', '₹${(_stats['revenue'] / 1000).toStringAsFixed(1)}K', Icons.payments, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_finance')),
+                    _statCard('TOTAL BOOKINGS', '${_stats['bookings']}', Icons.assignment, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_bookings')),
+                    _statCard('TOTAL STAFF', '${_stats['staff']}', Icons.people, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_employees')),
+                    _statCard('ACTIVE REPORTS', '${_stats['reports']}', Icons.analytics, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_support_inquiries')),
+                    _statCard('COMPLAINTS', '${_stats['complaints']}', Icons.report_problem, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_complaints')),
+                    _statCard('PENDING TASKS', '${_stats['tasks']}', Icons.task_alt, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_tasks')),
                   ],
                 ),
                 const SizedBox(height: 40),
-                const Text('GLOBAL BROADCAST CONTROL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
+                const Text('NOTIFICATIONS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
                 const SizedBox(height: 16),
                 if (_broadcasts.isEmpty)
                   const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('NO ACTIVE BROADCASTS', style: TextStyle(color: Colors.grey, fontSize: 12))))
@@ -135,7 +138,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildIntelligenceGraph() {
+  Widget _buildAnalyticsGraph() {
     return FadeInDown(
       child: Container(
         height: 250,
@@ -147,7 +150,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         child: Column(
           children: [
-            const Text('REVENUE INTELLIGENCE (MONTHLY)', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
+            const Text('REVENUE TRENDS (MONTHLY)', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
             const SizedBox(height: 20),
             Expanded(
               child: LineChart(
@@ -159,14 +162,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     LineChartBarData(
                       spots: _revenueSpots,
                       isCurved: true,
-                      color: Colors.blueAccent,
+                      color: const Color(0xFFD32F2F),
                       barWidth: 4,
                       isStrokeCapRound: true,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
                         gradient: LinearGradient(
-                          colors: [Colors.blueAccent.withOpacity(0.3), Colors.blueAccent.withOpacity(0)],
+                          colors: [const Color(0xFFD32F2F).withOpacity(0.3), const Color(0xFFD32F2F).withOpacity(0)],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),
@@ -224,7 +227,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
-          Text(b['title'] ?? 'URGENT INTEL', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(b['title'] ?? 'URGENT INFO', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 6),
           Text(b['content'] ?? '', style: const TextStyle(fontSize: 12, color: Colors.black54)),
         ],
@@ -246,11 +249,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('OFFICIAL BROADCAST', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+            const Text('SEND NOTIFICATION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
             const SizedBox(height: 24),
-            _modalInput(titleCtrl, 'Intel Title...', 1),
+            _modalInput(titleCtrl, 'Title...', 1),
             const SizedBox(height: 16),
-            _modalInput(contentCtrl, 'Intel Content...', 4),
+            _modalInput(contentCtrl, 'Content...', 4),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -266,8 +269,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Navigator.pop(ctx);
                   _loadDashboardData();
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                child: const Text('ENGAGE BROADCAST', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                child: const Text('SEND', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
             ),
           ],
@@ -281,6 +284,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       controller: ctrl,
       maxLines: lines,
       decoration: InputDecoration(hintText: hint, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15))),
+    );
+  }
+
+  Widget _buildDashboardShimmer() {
+    return GlassShimmer(
+      child: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const ShimmerBlock(width: double.infinity, height: 250, borderRadius: 25),
+          const SizedBox(height: 32),
+          const ShimmerBlock(width: 100, height: 12),
+          const SizedBox(height: 16),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.6,
+            children: List.generate(6, (i) => const ShimmerBlock(width: double.infinity, height: 80, borderRadius: 15)),
+          ),
+          const SizedBox(height: 40),
+          const ShimmerBlock(width: 120, height: 12),
+          const SizedBox(height: 16),
+          ...List.generate(3, (i) => const ShimmerBlock(width: double.infinity, height: 100, margin: EdgeInsets.only(bottom: 12), borderRadius: 20)),
+        ],
+      ),
     );
   }
 }

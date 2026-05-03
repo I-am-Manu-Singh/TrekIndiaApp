@@ -11,10 +11,10 @@ import 'legal/safety_protocols_screen.dart';
 class AppInfoScreen extends StatelessWidget {
   const AppInfoScreen({super.key});
 
-  final String companyName = "Trek India Expeditions";
+  final String companyName = "Trip India Expeditions";
   final String phoneNumber = "+91 98765 43210";
-  final String supportEmail = "support@trekindia.com";
-  final String website = "https://trekindia.com";
+  final String supportEmail = "support@tripindia.com";
+  final String website = "https://tripindia.com";
   final String version = "1.0.0+1";
 
   Future<void> _launchUrl(String url) async {
@@ -29,9 +29,9 @@ class AppInfoScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('APP INFO', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+        title: const Text('APP INFO', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16, color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -45,13 +45,13 @@ class AppInfoScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.05),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.orangeAccent.withOpacity(0.2)),
+                    border: Border.all(color: const Color(0xFFD32F2F).withOpacity(0.2)),
                   ),
                   child: Image.asset(
                     'assets/images/app_logo.png',
                     width: 100,
                     height: 100,
-                    errorBuilder: (c, e, s) => const Icon(Icons.terrain, size: 80, color: Colors.orangeAccent),
+                    errorBuilder: (c, e, s) => const Icon(Icons.terrain, size: 80, color: Color(0xFFD32F2F)),
                   ),
                 ),
               ),
@@ -77,7 +77,7 @@ class AppInfoScreen extends StatelessWidget {
                     label: 'Share',
                     onTap: () {
                       Share.share(
-                        'Join me on the most epic treks in India! Download Trek India Expeditions now: $website',
+                        'Join me on the most epic trips in India! Download Trip India Expeditions now: $website',
                       );
                     },
                     isDark: isDark,
@@ -105,25 +105,25 @@ class AppInfoScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            _buildSectionTitle('OPERATIONAL CONTACTS'),
+            _buildSectionTitle('CUSTOMER SUPPORT'),
             const SizedBox(height: 12),
-            _infoTile(Icons.phone_outlined, 'Trek Support', phoneNumber, () => _launchUrl('tel:$phoneNumber'), isDark),
-            _infoTile(Icons.email_outlined, 'Trek Control', supportEmail, () => _launchUrl('mailto:$supportEmail'), isDark),
-            _infoTile(Icons.language_outlined, 'Digital Domain', website, () => _launchUrl(website), isDark),
+            _infoTile(Icons.phone_outlined, 'Customer Support Number', phoneNumber, () => _launchUrl('tel:$phoneNumber'), isDark),
+            _infoTile(Icons.email_outlined, 'Customer Support Email', supportEmail, () => _launchUrl('mailto:$supportEmail'), isDark),
+            _infoTile(Icons.language_outlined, 'Official Website', website, () => _launchUrl(website), isDark),
             const SizedBox(height: 12),
             _buildSectionTitle('IMPORTANT DOCUMENTS'),
         const SizedBox(height: 12),
         _infoTile(Icons.privacy_tip_outlined, 'Privacy Policy', 'Data protection protocols', 
           () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen())), isDark),
-        _infoTile(Icons.gavel_outlined, 'Terms of Service', 'Trek engagement rules', 
+        _infoTile(Icons.gavel_outlined, 'Terms of Service', 'Trip engagement rules', 
           () => Navigator.push(context, MaterialPageRoute(builder: (c) => const TermsOfServiceScreen())), isDark),
-        _infoTile(Icons.monetization_on_outlined, 'Refund Policy', 'Fiscal cancellation intel', 
+        _infoTile(Icons.monetization_on_outlined, 'Refund Policy', 'Fiscal cancellation info', 
           () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RefundPolicyScreen())), isDark),
-        _infoTile(Icons.health_and_safety_outlined, 'Safety Protocols', 'Trek survival rules', 
+        _infoTile(Icons.health_and_safety_outlined, 'Safety Protocols', 'Trip survival rules', 
           () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SafetyProtocolsScreen())), isDark),
         const SizedBox(height: 30), // Reduced from 60
-            Text('© 2026 Trek India Expeditions. All Rights Reserved.', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey.withOpacity(0.5), fontSize: 10)),
-            const Text('E2E ENCRYPTED TREK DATA', style: TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
+            Text('© 2026 Trip India Expeditions. All Rights Reserved.', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey.withOpacity(0.5), fontSize: 10)),
+            const Text('E2E ENCRYPTED TRIP DATA', style: TextStyle(color: Color(0xFFD32F2F), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
           ],
         ),
       ),
@@ -134,7 +134,7 @@ class AppInfoScreen extends StatelessWidget {
     return FadeInLeft(
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(title, style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
+        child: Text(title, style: const TextStyle(color: Color(0xFFD32F2F), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
       ),
     );
   }

@@ -17,6 +17,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
   bool _isLoading = true;
   List<dynamic> _tasks = [];
   String? _myRole;
+  String _searchQuery = "";
 
   @override
   void initState() {
@@ -98,13 +99,13 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('DELEGATE TREK TASK', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
+                Text('DELEGATE TRIP TASK', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
                 const SizedBox(height: 24),
                 _modalInput(titleCtrl, 'Task Headline...'),
                 const SizedBox(height: 16),
-                _modalInput(descCtrl, 'Detailed Trek briefing...', lines: 3),
+                _modalInput(descCtrl, 'Detailed Trip briefing...', lines: 3),
                 const SizedBox(height: 16),
-                Text('ASSIGN TO PERSONNEL', style: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                Text('ASSIGN TO STAFF', style: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 8),
                 loadingStaff 
                   ? const CircularProgressIndicator()
@@ -113,7 +114,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
                       decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
                       child: DropdownButton<String>(
                         value: selectedAssignee,
-                        hint: Text('Select Personnel', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey, fontSize: 13)),
+                        hint: Text('Select Employee', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey, fontSize: 13)),
                         dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                         isExpanded: true,
                         underline: const SizedBox(),
@@ -171,30 +172,157 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final pending = _tasks.where((t) => t['status'] == 'Pending').length;
+    final active = _tasks.where((t) => t['status'] == 'In Progress').length;
+    final done = _tasks.where((t) => t['status'] == 'Completed').length;
+    final total = _tasks.length;
+    final double percent = total == 0 ? 0 : (done / total);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('TREK TASK COMMAND', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5)),
-        backgroundColor: Colors.black, foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabController,
-          labelStyle: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-          indicatorColor: Colors.blueAccent,
-          isScrollable: false,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          tabs: const [Tab(text: 'PENDING'), Tab(text: 'ACTIVE'), Tab(text: 'DONE'), Tab(text: 'STATS')],
-        ),
+        title: const Text('TASK CONTROL CENTER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2)),
+        backgroundColor: const Color(0xFFD32F2F), 
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : TabBarView(
-            controller: _tabController,
+        : Column(
             children: [
-              _buildTaskList('Pending'),
-              _buildTaskList('In Progress'),
-              _buildTaskList('Completed'),
-              _buildAnalyticsTab(),
+              // Fixed Stats Section
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFD32F2F), Color(0xFFB71C1C), Color(0xFF880E4F)],
+                  ),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))
+                  ]
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        _topStatItem('PENDING', pending, Colors.orangeAccent),
+                        _topStatItem('ACTIVE', active, Colors.blueAccent),
+                        _topStatItem('DONE', done, Colors.greenAccent),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('TOTAL EFFICIENCY', style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                              Text('${(percent * 100).toInt()}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: percent,
+                              backgroundColor: Colors.white12,
+                              color: Colors.white,
+                              minHeight: 4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Search Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Container(
+                  height: 45,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                  ),
+                  child: TextField(
+                    onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Search tasks...',
+                      hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search, size: 18, color: Colors.grey.shade400),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Tabs
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicator: BoxDecoration(
+                      borderRadius: BorderRadius.circular(25),
+                      color: isDark ? Colors.blueAccent : Colors.black,
+                    ),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.grey,
+                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    dividerColor: Colors.transparent,
+                    tabs: const [
+                      Tab(text: 'PENDING'),
+                      Tab(text: 'ACTIVE'),
+                      Tab(text: 'DONE'),
+                      Tab(text: 'ALL'),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Task List Content
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildTaskList('Pending'),
+                    _buildTaskList('In Progress'),
+                    _buildTaskList('Completed'),
+                    _buildTaskList('All'),
+                  ],
+                ),
+              ),
             ],
           ),
       floatingActionButton: _myRole == 'admin' ? FloatingActionButton(
@@ -205,38 +333,97 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
     );
   }
 
+  Widget _topStatItem(String label, int val, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text('$val', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+            child: Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTaskList(String status) {
-    final filtered = _tasks.where((t) => t['status'] == status).toList();
-    if (filtered.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.assignment_turned_in_outlined, size: 50, color: Colors.grey), const SizedBox(height: 16), Text('No $status tasks in terminal.', style: const TextStyle(color: Colors.grey))]));
+    var filtered = status == 'All' ? _tasks : _tasks.where((t) => t['status'] == status).toList();
+    
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((t) => 
+        (t['title']?.toString().toLowerCase().contains(_searchQuery) ?? false) ||
+        (t['description']?.toString().toLowerCase().contains(_searchQuery) ?? false)
+      ).toList();
+    }
+    if (filtered.isEmpty) {
+      return FadeIn(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, 
+            children: [
+              Icon(Icons.assignment_turned_in_outlined, size: 40, color: Colors.grey.withOpacity(0.3)), 
+              const SizedBox(height: 16), 
+              Text('No $status tasks', style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500))
+            ]
+          ),
+        ),
+      );
+    }
     
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       itemCount: filtered.length,
-      itemBuilder: (context, i) => _buildTaskCard(filtered[i]),
+      itemBuilder: (context, i) => FadeInUp(
+        duration: Duration(milliseconds: 300 + (i * 100)),
+        child: _buildTaskCard(filtered[i]),
+      ),
     );
   }
 
   Widget _buildTaskCard(dynamic t) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final statusColor = t['status'] == 'Pending' ? Colors.orange : (t['status'] == 'In Progress' ? Colors.blue : Colors.green);
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100)),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor, 
+        borderRadius: BorderRadius.circular(20), 
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        boxShadow: [
+          if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+        ]
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _priorityChip(t['priority'] ?? 'Medium'),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(t['status'].toString().toUpperCase(), style: TextStyle(color: statusColor, fontSize: 7, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
               Text(DateFormat('dd MMM').format(DateTime.parse(t['created_at'])), style: const TextStyle(fontSize: 8, color: Colors.grey)),
             ],
           ),
           const SizedBox(height: 12),
-          Text(t['title'], style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
-          const SizedBox(height: 4),
-          Text(t['description'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12, height: 1.4)),
-          const SizedBox(height: 20),
+          Text(t['title'], style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: isDark ? Colors.white : Colors.black87)),
+          if (t['description'] != null && t['description'].toString().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(t['description'], style: const TextStyle(color: Colors.grey, fontSize: 11, height: 1.4)),
+          ],
+          const SizedBox(height: 16),
           Row(
             children: [
                UserAvatar(
@@ -245,10 +432,10 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
                  radius: 12,
                ),
                const SizedBox(width: 8),
-               Text(t['assignee']?['full_name'] ?? 'Unassigned', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+               Text(t['assignee']?['full_name'] ?? 'Unassigned', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black54)),
                const Spacer(),
                if (t['status'] != 'Completed') _statusBtn(t),
-               if (t['status'] == 'Completed') const Icon(Icons.check_circle, color: Colors.green, size: 20),
+               if (t['status'] == 'Completed') const Icon(Icons.check_circle, color: Colors.green, size: 22),
             ],
           )
         ],
@@ -258,66 +445,38 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
 
   Widget _statusBtn(dynamic t) {
     String next = t['status'] == 'Pending' ? 'In Progress' : 'Completed';
-    return ElevatedButton(
-      onPressed: () => _updateTaskStatus(t['id'], next),
-      style: ElevatedButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size(80, 30), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-      child: Text(next.toUpperCase(), style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _updateTaskStatus(t['id'], next),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))]
+          ),
+          child: Text(next.toUpperCase(), style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ),
     );
   }
 
   Widget _priorityChip(String p) {
     Color c = p == 'Urgent' ? Colors.red : (p == 'High' ? Colors.orange : Colors.blue);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-      child: Text(p.toUpperCase(), style: TextStyle(color: c, fontSize: 8, fontWeight: FontWeight.w900)),
-    );
-  }
-
-  Widget _buildAnalyticsTab() {
-    final pending = _tasks.where((t) => t['status'] == 'Pending').length;
-    final active = _tasks.where((t) => t['status'] == 'In Progress').length;
-    final done = _tasks.where((t) => t['status'] == 'Completed').length;
-    final total = _tasks.length;
-    final double percent = total == 0 ? 0 : (done / total);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(30),
-          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(30)),
-          child: Column(
-            children: [
-              const Text('TERMINAL EFFICIENCY', style: TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 2)),
-              const SizedBox(height: 12),
-              Text('${(percent * 100).toInt()}%', style: const TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900)),
-              const Text('COMPLETION RATE', style: TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
-              LinearProgressIndicator(value: percent, backgroundColor: Colors.white12, color: Colors.blueAccent, minHeight: 8, borderRadius: BorderRadius.circular(4)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 32),
-        Row(
-          children: [
-            Expanded(child: _statCard('PENDING', pending, Colors.orange, isDark)),
-            const SizedBox(width: 16),
-            Expanded(child: _statCard('ACTIVE', active, Colors.blue, isDark)),
-            const SizedBox(width: 16),
-            Expanded(child: _statCard('DONE', done, Colors.green, isDark)),
-          ],
-        )
-      ],
-    );
-  }
-
-  Widget _statCard(String label, int val, Color c, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100)),
-      child: Column(children: [Text('$val', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: c)), Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey))]),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.fiber_manual_record, size: 6, color: c),
+          const SizedBox(width: 4),
+          Text(p.toUpperCase(), style: TextStyle(color: c, fontSize: 7, fontWeight: FontWeight.w900)),
+        ],
+      ),
     );
   }
 }
+

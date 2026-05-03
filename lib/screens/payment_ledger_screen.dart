@@ -33,49 +33,58 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
       final bool isAdmin = (profile?['role'] ?? 'user') == 'admin';
       if (mounted) _role = profile?['role'] ?? 'user';
 
-      // 1. Fetch Bookings
-      var bQuery = _client.from('bookings').select('*, treks(title), profiles(full_name)');
+      // 1. Fetch Data Independently (Manual Join)
+      var bQuery = _client.from('bookings').select();
       if (!isAdmin) bQuery = bQuery.eq('user_id', user.id);
-      final bookingsRes = await bQuery.order('booking_date', ascending: false);
+      final bookingsResRaw = await bQuery.order('booking_date', ascending: false);
 
-      // 2. Fetch Rentals
-      var rQuery = _client.from('user_rentals').select('*, gear:gears(name), profiles(full_name)');
+      var rQuery = _client.from('user_rentals').select();
       if (!isAdmin) rQuery = rQuery.eq('user_id', user.id);
-      final rentalsRes = await rQuery.order('issue_date', ascending: false);
+      final rentalsResRaw = await rQuery.order('issue_date', ascending: false);
 
-      // 3. Fetch Manual Payouts / SalaryLogs
-      var pQuery = _client.from('payment_logs').select('*, profiles(full_name)');
-      // For Admin: show all payouts. For others: show only their own payouts.
+      var pQuery = _client.from('payment_logs').select();
       if (!isAdmin) pQuery = pQuery.eq('user_id', user.id);
-      final logsRes = await pQuery.order('created_at', ascending: false);
+      final logsResRaw = await pQuery.order('created_at', ascending: false);
+
+      // Pre-fetch relation mapping
+      final allTrips = await _client.from('trips').select('id, title');
+      final allProfiles = await _client.from('profiles').select('id, full_name');
+      final allGears = await _client.from('gears').select('id, name');
+
+      final tripMap = {for (var t in allTrips) t['id']: t['title']};
+      final profileMap = {for (var p in allProfiles) p['id']: p['full_name']};
+      final gearMap = {for (var g in allGears) g['id']: g['name']};
 
       List<dynamic> combined = [];
       double balance = 0;
 
-      // Logic: For ADMIN: Bookings/Rentals are Incoming (+), Payouts are Outgoing (-)
-      // Logic: For USER: Bookings/Rentals are Outgoing (-), Payouts (Salary) are Incoming (+)
-
-      for (var b in bookingsRes) {
+      // Process Bookings
+      for (var b in bookingsResRaw as List) {
         double amt = double.tryParse(b['paid_amount'].toString()) ?? 0;
-        bool isIncome = isAdmin; 
+        bool isIncome = isAdmin;
         balance += isIncome ? amt : -amt;
+        final uName = profileMap[b['user_id']] ?? 'User';
+        final tTitle = tripMap[b['trip_id']] ?? 'Trip Payment';
         combined.add({
-          'title': (isAdmin ? '[${b['profiles']?['full_name'] ?? 'User'}] ' : '') + (b['treks']?['title'] ?? 'Expedition Payment'),
+          'title': (isAdmin ? '[$uName] ' : '') + tTitle,
           'amount': amt,
           'date': b['booking_date'],
-          'type': 'Expedition',
+          'type': 'Trip',
           'is_income': isIncome,
           'icon': Icons.terrain,
           'color': Colors.blue,
         });
       }
 
-      for (var r in rentalsRes) {
+      // Process Rentals
+      for (var r in rentalsResRaw as List) {
         double amt = double.tryParse(r['total_price'].toString()) ?? 0;
         bool isIncome = isAdmin;
         balance += isIncome ? amt : -amt;
+        final uName = profileMap[r['user_id']] ?? 'User';
+        final gName = gearMap[r['gear_id']] ?? 'Rental Item';
         combined.add({
-          'title': (isAdmin ? '[${r['profiles']?['full_name'] ?? 'User'}] ' : '') + 'Gear: ${r['gear']?['name'] ?? 'Rental Item'}',
+          'title': (isAdmin ? '[$uName] ' : '') + 'Gear: $gName',
           'amount': amt,
           'date': r['issue_date'],
           'type': 'Gear',
@@ -85,20 +94,16 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
         });
       }
 
-      for (var l in logsRes) {
+      // Process Finance Logs
+      for (var l in logsResRaw as List) {
         double amt = double.tryParse(l['amount'].toString()) ?? 0;
         final bool isLogIncoming = l['is_incoming'] == true;
-        
-        bool isIncome;
-        if (isAdmin) {
-           isIncome = isLogIncoming; // For admin, logs marked as incoming are HQ Income, else Expense
-        } else {
-           isIncome = !isLogIncoming; // For user, HQ expense is User Income
-        }
+        bool isIncome = isAdmin ? isLogIncoming : !isLogIncoming;
 
         balance += isIncome ? amt : -amt;
+        final uName = profileMap[l['user_id']] ?? 'Staff';
         combined.add({
-          'title': (isAdmin ? '[${l['profiles']?['full_name'] ?? 'Personnel'}] ' : '') + (l['payment_type'] ?? 'Trek Payout'),
+          'title': (isAdmin ? '[$uName] ' : '') + (l['payment_type'] ?? 'Trip Payout'),
           'amount': amt,
           'date': l['created_at'],
           'type': l['payment_type'] ?? 'Finance',
@@ -113,7 +118,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
       if (mounted) {
         setState(() {
           _transactions = combined;
-          _totalSpent = balance; // Using balance as the displayed total
+          _totalSpent = balance;
           _isLoading = false;
         });
       }
@@ -129,7 +134,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       appBar: AppBar(
         title: const Text('MY OFFICIAL WALLET', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-        backgroundColor: const Color(0xFF2E7B32),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
       ),
@@ -145,7 +150,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('TREK TRANSACTIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.white38 : Colors.grey, letterSpacing: 1.2)),
+                    Text('TRIP TRANSACTIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.white38 : Colors.grey, letterSpacing: 1.2)),
                     const SizedBox(height: 16),
                     ..._transactions.map((tx) => _buildTransactionCard(tx)).toList(),
                   ],
@@ -176,7 +181,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(_role == 'admin' ? 'OFFICIAL FISCAL BALANCE' : 'TOTAL TREK INVESTMENT', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          Text(_role == 'admin' ? 'OFFICIAL FISCAL BALANCE' : 'TOTAL TRIP INVESTMENT', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
           const SizedBox(height: 12),
           Text('${_totalSpent >= 0 ? "+" : "-"}₹${_totalSpent.abs().toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
           const SizedBox(height: 32),

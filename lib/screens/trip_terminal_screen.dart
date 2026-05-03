@@ -5,21 +5,22 @@ import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import 'my_trips_screen.dart';
 import 'blogs_screen.dart';
-import 'trek_training_hub.dart';
+import 'trip_training_hub.dart';
 import 'user_gear_rental_screen.dart';
 import 'user_complaints_screen.dart';
 import 'ai_guide_screen.dart';
 import 'achievements_screen.dart';
 import 'user_support_screen.dart';
+import '../services/invoice_service.dart';
 
-class TrekkerTerminalScreen extends StatefulWidget {
-  const TrekkerTerminalScreen({super.key});
+class TripTerminalScreen extends StatefulWidget {
+  const TripTerminalScreen({super.key});
 
   @override
-  State<TrekkerTerminalScreen> createState() => _TrekkerTerminalScreenState();
+  State<TripTerminalScreen> createState() => _TripTerminalScreenState();
 }
 
-class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
+class _TripTerminalScreenState extends State<TripTerminalScreen> {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
   Map<String, dynamic>? _userData;
@@ -32,7 +33,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTerminalData();
+    _loadDashboardData();
     _setupWalletListener();
   }
 
@@ -43,7 +44,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
         .from('payment_logs')
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)
-        .listen((_) => _loadTerminalData());
+        .listen((_) => _loadDashboardData());
   }
 
   @override
@@ -52,7 +53,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTerminalData() async {
+  Future<void> _loadDashboardData() async {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
@@ -73,12 +74,21 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
           .order('created_at', ascending: false)
           .limit(2);
 
+      final activeBookings = await _client
+          .from('bookings')
+          .select('*, trip:trips(*)')
+          .eq('user_id', user.id)
+          .neq('status', 'cancelled')
+          .order('trip_date', ascending: true)
+          .limit(3);
+
       if (mounted) {
         setState(() {
           _userData = profile;
           _role = profile?['role'] ?? 'user';
           _walletBalance = realBalance;
           _globalAnnouncements = announcements;
+          _activeBookings = activeBookings as List;
           _isLoading = false;
         });
       }
@@ -94,10 +104,10 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
-          'TREKKER TERMINAL',
+          'MY DASHBOARD',
           style: TextStyle(
             fontWeight: FontWeight.w900,
-            fontSize: 16,
+            fontSize: 12,
             color: Colors.white,
             letterSpacing: 1.5,
           ),
@@ -117,32 +127,22 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
       floatingActionButton: _role == 'admin' ? Padding(
         padding: const EdgeInsets.only(bottom: 20),
         child: FloatingActionButton.extended(
-          heroTag: 'trekker_support_fab',
+          heroTag: 'trip_support_fab',
           onPressed: _showSupportRegistry,
           backgroundColor: Colors.blueAccent,
           icon: const Icon(Icons.support_agent, color: Colors.white),
-          label: const Text('HQ SUPPORT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: const Text('TRIP INDIA SUPPORT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ) : null,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadTerminalData,
+              onRefresh: _loadDashboardData,
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
                   _buildWalletCard(),
-                   const SizedBox(height: 10),  
-                    const Text(
-                      'TREK HUB',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                   const SizedBox(height: 22),  
                   GridView.count(
                     crossAxisCount: 3,
                     shrinkWrap: true,
@@ -152,7 +152,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
                     children: [
                       _hubItem(
                         Icons.auto_stories_outlined,
-                        'My Stories',
+                        'MY BLOGS',
                         Colors.orange,
                         () => Navigator.push(
                           context,
@@ -177,7 +177,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
                         Icons.folder_shared_outlined,
                         'Documents',
                         Colors.teal,
-                        () => Navigator.pushNamed(context, '/tactical_dossier'),
+                        () => Navigator.pushNamed(context, '/travel_documents'),
                       ),
                       _hubItem(
                         Icons.shopping_bag_outlined,
@@ -208,14 +208,14 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
                         () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (c) => const TrekTrainingHub(),
+                            builder: (c) => const TripTrainingHub(),
                           ),
                         ),
                       ),
                       if (_role != 'user')
                         _hubItem(
                           Icons.account_balance_outlined,
-                          'HQ Payroll',
+                          'TRIP INDIA Payroll',
                           Colors.indigo,
                           () => Navigator.pushNamed(context, '/salary_breakup'),
                         ),
@@ -228,6 +228,13 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
                     Colors.amber,
                     () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AchievementsScreen())),
                   ),
+                  const SizedBox(height: 32),
+                  const Text('ACTIVE JOURNEYS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.grey)),
+                  const SizedBox(height: 16),
+                  if (_activeBookings.isEmpty) 
+                    _emptyTripsCard()
+                  else 
+                    ..._activeBookings.map((b) => _terminalTripCard(b)),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -256,7 +263,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'COMMAND LIQUIDITY',
+                'WALLET BALANCE',
                 style: TextStyle(
                   color: Colors.white38,
                   fontSize: 10,
@@ -267,7 +274,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: const Text('TREK READY', style: TextStyle(color: Colors.blueAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                child: const Text('TRIP READY', style: TextStyle(color: Colors.blueAccent, fontSize: 8, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -333,8 +340,86 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
     );
   }
 
-  Widget _missionCard(dynamic b) {
-    final trek = b['treks'];
+  Widget _terminalTripCard(dynamic b) {
+    final trip = b['trip']; // Note: fetching uses 'trip' alias in select
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return FadeInUp(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                trip?['image_url'] ?? 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b',
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, e, s) => Container(width: 60, height: 60, color: Colors.blue.shade50, child: const Icon(Icons.terrain, color: Colors.blue)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    trip?['title'] ?? 'TRIP',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 10, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormat('dd MMM').format(DateTime.parse(b['trip_date'])),
+                        style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(5)),
+                        child: Text(
+                          b['status']?.toString().toUpperCase() ?? 'CONFIRMED',
+                          style: const TextStyle(color: Colors.green, fontSize: 7, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () => InvoiceService.generateAndDownloadInvoice(
+                bookingId: b['id'],
+                tripName: trip?['title'] ?? 'Trip',
+                date: DateTime.parse(b['trip_date']),
+                hikerName: b['hiker_name'] ?? _userData?['full_name'] ?? 'Hiker',
+                totalPrice: double.tryParse(b['total_price'].toString()) ?? 0,
+                basePrice: double.tryParse((b['base_price'] ?? 0).toString()) ?? 0,
+                pickupPrice: double.tryParse((b['pickup_price'] ?? 0).toString()) ?? 0,
+                pickupLocation: b['pickup_location'] ?? 'Base Camp',
+                email: _userData?['email'],
+              ),
+              icon: const Icon(Icons.download_for_offline_rounded, color: Colors.blueAccent),
+              tooltip: 'Download Invoice',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tripCard(dynamic b) {
+    final trip = b['trips'];
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return FadeInUp(
@@ -353,7 +438,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
-                  trek?['image_url'] ?? 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b',
+                  trip?['image_url'] ?? 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b',
                   width: 55,
                   height: 55,
                   fit: BoxFit.cover,
@@ -366,7 +451,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      trek?['title'] ?? 'TREK',
+                      trip?['title'] ?? 'TRIP',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : Colors.black87),
                     ),
                     const SizedBox(height: 2),
@@ -390,7 +475,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
     );
   }
 
-  Widget _emptyTreksCard() {
+  Widget _emptyTripsCard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(32),
@@ -407,7 +492,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
           const Icon(Icons.explore_outlined, size: 48, color: Colors.grey),
           const SizedBox(height: 16),
           const Text(
-            'NO ACTIVE TREKS',
+            'NO ACTIVE TRIPS',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.grey,
@@ -416,7 +501,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Deploy yourself on a new trek expedition.',
+            'Book your next trip.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.black38, fontSize: 11),
           ),
@@ -437,19 +522,19 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: color.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.15 : 0.08),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(icon, color: color, size: 34),
             ),
             const SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
               ),
@@ -501,7 +586,7 @@ class _TrekkerTerminalScreenState extends State<TrekkerTerminalScreen> {
   }
 
   void _showSupportRegistry() {
-    // Already defined in ChatRoomList but for Admin accessibility in terminal too
+    // Already defined in ChatRoomList but for Admin accessibility in dashboard too
     Navigator.pushNamed(context, '/chat_rooms');
   }
 }

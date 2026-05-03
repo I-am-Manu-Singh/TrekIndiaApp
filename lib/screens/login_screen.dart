@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,6 +14,7 @@ enum AuthFlowStatus { login, signup, verify, setPassword, forgotPassword }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
+  final _nameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _otpController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -28,10 +30,20 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isLoading = true);
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
+      final res = await Supabase.instance.client.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      if (res.user != null) {
+        // Silent Repair for Name on Login
+        final profile = await Supabase.instance.client.from('profiles').select('full_name').eq('id', res.user!.id).maybeSingle();
+        String? name = profile?['full_name'];
+        if (name == null || name.trim().isEmpty || name == 'Explorer') {
+          name = res.user!.userMetadata?['full_name'] ?? res.user!.email?.split('@')[0] ?? 'Explorer';
+          await Supabase.instance.client.from('profiles').update({'full_name': name}).eq('id', res.user!.id);
+        }
+      }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
     } finally {
@@ -46,9 +58,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isLoading = true);
     try {
+      // Use email prefix as fallback name if user didn't enter one
+      final String derivedName = _nameController.text.trim().isNotEmpty
+          ? _nameController.text.trim()
+          : _emailController.text.trim().split('@').first;
+
       await Supabase.instance.client.auth.signInWithOtp(
         email: _emailController.text.trim(),
         shouldCreateUser: true,
+        data: _currentStatus == AuthFlowStatus.signup
+            ? {'full_name': derivedName}
+            : null,
       );
       if (mounted) {
         setState(() => _currentStatus = AuthFlowStatus.verify);
@@ -67,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await Supabase.instance.client.auth.verifyOTP(
         email: _emailController.text.trim(),
         token: _otpController.text.trim(),
-        type: OtpType.magiclink,
+        type: OtpType.email, // Use email instead of magiclink for 6-digit OTP
       );
       // Once verified, Supabase creates a session. We now show Set Password.
       if (mounted) setState(() => _currentStatus = AuthFlowStatus.setPassword);
@@ -89,10 +109,19 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isLoading = true);
     try {
-      await Supabase.instance.client.auth.updateUser(
+      final res = await Supabase.instance.client.auth.updateUser(
         UserAttributes(password: _passwordController.text.trim()),
       );
-      // Navigation happens via AuthGuard in main.dart
+      
+      if (res.user != null) {
+        // Silent Repair for Name on Password Setup
+        final profile = await Supabase.instance.client.from('profiles').select('full_name').eq('id', res.user!.id).maybeSingle();
+        String? name = profile?['full_name'];
+        if (name == null || name.trim().isEmpty || name == 'Explorer') {
+          name = res.user!.userMetadata?['full_name'] ?? res.user!.email?.split('@')[0] ?? 'Explorer';
+          await Supabase.instance.client.from('profiles').update({'full_name': name}).eq('id', res.user!.id);
+        }
+      }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
     } finally {
@@ -113,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (mounted) {
         setState(() => _currentStatus = AuthFlowStatus.login);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('TREK RESET LINK DEPLOYED TO EMAIL.'), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password reset link sent to your email.'), backgroundColor: Colors.green));
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
@@ -176,10 +205,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _signInWithGoogle,
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     ),
-                    icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png', height: 20),
+                    icon: const FaIcon(FontAwesomeIcons.google, size: 18),
                     label: Text('Continue with Google', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
                   ),
                 ),
@@ -192,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildTitle() {
-    String title = "Trek India";
+    String title = "Trip India";
     String subtitle = "Your gateway to the Himalayas";
     
     if (_currentStatus == AuthFlowStatus.signup) {
@@ -206,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
       subtitle = "Set a password for future logins";
     } else if (_currentStatus == AuthFlowStatus.forgotPassword) {
       title = "Recover Access";
-      subtitle = "Send a tactical reset link to your email";
+      subtitle = "Send a reset link to your email";
     }
 
     return FadeInDown(
@@ -230,12 +259,12 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 12),
         TextButton(
           onPressed: () => setState(() => _currentStatus = AuthFlowStatus.forgotPassword),
-          child: const Text("Forgot Trek Password?", style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
+          child: const Text("Forgot Password?", style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 12),
         TextButton(
           onPressed: () => setState(() => _currentStatus = AuthFlowStatus.signup),
-          child: Text("New Personnel? Create Account with OTP", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+          child: Text("New User? Create Account", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -244,6 +273,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildSignupForm() {
     return Column(
       children: [
+        _buildTextField(_nameController, 'Full Name', Icons.person_outline),
+        const SizedBox(height: 20),
         _buildTextField(_emailController, 'Enter Email for OTP', Icons.email_outlined),
         const SizedBox(height: 30),
         _buildPrimaryButton('Send Verification Code', _sendOtp),

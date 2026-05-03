@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../services/database_service.dart';
-import '../models/trek.dart';
+import '../models/trip.dart';
 import 'user_support_screen.dart';
 
 class AIGuideScreen extends StatefulWidget {
@@ -21,12 +21,12 @@ class _AIGuideScreenState extends State<AIGuideScreen> {
   late GenerativeModel _model;
   late ChatSession _chat;
   final DatabaseService _dbService = DatabaseService();
-  List<Trek> _allTreks = [];
+  List<Trip> _allTrips = [];
 
   @override
   void initState() {
     super.initState();
-    _loadTreks();
+    _loadTrips();
     // Initialize the AI Model (Needs API key from Gemini/Google AI Studio)
     _model = GenerativeModel(
       model: 'gemini-1.5-pro-latest',
@@ -34,13 +34,13 @@ class _AIGuideScreenState extends State<AIGuideScreen> {
     );
     _chat = _model.startChat();
     _messages.add(
-      Message(text: "Namaste! I am your AI Trek Guide. Ask me anything about treks in India, weather, gear, or itineraries!", isUser: false),
+      Message(text: "Namaste! I am your AI Trip Guide. Ask me anything about trips in India, weather, gear, or itineraries!", isUser: false),
     );
   }
 
-  Future<void> _loadTreks() async {
-    final treks = await _dbService.fetchTreks();
-    setState(() => _allTreks = treks);
+  Future<void> _loadTrips() async {
+    final trips = await _dbService.fetchTrips();
+    setState(() => _allTrips = trips);
   }
 
   Future<void> _sendMessage() async {
@@ -62,22 +62,22 @@ class _AIGuideScreenState extends State<AIGuideScreen> {
         replyText = "I can escalate this to our human support team. Just hit the SUPPORT button below!";
         setState(() => _showSupportOption = true);
       } else {
-        // Improved Trek Matching Logic
-        Trek? matchedTrek;
-        for (var t in _allTreks) {
-          if (msg.contains(t.title.toLowerCase())) { matchedTrek = t; break; }
+        // Improved Trip Matching Logic
+        Trip? matchedTrip;
+        for (var t in _allTrips) {
+          if (msg.contains(t.title.toLowerCase())) { matchedTrip = t; break; }
         }
 
-        if (matchedTrek != null) {
+        if (matchedTrip != null) {
           if (msg.contains('price') || msg.contains('cost')) {
-            replyText = "The ${matchedTrek.title} starts at ₹${matchedTrek.basePrice.toInt()}.";
+            replyText = "The ${matchedTrip.title} starts at ₹${matchedTrip.basePrice.toInt()}.";
           } else if (msg.contains('altitude') || msg.contains('height')) {
-            replyText = "The ${matchedTrek.title} reaches ${matchedTrek.altitude}.";
+            replyText = "The ${matchedTrip.title} reaches ${matchedTrip.altitude}.";
           } else {
-            replyText = "${matchedTrek.title} is a ${matchedTrek.difficulty} trek in ${matchedTrek.location}. It takes ${matchedTrek.duration}. Should I help you with the booking process?";
+            replyText = "${matchedTrip.title} is a ${matchedTrip.difficulty} trip in ${matchedTrip.location}. It takes ${matchedTrip.duration}. Should I help you with the booking process?";
           }
         } else {
-          replyText = "I'm your AI guide for treks in India. You can ask about itinerary, gear, or pricing. If you need dedicated help, just type 'support'.";
+          replyText = "I'm your AI guide for trips in India. You can ask about itinerary, gear, or pricing. If you need dedicated help, just type 'support'.";
         }
       }
 
@@ -99,7 +99,7 @@ class _AIGuideScreenState extends State<AIGuideScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Trek Guide', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('AI Trip Guide', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
@@ -196,7 +196,7 @@ class _AIGuideScreenState extends State<AIGuideScreen> {
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
-                      hintText: 'Ask about a trek...',
+                      hintText: 'Ask about a trip...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
                         borderSide: BorderSide.none,
@@ -241,7 +241,7 @@ class _AIGuideScreenState extends State<AIGuideScreen> {
     if (mounted) {
       Navigator.push(context, MaterialPageRoute(builder: (c) => const UserSupportScreen()));
       setState(() {
-        _messages.add(Message(text: "I've transmitted your frequency to our human command center. They will respond shortly in your Support Inbox.", isUser: false));
+        _messages.add(Message(text: "I've transmitted your frequency to our customer support team. They will respond shortly in your Support Inbox.", isUser: false));
         _showSupportOption = false;
       });
     }

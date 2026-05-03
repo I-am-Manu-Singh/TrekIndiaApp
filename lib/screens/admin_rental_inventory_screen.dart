@@ -67,17 +67,17 @@ class _AdminRentalInventoryScreenState extends State<AdminRentalInventoryScreen>
                   'price_per_day': double.tryParse(priceCtrl.text) ?? 50.0,
                   'stock_count': int.tryParse(stockCtrl.text) ?? 10,
                   'category': 'Essential',
-                  'description': 'Field Operative Equipment',
+                  'description': 'Field Staff Equipment',
                   'security_deposit': 0.0,
                 });
                 if (mounted) {
                   Navigator.pop(c);
                   _loadData(); // Changed from _fetchGears() to _loadData() as _fetchGears() is not defined
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('LOGISTICS SYNC: Gear asset commissioned.'), backgroundColor: Colors.green));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('LOGISTICS SYNC: Gear asset comtriped.'), backgroundColor: Colors.green));
                 }
               } catch (e) {
                 if (mounted) {
-                  debugPrint('HQ GEAR ERROR: $e');
+                  debugPrint('TRIP INDIA GEAR ERROR: $e');
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('LOGISTICS FAILURE: $e'), backgroundColor: Colors.red));
                 }
               }
@@ -183,7 +183,7 @@ class _AdminRentalInventoryScreenState extends State<AdminRentalInventoryScreen>
       itemCount: _activeRentals.length,
       itemBuilder: (context, index) {
         final r = _activeRentals[index];
-        final String user = r['user']?['full_name'] ?? 'Trekker';
+        final String user = r['user']?['full_name'] ?? 'Trip';
         final String gear = r['gear']?['name'] ?? 'Item';
 
         return Container(

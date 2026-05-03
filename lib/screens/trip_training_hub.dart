@@ -10,14 +10,14 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:lottie/lottie.dart';
 import 'leaderboard_screen.dart';
 
-class TrekTrainingHub extends StatefulWidget {
-  const TrekTrainingHub({super.key});
+class TripTrainingHub extends StatefulWidget {
+  const TripTrainingHub({super.key});
 
   @override
-  State<TrekTrainingHub> createState() => _TrekTrainingHubState();
+  State<TripTrainingHub> createState() => _TripTrainingHubState();
 }
 
-class _TrekTrainingHubState extends State<TrekTrainingHub> {
+class _TripTrainingHubState extends State<TripTrainingHub> {
   final _db = DatabaseService();
   List<Map<String, dynamic>> _logs = [];
   bool _isLoading = true;
@@ -27,7 +27,7 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
 
   final List<Map<String, dynamic>> _trainings = [
     {
-      'title': 'Trek Prep: Warm Up',
+      'title': 'Trip Prep: Warm Up',
       'category': 'Warm Up',
       'desc': 'Joint mobility & muscle activation',
       'time': '5 min',
@@ -45,8 +45,8 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
     },
     {
       'title': 'Bodyweight Ascender',
-      'category': 'Conditioning',
-      'desc': 'Build trekking stamina without equipment',
+      'category': 'Fitness',
+      'desc': 'Build tripking stamina without equipment',
       'time': '15 min',
       'level': 'Pro',
       'color': Colors.orangeAccent,
@@ -80,7 +80,7 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
     {
       'title': 'Recovery: Cool Down',
       'category': 'Cool Down',
-      'desc': 'Post-trek muscle relaxation',
+      'desc': 'Post-trip muscle relaxation',
       'time': '8 min',
       'level': 'All',
       'color': Colors.teal,
@@ -111,7 +111,7 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
           try {
             _calculateStats();
           } catch (e) {
-            debugPrint('Conditioning Stats Sync Error: $e');
+            debugPrint('Fitness Stats Sync Error: $e');
           }
           _isLoading = false;
         });
@@ -167,8 +167,8 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('CONDITIONING DEPOT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16, color: Colors.white)),
-        backgroundColor: Colors.black,
+        title: const Text('TRAINING HUB', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: _isLoading 
@@ -186,7 +186,7 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
                   const SizedBox(height: 16),
                   _buildHeatMap(),
                   const SizedBox(height: 32),
-                  _buildSectionTitle('TREK REQUISITES'),
+                  _buildSectionTitle('TRIP ESSENTIALS'),
                   const SizedBox(height: 20),
                   ..._trainings.map((t) => _trainingCard(t)).toList(),
                 ],
@@ -281,8 +281,8 @@ class _TrekTrainingHubState extends State<TrekTrainingHub> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   Text(doneToday ? 'TREK READY' : 'STANDING BY', style: TextStyle(color: doneToday ? Colors.greenAccent : Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                   Text(doneToday ? 'Daily conditioning cycle complete.' : 'Your 24h prep cycle is pending execution.', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 11)),
+                   Text(doneToday ? 'SESSION COMPLETE' : 'READY', style: TextStyle(color: doneToday ? Colors.greenAccent : Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                   Text(doneToday ? 'Daily training cycle complete.' : 'Your 24h training session is pending.', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 11)),
                 ],
               ),
             ),
@@ -443,7 +443,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
   void dispose() {
     _timer?.cancel();
     _tts.stop();
-    WakelockPlus.disable(); // Release screen lock on mission abort
+    WakelockPlus.disable(); // Release screen lock on exit
     NotificationService.clearWorkoutNotifications();
     super.dispose();
   }
@@ -464,7 +464,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     }
 
     setState(() => _isActive = true);
-    WakelockPlus.enable(); // Engage screen stabilization
+    WakelockPlus.enable(); // Keep screen active
     final current = widget.exercises[_currentIndex];
     
     // Initial instruction when starting an exercise
@@ -521,7 +521,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
 
   Future<void> _finishWorkout() async {
     _timer?.cancel();
-    _speak("Trek Accomplished. You've burned ${widget.kcal} calories.");
+    _speak("Trip Accomplished. You've burned ${widget.kcal} calories.");
     NotificationService.clearWorkoutNotifications();
 
     final totalSecs = widget.exercises.fold(0, (sum, e) => sum + (e['duration'] as int));
@@ -540,7 +540,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
         builder: (c) => AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('TREK ACCOMPLISHED', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          title: const Text('TRIP ACCOMPLISHED', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -558,7 +558,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
                 Navigator.pop(context); 
               }, 
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent, foregroundColor: Colors.black),
-              child: const Text('RETURN TO BASE', style: TextStyle(fontWeight: FontWeight.bold))
+              child: const Text('COMPLETE SESSION', style: TextStyle(fontWeight: FontWeight.bold))
             )
           ],
         )

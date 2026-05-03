@@ -6,7 +6,7 @@ import 'my_trips_screen.dart';
 import 'admin_bookings_screen.dart';
 import 'admin_support_inquiries_screen.dart';
 import 'user_gear_rental_screen.dart';
-import 'trek_training_hub.dart';
+import 'trip_training_hub.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
   final String role;
@@ -32,222 +32,68 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    final List<_AppNotification> items = [];
-
     try {
-      // 1. Booking confirmations & updates (user & admin)
-      final bookings = await _client
-          .from('bookings')
-          .select('id, booking_date, status, payment_status, total_price, treks(title)')
-          .eq('user_id', user.id)
-          .order('booking_date', ascending: false)
-          .limit(10);
-
-      for (var b in bookings) {
-        final trekTitle = b['treks']?['title'] ?? 'Trek';
-        final date = DateTime.tryParse(b['booking_date'] ?? '') ?? DateTime.now();
-        final status = b['status'] ?? 'Confirmed';
-
-        if (status == 'Completed') {
-          items.add(_AppNotification(
-            icon: Icons.emoji_events,
-            color: Colors.amber,
-            title: 'Trek Completed!',
-            body: 'Congratulations on completing $trekTitle. Check your profile for the achievement badge.',
-            time: date,
-            category: 'achievement',
-          ));
-        } else {
-          items.add(_AppNotification(
-            icon: Icons.confirmation_num_outlined,
-            color: Colors.green,
-            title: 'Booking $status',
-            body: '$trekTitle — ₹${b['total_price']} • ${b['payment_status'] ?? 'Paid'}',
-            time: date,
-            category: 'booking',
-          ));
-        }
-      }
-
-      // 2. Global announcements
-      final announcements = await _client
-          .from('global_announcements')
-          .select()
-          .order('created_at', ascending: false)
-          .limit(10);
-
-      for (var a in announcements) {
+      final res = await _client.from('notifications').select().eq('user_id', user.id).order('created_at', ascending: false).limit(50);
+      final List<_AppNotification> items = [];
+      for (var n in res) {
         items.add(_AppNotification(
-          icon: Icons.campaign,
-          color: Colors.blue,
-          title: a['title'] ?? 'Announcement',
-          body: a['content'] ?? '',
-          time: DateTime.tryParse(a['created_at'] ?? '') ?? DateTime.now(),
-          category: 'announcement',
+          id: n['id'],
+          icon: _getIcon(n['category']),
+          color: _getColor(n['category']),
+          title: n['title'] ?? 'Notification',
+          body: n['body'] ?? '',
+          time: DateTime.tryParse(n['created_at'] ?? '') ?? DateTime.now(),
+          category: n['category'] ?? 'general',
+          isRead: n['is_read'] ?? false,
         ));
       }
 
-      // 3. Admin-specific: new support inquiries
-      if (widget.role == 'admin') {
-        try {
-          final inquiries = await _client
-              .from('support_inquiries')
-              .select('id, subject, message, status, created_at, profiles(full_name)')
-              .order('created_at', ascending: false)
-              .limit(10);
-
-          for (var inq in inquiries) {
-            items.add(_AppNotification(
-              icon: Icons.support_agent,
-              color: Colors.orange,
-              title: 'Support: ${inq['subject'] ?? 'User Inquiry'}',
-              body: '${inq['profiles']?['full_name'] ?? 'User'}: ${inq['message'] ?? ''}',
-              time: DateTime.tryParse(inq['created_at'] ?? '') ?? DateTime.now(),
-              category: 'support',
-            ));
-          }
-        } catch (_) {}
-
-        // 4. Admin: recent bookings from all users
-        try {
-          final allBookings = await _client
-              .from('bookings')
-              .select('id, booking_date, total_price, payment_status, treks(title), profiles!inner(full_name)')
-              .order('booking_date', ascending: false)
-              .limit(10);
-
-          for (var b in allBookings) {
-            items.add(_AppNotification(
-              icon: Icons.receipt_long,
-              color: Colors.teal,
-              title: 'New Booking',
-              body: '${b['profiles']?['full_name'] ?? 'User'} booked ${b['treks']?['title'] ?? 'a trek'} — ₹${b['total_price']}',
-              time: DateTime.tryParse(b['booking_date'] ?? '') ?? DateTime.now(),
-              category: 'admin_booking',
-            ));
-          }
-        } catch (_) {}
-
-        // 5. Admin: rental requests
-        try {
-          final rentals = await _client
-              .from('user_rentals')
-              .select('id, status, issue_date, total_price, gear:gears(name), profiles!inner(full_name)')
-              .order('issue_date', ascending: false)
-              .limit(5);
-          for (var r in rentals) {
-            items.add(_AppNotification(
-              icon: Icons.inventory_2,
-              color: Colors.deepPurple,
-              title: 'Gear ${r['status'] == 'returned' ? 'Returned' : 'Issued'}',
-              body: '${r['profiles']?['full_name'] ?? 'User'} — ${r['gear']?['name'] ?? 'Gear'} • ₹${r['total_price']}',
-              time: DateTime.tryParse(r['issue_date'] ?? '') ?? DateTime.now(),
-              category: 'rental',
-            ));
-          }
-        } catch (_) {}
-      } else if (widget.role == 'employee' || widget.role == 'guide' || widget.role == 'staff') {
-        // 5a. Employee: recent attendance logs
-        try {
-          final att = await _client.from('attendance_logs').select().eq('user_id', user.id).order('date', ascending: false).limit(5);
-          for (var a in att) {
-            items.add(_AppNotification(
-              icon: Icons.today_outlined,
-              color: Colors.blue,
-              title: 'Attendance: ${a['status']?.toUpperCase() ?? 'PRESENT'}',
-              body: 'Trek record updated for ${a['date']}.',
-              time: DateTime.tryParse(a['date'] ?? '') ?? DateTime.now(),
-              category: 'attendance',
-            ));
-          }
-        } catch (_) {}
-
-        // 5b. Employee: assigned trek groups
-        try {
-          final groups = await _client.from('bookings').select('*, treks(*)').eq('user_id', user.id).order('trek_date', ascending: false).limit(5); // This is a proxy for assigned squads for now
-          for (var g in groups) {
-            items.add(_AppNotification(
-              icon: Icons.groups,
-              color: Colors.green,
-              title: 'Squad Assignment',
-              body: 'Sector ${g['treks']?['title'] ?? 'Trek'} — Assignment: ${g['trek_date']}',
-              time: DateTime.tryParse(g['booking_date'] ?? '') ?? DateTime.now(),
-              category: 'assignment',
-            ));
-          }
-        } catch (_) {}
-
-        // 5c. Employee: Payment/Payout logs
-        try {
-          final payouts = await _client.from('payment_logs').select().eq('user_id', user.id).order('created_at', ascending: false).limit(5);
-          for (var p in payouts) {
-            items.add(_AppNotification(
-              icon: Icons.account_balance_wallet,
-              color: Colors.teal,
-              title: 'Fiscal Settlement',
-              body: 'Settlement amount: ₹${p['amount']} — Status: Processed',
-              time: DateTime.tryParse(p['created_at'] ?? '') ?? DateTime.now(),
-              category: 'payout',
-            ));
-          }
-        } catch (_) {}
-      } else {
-        // 6. User: own rental status
-        try {
-          final myRentals = await _client
-              .from('user_rentals')
-              .select('id, status, issue_date, total_price, gear:gears(name)')
-              .eq('user_id', user.id)
-              .order('issue_date', ascending: false)
-              .limit(5);
-
-          for (var r in myRentals) {
-            items.add(_AppNotification(
-              icon: Icons.shopping_bag,
-              color: Colors.deepPurple,
-              title: 'Gear Rental ${r['status']?.toString().toUpperCase() ?? ''}',
-              body: '${r['gear']?['name'] ?? 'Gear item'} — ₹${r['total_price']}',
-              time: DateTime.tryParse(r['issue_date'] ?? '') ?? DateTime.now(),
-              category: 'rental',
-            ));
-          }
-        } catch (_) {}
-
-        // 7. User: training logs (recent)
-        try {
-          final logs = await _client
-              .from('training_logs')
-              .select('workout_title, completed_at, duration_seconds, calories_burned')
-              .eq('user_id', user.id)
-              .order('completed_at', ascending: false)
-              .limit(3);
-
-          for (var l in logs) {
-            final mins = ((l['duration_seconds'] ?? 0) / 60).round();
-            items.add(_AppNotification(
-              icon: Icons.fitness_center,
-              color: Colors.orangeAccent,
-              title: 'Workout Logged',
-              body: '${l['workout_title']} — ${mins}min • ${l['calories_burned'] ?? 0} cal',
-              time: DateTime.tryParse(l['completed_at'] ?? '') ?? DateTime.now(),
-              category: 'training',
-            ));
-          }
-        } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _notifications = items;
+          _isLoading = false;
+        });
       }
-
-      // Sort all by time descending
-      items.sort((a, b) => b.time.compareTo(a.time));
     } catch (e) {
       debugPrint('Notification fetch error: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
 
-    if (mounted) {
-      setState(() {
-        _notifications = items;
-        _isLoading = false;
-      });
+  IconData _getIcon(String? category) {
+    switch (category) {
+      case 'booking': return Icons.confirmation_num_outlined;
+      case 'billing': return Icons.account_balance_wallet_outlined;
+      case 'achievement': return Icons.emoji_events;
+      case 'rental': return Icons.inventory_2_outlined;
+      case 'announcement': return Icons.campaign_outlined;
+      case 'admin_booking': return Icons.receipt_long;
+      case 'support': return Icons.support_agent;
+      case 'training': return Icons.fitness_center;
+      default: return Icons.notifications_none;
     }
+  }
+
+  Color _getColor(String? category) {
+    switch (category) {
+      case 'booking': return Colors.green;
+      case 'billing': return Colors.blue;
+      case 'achievement': return Colors.amber;
+      case 'rental': return Colors.deepPurple;
+      case 'announcement': return Colors.orange;
+      case 'admin_booking': return Colors.teal;
+      case 'support': return Colors.deepOrange;
+      case 'training': return Colors.pink;
+      default: return Colors.grey;
+    }
+  }
+
+  Future<void> _deleteNotification(String id) async {
+    await _client.from('notifications').delete().eq('id', id);
+  }
+
+  Future<void> _markAsRead(String id) async {
+    await _client.from('notifications').update({'is_read': true}).eq('id', id);
   }
 
   String _relativeTime(DateTime dt) {
@@ -305,11 +151,29 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                                 ),
                               ),
                             ),
-                          FadeInUp(
-                            duration: const Duration(milliseconds: 200),
-                            child: GestureDetector(
-                              onTap: () => _showNotificationDetail(n),
-                              child: _notificationTile(n, isDark),
+                          Dismissible(
+                            key: Key(n.id ?? index.toString()),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+                              child: const Icon(Icons.delete_outline, color: Colors.white),
+                            ),
+                            onDismissed: (_) {
+                              if (n.id != null) _deleteNotification(n.id!);
+                              setState(() => _notifications.removeAt(index));
+                            },
+                            child: FadeInUp(
+                              duration: const Duration(milliseconds: 200),
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (n.id != null) _markAsRead(n.id!);
+                                  setState(() => n.isRead = true);
+                                  _showNotificationDetail(n);
+                                },
+                                child: _notificationTile(n, isDark),
+                              ),
                             ),
                           ),
                         ],
@@ -381,17 +245,15 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                 onPressed: () {
                   Navigator.pop(context);
                   if (n.category == 'booking' || n.category == 'achievement') {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => MyTripsScreen()));
-                  } else if (n.category == 'admin_booking' || n.category == 'booking_update') {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => AdminBookingsScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const MyTripsScreen()));
+                  } else if (n.category == 'admin_booking') {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminBookingsScreen()));
                   } else if (n.category == 'support') {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => AdminSupportInquiriesScreen()));
-                  } else if (n.category == 'announcement') {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Announcement details displayed above.')));
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminSupportInquiriesScreen()));
                   } else if (n.category == 'rental') {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => UserGearRentalScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const UserGearRentalScreen()));
                   } else if (n.category == 'training') {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => TrekTrainingHub()));
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const TripTrainingHub()));
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -415,7 +277,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: n.color.withOpacity(0.15)),
+        border: Border.all(color: n.isRead ? n.color.withOpacity(0.05) : n.color.withOpacity(0.2), width: n.isRead ? 1 : 2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
@@ -424,71 +286,64 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: n.color.withOpacity(0.1),
-              shape: BoxShape.circle,
+      child: Opacity(
+        opacity: n.isRead ? 0.6 : 1.0,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: n.color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(n.icon, color: n.color, size: 20),
             ),
-            child: Icon(n.icon, color: n.color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        n.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: isDark ? Colors.white : Colors.black87,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          n.title,
+                          style: TextStyle(
+                            fontWeight: n.isRead ? FontWeight.bold : FontWeight.w900,
+                            fontSize: 14,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      _relativeTime(n.time),
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  n.body,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.white60 : Colors.black54,
+                      Text(
+                        _relativeTime(n.time),
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: n.color.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    n.category.toUpperCase(),
+                  const SizedBox(height: 4),
+                  Text(
+                    n.body,
                     style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      color: n.color,
-                      letterSpacing: 1,
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : Colors.black54,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            if (!n.isRead)
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(left: 8, top: 4),
+                decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -512,7 +367,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'No notifications right now.\nBook a trek or complete a workout to see updates here!',
+            'No notifications right now.\nBook a trip or complete a workout to see updates here!',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
@@ -532,19 +387,23 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
 }
 
 class _AppNotification {
+  final String? id;
   final IconData icon;
   final Color color;
   final String title;
   final String body;
   final DateTime time;
   final String category;
+  bool isRead;
 
   _AppNotification({
+    this.id,
     required this.icon,
     required this.color,
     required this.title,
     required this.body,
     required this.time,
     required this.category,
+    this.isRead = false,
   });
 }

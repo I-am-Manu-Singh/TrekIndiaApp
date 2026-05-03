@@ -3,40 +3,40 @@ import 'package:animate_do/animate_do.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
-class FleetTrackingScreen extends StatefulWidget {
-  const FleetTrackingScreen({super.key});
+class ActivityTrackingScreen extends StatefulWidget {
+  const ActivityTrackingScreen({super.key});
 
   @override
-  State<FleetTrackingScreen> createState() => _FleetTrackingScreenState();
+  State<ActivityTrackingScreen> createState() => _ActivityTrackingScreenState();
 }
 
-class _FleetTrackingScreenState extends State<FleetTrackingScreen> {
+class _ActivityTrackingScreenState extends State<ActivityTrackingScreen> {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
-  List<dynamic> _activeSquads = [];
+  List<dynamic> _activeGroups = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchFleetStatus();
+    _fetchActivityStatus();
   }
 
-  Future<void> _fetchFleetStatus() async {
+  Future<void> _fetchActivityStatus() async {
     setState(() => _isLoading = true);
     try {
       final res = await _client
           .from('bookings')
-          .select('*, treks(*)')
-          .gte('trek_date', DateTime.now().toIso8601String());
+          .select('*, trips(*)')
+          .gte('trip_date', DateTime.now().toIso8601String());
       
       Map<String, dynamic> groups = {};
       for (var b in res) {
-        String key = '${b['trek_id']}_${b['trek_date']}';
+        String key = '${b['trip_id']}_${b['trip_date']}';
         if (!groups.containsKey(key)) {
           groups[key] = {
-            'title': b['treks']['title'],
-            'status': 'TREK ACTIVE',
-            'altitude': '${2000 + (b['treks']['id'].hashCode % 3000)}m',
+            'title': b['trips']['title'],
+            'status': 'TRIP ACTIVE',
+            'altitude': '${2000 + (b['trips']['id'].hashCode % 3000)}m',
             'color': Colors.green,
           };
         }
@@ -44,7 +44,7 @@ class _FleetTrackingScreenState extends State<FleetTrackingScreen> {
 
       if (mounted) {
         setState(() {
-          _activeSquads = groups.values.toList();
+          _activeGroups = groups.values.toList();
           _isLoading = false;
         });
       }
@@ -58,8 +58,8 @@ class _FleetTrackingScreenState extends State<FleetTrackingScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text('FLEET & ASSET TRACKING', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5, color: Colors.white)),
-        backgroundColor: Colors.black,
+        title: const Text('ACTIVITY & ASSET TRACKING', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5, color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: _isLoading 
@@ -69,12 +69,12 @@ class _FleetTrackingScreenState extends State<FleetTrackingScreen> {
             children: [
               _buildLiveMapHeader(),
               const SizedBox(height: 32),
-              const Text('DEPLOYED SQUADS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
+              const Text('ACTIVE GROUPS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
               const SizedBox(height: 16),
-              if (_activeSquads.isEmpty)
-                const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('NO SQUADS IN FIELD', style: TextStyle(color: Colors.grey, fontSize: 12))))
+              if (_activeGroups.isEmpty)
+                const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('NO GROUPS CURRENTLY ACTIVE', style: TextStyle(color: Colors.grey, fontSize: 12))))
               else
-                ..._activeSquads.map((s) => _fleetItem(s['title'], s['status'], s['altitude'], s['color'])).toList(),
+                ..._activeGroups.map((s) => _activityItem(s['title'], s['status'], s['altitude'], s['color'])).toList(),
               const SizedBox(height: 40),
               _buildAssetStatus(),
             ],
@@ -99,10 +99,10 @@ class _FleetTrackingScreenState extends State<FleetTrackingScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-                Icon(Icons.radar, color: Colors.greenAccent, size: 40),
+                Icon(Icons.location_searching, color: Colors.greenAccent, size: 40),
                 SizedBox(height: 12),
-                Text('LIVE RADAR ACTIVE', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 10)),
-                Text('Real-time GPS synchronization engaged', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                Text('LIVE TRACKING ACTIVE', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 10)),
+                Text('Real-time location synchronization engaged', style: TextStyle(color: Colors.white70, fontSize: 10)),
             ],
           ),
         ),
@@ -110,7 +110,7 @@ class _FleetTrackingScreenState extends State<FleetTrackingScreen> {
     );
   }
 
-  Widget _fleetItem(String title, String status, String alt, Color color) {
+  Widget _activityItem(String title, String status, String alt, Color color) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),

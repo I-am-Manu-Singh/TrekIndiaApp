@@ -27,22 +27,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (user == null) return;
 
     try {
-      final profile = await _client.from('profiles').select('role').eq('id', user.id).single();
-      final role = profile['role']?.toString().toUpperCase() ?? 'USER';
+      final profile = await _client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      final role = profile?['role']?.toString().toUpperCase() ?? 'USER';
 
       dynamic query;
       if (role == 'ADMIN') {
         query = _client.from('notifications').select().order('created_at', ascending: false);
-      } else if (role == 'EMPLOYEE' || role == 'STAFF') {
-        query = _client.from('notifications').select().or('user_id.eq.${user.id},type.eq.announcement,type.eq.employee,type.eq.staff').order('created_at', ascending: false);
       } else {
         query = _client.from('notifications').select().or('user_id.eq.${user.id},type.eq.announcement').order('created_at', ascending: false);
       }
 
       final res = await query;
-      _groupNotifications(res);
+      _groupNotifications(res as List);
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
+      debugPrint('Notification Fetch Error: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -50,10 +49,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _groupNotifications(List<dynamic> list) {
     Map<String, List<dynamic>> groups = {};
     for (var n in list) {
-      DateTime dt = DateTime.parse(n['created_at']);
-      String key = _getDateKey(dt);
-      if (!groups.containsKey(key)) groups[key] = [];
-      groups[key]!.add(n);
+      try {
+        final rawDate = n['created_at'];
+        if (rawDate == null) continue;
+        DateTime dt = DateTime.parse(rawDate);
+        String key = _getDateKey(dt);
+        if (!groups.containsKey(key)) groups[key] = [];
+        groups[key]!.add(n);
+      } catch (_) {}
     }
     _groupedNotifications = groups;
   }
@@ -72,7 +75,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       backgroundColor: const Color(0xFFF9FBF9),
       appBar: AppBar(
         title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-        backgroundColor: const Color(0xFF2E7B32),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _fetchNotifications),
@@ -102,7 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _buildNotificationCard(dynamic n) {
-    final type = (n['type'] ?? 'announcement').toString().toUpperCase();
+    final type = (n['category'] ?? 'announcement').toString().toUpperCase();
     final dt = DateTime.parse(n['created_at']);
     final timeAgo = _getTimeAgo(dt);
 
@@ -167,7 +170,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(n['message'] ?? '', style: const TextStyle(fontSize: 13, color: Colors.black54, height: 1.4)),
+                  Text(n['body'] ?? '', style: const TextStyle(fontSize: 13, color: Colors.black54, height: 1.4)),
                   const SizedBox(height: 12),
                   _typeTag(type, themeColor, bgColor),
                 ],

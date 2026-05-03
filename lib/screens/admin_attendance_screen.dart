@@ -80,7 +80,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
 
       _fetchAttendance();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Trek Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Action Error: $e')));
     }
   }
 
@@ -90,7 +90,6 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('${widget.userName.toUpperCase()} ATTENDANCE', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 1.5)),
-        backgroundColor: Colors.black,
         elevation: 0,
       ),
       body: Column(
@@ -107,7 +106,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   Widget _buildMonthHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
-      color: Colors.black,
+      color: const Color(0xFFD32F2F),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

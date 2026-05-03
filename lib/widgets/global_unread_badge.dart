@@ -29,10 +29,11 @@ class _GlobalUnreadBadgeState extends State<GlobalUnreadBadge> {
       _calculateGlobalUnread();
     });
 
-    // Strategy: Real-time intelligence from the mission log to trigger immediate re-calculation
-    _client.from('messages').stream(primaryKey: ['id']).listen((_) {
-       _calculateGlobalUnread();
-    });
+    // Efficiency Hack: Don't listen to ALL messages. 
+    // Listen to PreferencesService and poll occasionally or use a more specific stream.
+    // However, for immediate feedback on new messages, we need a stream.
+    // We'll limit the stream to only triggered updates.
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) => _calculateGlobalUnread());
   }
 
   @override
@@ -55,12 +56,12 @@ class _GlobalUnreadBadgeState extends State<GlobalUnreadBadge> {
       List<String> roomIds = [];
 
       if (role == 'admin') {
-        final groups = await _client.from('trek_groups').select('id').or('status.neq.completed,status.is.null');
+        final groups = await _client.from('trip_groups').select('id').or('status.neq.completed,status.is.null');
         roomIds = (groups as List).map((g) => g['id'].toString()).toList();
       } else {
-        final bookings = await _client.from('bookings').select('group_id, trek_groups(status)').eq('user_id', user.id).not('group_id', 'is', null);
+        final bookings = await _client.from('bookings').select('group_id, trip_groups(status)').eq('user_id', user.id).not('group_id', 'is', null);
         roomIds = (bookings as List).where((b) {
-          final gStatus = b['trek_groups']?['status']?.toString().toLowerCase();
+          final gStatus = b['trip_groups']?['status']?.toString().toLowerCase();
           return gStatus != 'completed';
         }).map((b) => b['group_id'].toString()).toSet().toList();
       }
@@ -73,26 +74,32 @@ class _GlobalUnreadBadgeState extends State<GlobalUnreadBadge> {
       int totalCount = 0;
       bool mentionFound = false;
 
-      // TREK CRITICAL: Batch Intel Processing
+      // TRIP CRITICAL: Single Batch Intel Retrieval
+      final res = await _client
+          .from('chat_messages')
+          .select('room_id, content, sender_id, created_at')
+          .inFilter('room_id', roomIds)
+          .neq('sender_id', user.id)
+          .order('created_at', ascending: false)
+          .limit(100); // Only look at recent 100 messages across all rooms for badges
+      
+      final allRecentMessages = res as List;
+      final lowerUserName = fullName.toLowerCase();
+      final lowerFirstName = firstName.toLowerCase();
+
       for (final roomId in roomIds) {
         final lastRead = await PreferencesService().getLastRead(roomId);
+        final unreadList = allRecentMessages.where((m) => 
+          m['room_id'].toString() == roomId && 
+          DateTime.parse(m['created_at']).isAfter(lastRead)
+        ).toList();
         
-        final res = await _client
-            .from('messages')
-            .select('content, sender_id')
-            .eq('room_id', roomId)
-            .neq('sender_id', user.id)
-            .gt('created_at', lastRead.toIso8601String());
-        
-        final unreadList = res as List;
         totalCount += unreadList.length;
 
         if (!mentionFound && unreadList.isNotEmpty) {
-          final lowerUserName = fullName.toLowerCase();
-          final lowerFirstName = firstName.toLowerCase();
           for (final m in unreadList) {
             final content = (m['content'] ?? '').toString().toLowerCase();
-            if (content.contains('@$lowerUserName') || content.contains('@$lowerFirstName') || (role == 'admin' && content.contains('@admin'))) {
+            if (content.contains('@$lowerUserName') || content.contains('@$lowerFirstName') || content.contains('@all') || (role == 'admin' && content.contains('@admin'))) {
               mentionFound = true;
               break;
             }
@@ -107,7 +114,7 @@ class _GlobalUnreadBadgeState extends State<GlobalUnreadBadge> {
         });
       }
     } catch (e) {
-      debugPrint('Trek Error calculating global unread: $e');
+      debugPrint('Trip Error calculating global unread: $e');
     }
   }
 

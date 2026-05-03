@@ -1,32 +1,37 @@
 import 'package:flutter/material.dart';
+import '../widgets/glass_shimmer.dart';
+import 'package:collection/collection.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/trek.dart';
-import '../widgets/trek_card.dart';
+import 'package:shimmer/shimmer.dart';
+import '../models/trip.dart';
+import '../widgets/unified_trip_card.dart';
 import '../services/database_service.dart';
 import 'profile_screen.dart';
-import 'trek_detail_screen.dart';
+import 'trip_detail_screen.dart';
 import 'chat_room_list_screen.dart';
 import 'notification_center_screen.dart';
 import '../widgets/user_avatar.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_panel_screen.dart';
-import 'admin_trek_groups_screen.dart';
-import 'manage_rentals_screen.dart';
-import 'all_treks_screen.dart';
+import 'admin_trip_groups_screen.dart';
+import 'all_trips_screen.dart';
 import 'ai_guide_screen.dart';
 import 'admin_rental_tracking_screen.dart';
+import 'transport_booking_screen.dart';
 import 'admin_chat_list_screen.dart';
-import 'trek_training_hub.dart';
+import 'trip_training_hub.dart';
 import 'admin_support_inquiries_screen.dart';
 import 'user_complaints_screen.dart';
 import 'admin_bookings_screen.dart';
 import 'admin_management_hub_screen.dart';
 import 'user_gear_rental_screen.dart';
 import 'package:intl/intl.dart';
-import 'employee_terminal_screen.dart';
-import 'trekker_terminal_screen.dart';
+import 'employee_dashboard_screen.dart';
+import 'trip_dashboard_screen.dart';
 import '../widgets/global_unread_badge.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,114 +40,143 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late TabController _tabController;
   final DatabaseService _dbService = DatabaseService();
   final TextEditingController _searchController = TextEditingController();
   final User? _user = Supabase.instance.client.auth.currentUser;
   
-  List<Trek> _allTreks = [];
-  List<Trek> _filteredTreks = [];
+  List<Trip> _allTrips = [];
+  List<Trip> _filteredTrips = [];
   bool _isLoading = true;
+  bool _isTripsLoading = true;
   String _selectedCategory = 'All';
   String _userRole = 'user';
   String? _userName;
   String? _userAvatar;
   Map<String, dynamic>? _activeAlert;
-
+  int _lastSelectedIndex = 0;
+  int _currentAnnouncementPage = 0;
+  final PageController _announcementController = PageController();
   bool get isAdmin => _userRole == 'admin';
+  List<TripCategory> _availableCategories = [];
+  List<String> _categoryNames = ['All'];
+  bool _isVerified = false;
 
-  final List<String> _categories = [
-    'All', 
-    'Adventure Trek', 
-    'Religious Trek', 
-    'Yatra', 
-    'Weekend Trek', 
-    'International Trek'
-  ];
+  StreamSubscription? _connectivitySubscription;
+  bool _isOffline = false;
 
-  final List<String> _trekkerTips = [
-    'Always pace your breathing while ascending—inhale through nose, exhale through mouth.',
-    'Keep your rucksack weight evenly distributed; keep heavy items close to your back.',
-    'Sip water frequently even if not thirsty—hydration is key to preventing AMS.',
-    'Clip your toenails before the trek to avoid pain during steep descents.',
-    'Always carry a small personal medical kit with basics like band-aids and antiseptic.',
-  ];
-  late String _dailyTip;
+  final String _dailyTip = "Pro Tip: Layering is key! Keep a moisture-wicking base layer for high-altitude trips.";
 
   @override
   void initState() {
     super.initState();
-    _dailyTip = _trekkerTips[DateTime.now().day % _trekkerTips.length];
-    _tabController = TabController(length: _categories.length, vsync: this);
-    _tabController.addListener(_handleTabSelection);
-    _loadTreks();
-    _fetchUserRole();
+    _tabController = TabController(length: _categoryNames.length, vsync: this);
+    _handleInitialLoad();
+    _checkConnectivity();
     _fetchActiveAlert();
   }
 
-  Future<void> _fetchActiveAlert() async {
-    try {
-      final res = await Supabase.instance.client
-          .from('global_alerts')
-          .select()
-          .eq('is_active', true)
-          .order('created_at', ascending: false)
-          .limit(1);
-      if (res.isNotEmpty && mounted) {
-        setState(() => _activeAlert = res.first);
-      }
-    } catch (_) {}
+  Future<void> _checkConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    if (mounted) setState(() => _isOffline = result == ConnectivityResult.none);
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
+      if (mounted) setState(() => _isOffline = result == ConnectivityResult.none);
+    });
   }
 
-  Future<void> _fetchUserRole() async {
+  Future<void> _handleInitialLoad() async {
     try {
-      if (_user != null) {
-        final profile = await Supabase.instance.client.from('profiles').select('role, full_name, avatar_url').eq('id', _user!.id).maybeSingle();
-        if (profile != null && mounted) {
-          setState(() {
-            _userRole = (profile['role']?.toString().toLowerCase() ?? 'user');
-            _userName = profile['full_name'];
-            _userAvatar = profile['avatar_url'];
-          });
-        }
+      await Future.wait([
+        _fetchCategories(),
+        _fetchUserRole(),
+      ]);
+      _loadTrips();
+    } catch (e) {
+      debugPrint('CRITICAL LOAD ERROR: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchCategories() async {
+    try {
+      final cats = await _dbService.fetchCategories();
+      if (mounted) {
+        final newNames = ['All', ...cats.map((c) => c.name)];
+        
+        // Create new controller first to avoid race condition
+        final newController = TabController(length: newNames.length, vsync: this);
+        newController.addListener(_handleTabSelection);
+        
+        setState(() {
+          _availableCategories = cats;
+          _categoryNames = newNames;
+          final oldController = _tabController;
+          _tabController = newController;
+          // Safely dispose old controller after swap
+          oldController.dispose();
+          _lastSelectedIndex = 0;
+          _selectedCategory = 'All';
+        });
+        
+        _filterTrips();
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+    }
   }
 
   void _handleTabSelection() {
-    if (_tabController.indexIsChanging) {
+    if (!mounted || _tabController.indexIsChanging) return;
+    if (_tabController.index < _categoryNames.length) {
       setState(() {
-        _selectedCategory = _categories[_tabController.index];
-        _filterTreks();
+        _lastSelectedIndex = _tabController.index;
+        _selectedCategory = _categoryNames[_tabController.index];
+        _filterTrips();
       });
     }
   }
 
-  Future<void> _loadTreks() async {
-    final treks = await _dbService.fetchTreks();
-    if (mounted) {
-      setState(() {
-        _allTreks = treks;
-        _filteredTreks = treks;
-        _isLoading = false;
-      });
+  Future<void> _loadTrips() async {
+    if (mounted) setState(() => _isTripsLoading = true);
+    try {
+      final trips = await _dbService.fetchTrips().timeout(const Duration(seconds: 15));
+      if (mounted) {
+        setState(() {
+          _allTrips = trips;
+          _filteredTrips = trips;
+          _isTripsLoading = false;
+          _filterTrips();
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isTripsLoading = false);
     }
   }
 
-  void _filterTreks() {
+  void _filterTrips() {
     setState(() {
       String query = _searchController.text.toLowerCase().trim();
-      _filteredTreks = _allTreks.where((trek) {
-        bool matchesSearch = query.isEmpty || 
-                            trek.title.toLowerCase().contains(query) || 
-                            trek.location.toLowerCase().contains(query);
-        
-        bool matchesCategory = _selectedCategory == 'All' || 
-                              trek.category.toLowerCase().contains(_selectedCategory.toLowerCase());
-        
-        return matchesSearch && matchesCategory;
+      List<Trip> baseList;
+      
+      if (_selectedCategory == 'All') {
+        baseList = _allTrips;
+      } else {
+        baseList = _allTrips.where((t) {
+          final tripCat = (t.category ?? '').trim().toLowerCase();
+          final targetCat = _selectedCategory.trim().toLowerCase();
+          // Precise match or loose contains
+          return tripCat == targetCat || targetCat.contains(tripCat) || tripCat.contains(targetCat);
+        }).toList();
+        debugPrint('FILTERING: Selected=$_selectedCategory, ResultCount=${baseList.length}');
+      }
+
+      _filteredTrips = baseList.where((trip) {
+        return query.isEmpty || 
+               trip.title.toLowerCase().contains(query) || 
+               trip.location.toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -152,115 +186,676 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _tabController.removeListener(_handleTabSelection);
     _tabController.dispose();
     _searchController.dispose();
+    _announcementController.dispose();
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 
-  Widget _buildExploreScreen(BuildContext context) {
-    return SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 50, // Optimized height
-            floating: true,
-            pinned: true,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            elevation: 0,
-            centerTitle: false,
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('INDIA TREK DEPLOYMENT', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1.5)),
-                    Text('Beautiful India', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 18, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                Row(
-                  children: [
-                    _notificationBadge(),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () => setState(() => _selectedIndex = 3),
-                      child: UserAvatar(
-                        imageUrl: _userAvatar,
-                        name: _userName ?? _user?.email,
-                        radius: 18,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+  Future<void> _fetchUserRole() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      final res = await Supabase.instance.client.from('profiles').select('role, full_name, avatar_url, aadhar_url, medical_certificate_url').eq('id', user.id).maybeSingle();
+      
+      if (mounted) {
+        String? finalName = res?['full_name'];
+        if (finalName == null || finalName.trim().isEmpty || finalName == 'Explorer') {
+          finalName = user.userMetadata?['full_name'] ?? user.userMetadata?['name'];
+          if (finalName == null || finalName.trim().isEmpty) {
+             finalName = user.email?.split('@')[0] ?? 'Explorer';
+             // Silent Repair: Save email prefix as name to DB
+             Supabase.instance.client.from('profiles').update({'full_name': finalName}).eq('id', user.id).then((_) {});
+          }
+        }
+
+        setState(() {
+          _userRole = res?['role'] ?? 'user';
+          _userName = finalName;
+          _userAvatar = res?['avatar_url'];
+
+          if (_userAvatar == null || _userAvatar!.isEmpty) {
+            _userAvatar = user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'] ?? '';
+          }
+          _isVerified = res?['aadhar_url'] != null || res?['medical_certificate_url'] != null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching role: $e');
+    }
+  }
+
+  Future<void> _fetchActiveAlert() async {
+    try {
+      final res = await Supabase.instance.client.from('app_alerts').select().eq('is_active', true).maybeSingle();
+      if (mounted && res != null) {
+        setState(() => _activeAlert = res);
+      }
+    } catch (_) {}
+  }
+
+  Widget _buildHomeShimmer() {
+    return GlassShimmer(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            const ShimmerBlock(width: double.infinity, height: 180, margin: EdgeInsets.all(20), borderRadius: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(4, (i) => const ShimmerBlock(width: 70, height: 70, borderRadius: 15)),
+              ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: _buildGlobalAnnouncements(),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
-          SliverToBoxAdapter(
+            const SizedBox(height: 30),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: List.generate(4, (i) => const ShimmerBlock(width: 80, height: 35, margin: EdgeInsets.only(right: 12), borderRadius: 10)),
+              ),
+            ),
+            const SizedBox(height: 30),
+            ...List.generate(2, (i) => const ShimmerBlock(width: double.infinity, height: 280, margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10), borderRadius: 24)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _shimmerBox({required EdgeInsets margin, required double height, required double radius}) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        margin: margin,
+        height: height,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(radius)),
+      ),
+    );
+  }
+
+  SliverAppBar _buildAppBar(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: true,
+      pinned: true,
+      backgroundColor: Theme.of(context).primaryColor,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        title: const Text('TRIP INDIA', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+        centerTitle: false,
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(color: Theme.of(context).primaryColor),
+            Positioned(
+              right: -50,
+              top: -50,
+              child: Container(
+                width: 200,
+                height: 280,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: _notificationBadge(),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const ProfileScreen())),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: EdgeInsets.zero,
+              child: Stack(
+                alignment: Alignment.bottomRight,
                 children: [
-                  FadeInLeft(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => _filterTreks(),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Search treks, yatras...',
-                          icon: Icon(Icons.search, color: Theme.of(context).primaryColor),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+                    ),
+                    child: UserAvatar(
+                      imageUrl: _userAvatar, 
+                      name: _userName, 
+                      width: 48,
+                      height: 48,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  if (_isVerified)
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent, 
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
                         ),
+                        child: const Icon(Icons.verified, color: Colors.white, size: 10),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDailyInsight(),
-                  const SizedBox(height: 20),
-                  FadeInUp(
-                    child: TabBar(
-                      controller: _tabController,
-                      isScrollable: true,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.grey,
-                      indicator: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      dividerColor: Colors.transparent,
-                      tabs: _categories.map((c) => Tab(text: c)).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
                 ],
               ),
             ),
+        ),
+      ],
+    );
+  }
+
+  Widget _glassHeaderAction(Widget child, {EdgeInsets padding = const EdgeInsets.only(right: 12)}) {
+    return Padding(
+      padding: padding,
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _notificationBadge() {
+    return StreamBuilder<int>(
+      initialData: 0,
+      stream: Stream.periodic(const Duration(seconds: 15)).asyncMap((_) async {
+        final res = await Supabase.instance.client.from('notifications').select('id').eq('user_id', _user?.id ?? '').eq('is_read', false);
+        return (res as List).length;
+      }),
+      builder: (context, snapshot) {
+        int count = snapshot.data ?? 0;
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 32),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const NotificationCenterScreen())),
+            ),
+            if (count > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white, 
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFD32F2F), width: 1),
+                  ),
+                  constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                  child: Text('$count', style: const TextStyle(color: Color(0xFFD32F2F), fontSize: 8, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildExploreScreen(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Error Logging for Null Check issues
+    final oldErrorBuilder = ErrorWidget.builder;
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      debugPrint('HOME SCREEN BUILD ERROR: ${details.exception}');
+      return Container(
+        color: Colors.red[900],
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: Text(
+            'Build Error: ${details.exception}\nCheck logs for details.',
+            style: const TextStyle(color: Colors.white, fontSize: 10),
           ),
-          SliverToBoxAdapter(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : _buildTreksList(),
+        ),
+      );
+    };
+
+    if (_tabController == null || _categoryNames.isEmpty) {
+       return const Center(child: CircularProgressIndicator());
+    }
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildCombinedInsights(),
+        _buildTransportHub(),
+        // CATEGORIES MOVED ABOVE CURATED COLLECTIONS
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+          decoration: BoxDecoration(
+            // color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: TabBar(
+            key: ValueKey(_categoryNames.join(',')),
+            controller: _tabController,
+            isScrollable: true,
+            labelColor: Colors.white,
+            unselectedLabelColor: isDark ? Colors.white38 : Colors.grey,
+            labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFFD32F2F),
+              boxShadow: [BoxShadow(color: const Color(0xFFD32F2F).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.all(4),
+            tabs: _categoryNames.map((c) => Tab(text: (c ?? 'TRIP').toUpperCase())).toList(),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              () {
+                final specialTrips = _allTrips.where((t) {
+                  final cat = _availableCategories.firstWhere(
+                    (c) => c.name == t.category, 
+                    orElse: () => TripCategory(id: 'default', name: '', isSpecial: false)
+                  );
+                  bool matchesCat = _selectedCategory == 'All' || 
+                                   t.category?.toLowerCase() == _selectedCategory.toLowerCase() ||
+                                   _selectedCategory.toLowerCase().contains(t.category?.toLowerCase() ?? '');
+                  return cat.isSpecial && matchesCat;
+                }).toList();
+
+                if (specialTrips.isEmpty) return const SizedBox.shrink();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _sectionHeader('Curated Collections', onSeeAll: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AllTripsScreen(
+                            initialCategory: 'Special',
+                            allTrips: _allTrips,
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    _buildHorizontalTripList(specialTrips, heroPrefix: 'special'),
+                    const SizedBox(height: 8),
+                  ],
+                );
+              }(),
+            ],
+          ),
+        ),
+        
+        _buildPackagesSection(), // 👈 ADDED PACKAGES SECTION
+        _buildTripsList(),
+        const SizedBox(height: 100),
+      ],
+    )
+    );
+  }
+
+  Widget _buildPackagesSection() {
+    final packages = _allTrips.where((t) {
+      final cat = t.category?.toLowerCase() ?? '';
+      bool isPkg = cat == 'vacation' || cat == 'package' || cat == 'packages';
+      bool matchesCat = _selectedCategory == 'All' || 
+                       cat == _selectedCategory.toLowerCase() ||
+                       _selectedCategory.toLowerCase().contains(cat);
+      return isPkg && matchesCat;
+    }).toList();
+
+    if (packages.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('Exclusive Packages', onSeeAll: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AllTripsScreen(
+                initialCategory: 'Packages',
+                allTrips: _allTrips,
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 12),
+        _buildHorizontalTripList(packages, heroPrefix: 'pkg'),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  // Widget _buildDailyInsightCard() {
+  //   final isDark = Theme.of(context).brightness == Brightness.dark;
+  //   return Container(
+  //     padding: const EdgeInsets.all(12),
+  //     decoration: BoxDecoration(
+  //       color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+  //       borderRadius: BorderRadius.circular(16),
+  //       border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Icon(Icons.lightbulb_outline, size: 18, color: Theme.of(context).primaryColor),
+  //         const SizedBox(width: 12),
+  //         Expanded(
+  //           child: Text(
+  //             _dailyTip,
+  //             style: TextStyle(
+  //               color: isDark ? Colors.white70 : Colors.black87,
+  //               fontSize: 10,
+  //               fontWeight: FontWeight.w600,
+  //               height: 1.3,
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Widget _buildDailyInsightCard() {
+  //   final isDark = Theme.of(context).brightness == Brightness.dark;
+  //   return Container(
+  //     padding: const EdgeInsets.all(12),
+  //     decoration: BoxDecoration(
+  //       color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+  //       borderRadius: BorderRadius.circular(16),
+  //       border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Icon(Icons.lightbulb_outline, size: 18, color: Theme.of(context).primaryColor),
+  //         const SizedBox(width: 12),
+  //         Expanded(
+  //           child: Text(
+  //             _dailyTip,
+  //             style: TextStyle(
+  //               color: isDark ? Colors.white70 : Colors.black87,
+  //               fontSize: 10,
+  //               fontWeight: FontWeight.w600,
+  //               height: 1.3,
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  Widget _buildDailyInsightCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lightbulb_outline, size: 18, color: Theme.of(context).primaryColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _dailyTip,
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black87,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTreksList() {
-    if (_filteredTreks.isEmpty) {
+  Widget _buildCombinedInsights() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Column(
+        children: [
+          _buildDailyInsightCard(),
+          const SizedBox(height: 16),
+          _buildAnnouncementsSlider(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnnouncementsSlider() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('global_announcements')
+          .stream(primaryKey: ['id'])
+          .order('is_urgent', ascending: false)
+          .order('created_at', ascending: false)
+          .limit(5),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+        final items = snapshot.data!;
+
+        return Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(width: 3, height: 12, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: const Color(0xFFD32F2F), borderRadius: BorderRadius.circular(2))),
+                    Text(('LATEST UPDATES' ?? 'ADVENTURE').toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 1.5)),
+                  ],
+                ),
+                GestureDetector(
+                  onTap: _showAnnouncementsScreen,
+                  child: const Text('VIEW ALL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 100,
+              child: PageView.builder(
+                controller: _announcementController,
+                itemCount: items.length,
+                onPageChanged: (i) => setState(() => _currentAnnouncementPage = i),
+                itemBuilder: (context, index) {
+                  final a = items[index];
+                  final isUrgent = a['is_urgent'] == true;
+                  final color = isUrgent ? Colors.redAccent : Colors.blueAccent;
+
+                  return GestureDetector(
+                    onTap: () => _showFullAnnouncement(a),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: color.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign_outlined, color: color, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(a['title'] ?? 'IMPORTANT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: color)),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: Text(
+                                    a['content'] ?? '', 
+                                    maxLines: 3, 
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, height: 1.2)
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(items.length, (i) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _currentAnnouncementPage == i ? const Color(0xFFD32F2F) : Colors.grey.withOpacity(0.3),
+                ),
+              )),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _sectionHeader(String title, {VoidCallback? onSeeAll}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+          TextButton(
+            onPressed: onSeeAll ?? () {},
+            child: const Text('VIEW ALL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHorizontalTripList(List<Trip> trips, {String heroPrefix = 'horiz'}) {
+    final bool isSpecialRow = trips.any((t) {
+      final cat = _availableCategories.firstWhereOrNull((c) => c.name == t.category);
+      return cat?.isSpecial ?? false;
+    });
+    
+    return SizedBox(
+      height: 280,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: trips.length,
+        itemBuilder: (context, index) {
+          final t = trips[index];
+          final catMeta = _availableCategories.where((c) => c.name == t.category).firstOrNull;
+          final isSpecial = catMeta?.isSpecial ?? false;
+          
+          return UnifiedTripCard(
+            trip: t, 
+            categoryMeta: catMeta, 
+            margin: const EdgeInsets.only(right: 16),
+            heroTag: '${heroPrefix}_${t.id}',
+            onRefresh: _loadTrips,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTransportHub() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _transportCard('Bus Service', Icons.directions_bus, Colors.orange, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => const TransportBookingScreen(initialMode: 'bus')));
+                }),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _transportCard('Train Bookings', Icons.train, Colors.blue, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => const TransportBookingScreen(initialMode: 'train')));
+                }),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _transportCard(String title, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 36),
+            const SizedBox(height: 8),
+            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTripsList() {
+    if (_isTripsLoading) {
+      return Column(
+        children: List.generate(3, (i) => Column(
+          children: [
+            _shimmerBox(margin: const EdgeInsets.symmetric(horizontal: 20), height: 400, radius: 24),
+            const SizedBox(height: 16),
+          ],
+        )),
+      );
+    }
+
+    if (_filteredTrips.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.only(top: 100),
+          padding: const EdgeInsets.only(top: 50),
           child: Column(
             children: [
               Icon(Icons.search_off, size: 80, color: Colors.grey.shade300),
@@ -272,15 +867,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       );
     }
 
-    // Group by location for better UI and ensure uniqueness to prevent Hero tag collisions
-    Map<String, List<Trek>> grouped = {};
+    Map<String, List<Trip>> grouped = {};
     Set<String> processedIds = {};
     
-    for (var t in _filteredTreks) {
+    for (var t in _filteredTrips) {
       if (processedIds.contains(t.id)) continue;
       processedIds.add(t.id);
       
-      String region = t.location.split(',').first.trim();
+      String location = t.location ?? 'Global';
+      String region = location.isEmpty ? 'Global' : location.split(',').first.trim();
+      if (region.isEmpty) region = 'Global';
+      
       grouped.putIfAbsent(region, () => []).add(t);
     }
 
@@ -289,7 +886,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 15),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -299,7 +896,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     Navigator.push(
                       context, 
                       MaterialPageRoute(
-                        builder: (c) => AllTreksScreen(treks: entry.value, title: '${entry.key} Expeditions')
+                        builder: (c) => AllTripsScreen(
+                          allTrips: entry.value, 
+                          initialCategory: entry.key,
+                        )
                       )
                     );
                   }, 
@@ -308,152 +908,73 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ],
             ),
           ),
-          SizedBox(
-            height: 130, // TREK OPTIMIZED: Matches TrekCard (130)
-            child: PageView.builder(
-              controller: PageController(viewportFraction: 0.9),
-              itemCount: entry.value.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  child: TrekCard(trek: entry.value[index], margin: EdgeInsets.zero),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 20),
+          _buildHorizontalTripList(entry.value, heroPrefix: 'group_${entry.key}'),
+          const SizedBox(height: 10),
         ],
       )).toList(),
     );
   }
 
-  Widget _buildDailyInsight() {
-    return FadeInRight(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade800.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.blue.withOpacity(0.2)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.blue.shade800, shape: BoxShape.circle),
-              child: const Icon(Icons.bolt, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('TREK INTEL', style: TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                  const SizedBox(height: 2),
-                  Text(_dailyTip, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildGlobalAnnouncements() {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: Supabase.instance.client
-          .from('global_announcements')
-          .stream(primaryKey: ['id'])
-          .order('is_urgent', ascending: false)
-          .order('created_at', ascending: false),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          if (_activeAlert == null) return const SizedBox.shrink();
-          return _legacyAlertWidget();
-        }
-
-        final items = snapshot.data!;
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('BROADCAST INTEL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 2)),
-                  GestureDetector(
-                    onTap: _showAnnouncementsScreen,
-                    child: const Text('VIEW ALL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              height: 120,
-              margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-              child: PageView.builder(
-                itemCount: items.length > 5 ? 5 : items.length,
-                itemBuilder: (context, index) {
-                  final a = items[index];
-                  return FadeInRight(child: _announcementTile(a));
-                },
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _announcementTile(Map<String, dynamic> a) {
-    final date = DateTime.parse(a['created_at']).toLocal();
+  Widget _announcementTile(Map<String, dynamic> a, int index, int total) {
+    final String createdAt = a['created_at']?.toString() ?? DateTime.now().toIso8601String();
+    final date = DateTime.parse(createdAt).toLocal();
     final timeStr = DateFormat('MMM dd | HH:mm').format(date);
-    final senderName = a['sender_name'] ?? 'HQ COMMAND';
+    final senderName = a['sender_name']?.toString() ?? 'TRIP INDIA OFFICE';
+    final bool isUrgent = a['is_urgent'] == true;
+    final String content = a['content']?.toString() ?? 'No details provided.';
 
-    final bool isUrgent = a['is_urgent'] ?? false;
-    return GestureDetector(
-      onTap: () => _showFullAnnouncement(a),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isUrgent 
-              ? [const Color(0xFF991B1B), const Color(0xFFDC2626)] 
-              : [Colors.blue.shade900, Colors.blue.shade700]
+    final accentColor = isUrgent ? const Color(0xFFEF4444) : const Color(0xFF3B82F6);
+    final lightBg = isUrgent ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: index == 0 ? 0 : 6,
+        right: index == total - 1 ? 0 : 6,
+      ),
+      child: GestureDetector(
+        onTap: () => _showFullAnnouncement(a),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: lightBg,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: accentColor.withOpacity(0.25), width: 1.2),
+            boxShadow: [
+              BoxShadow(color: accentColor.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
           ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: (isUrgent ? Colors.red : Colors.blue).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
-        ),
-        child: Row(
-          children: [
-            Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign, color: Colors.white, size: 28),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(senderName.toString().toUpperCase(), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w900, fontSize: 8, letterSpacing: 1.5)),
-                      Text(timeStr, style: const TextStyle(color: Colors.white38, fontSize: 8)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(a['content'], maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, height: 1.3)),
-                ],
+          child: Row(
+            children: [
+              Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign, color: accentColor, size: 26),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Container(width: 3, height: 16, margin: const EdgeInsets.only(right: 6), decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(2))),
+                        Expanded(child: Text(senderName.toUpperCase(), style: TextStyle(color: accentColor, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5))),
+                        Text(timeStr, style: const TextStyle(color: Colors.black45, fontSize: 9)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 13, height: 1.3)),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   void _showFullAnnouncement(Map<String, dynamic> a) {
-    showModalBottomSheet(
+  final date = DateTime.parse(a['created_at']).toLocal();
+ showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -466,9 +987,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           children: [
             Row(
               children: [
-                const Icon(Icons.campaign, color: Colors.blueAccent),
+                const Icon(Icons.campaign, color: Color(0xFFD32F2F)),
                 const SizedBox(width: 12),
-                const Text('BROADCAST INTEL', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 12)),
+                const Text('LATEST UPDATES', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 12)),
                 const Spacer(),
                 IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
               ],
@@ -491,116 +1012,224 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-
-  Widget _legacyAlertWidget() {
-     return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: FadeInDown(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Colors.orange, Colors.redAccent]),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.warning, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text(_activeAlert!['message'], style: const TextStyle(color: Colors.white, fontSize: 12))),
-                IconButton(icon: const Icon(Icons.close, color: Colors.white54), onPressed: () => setState(() => _activeAlert = null)),
-              ],
-            ),
-          ),
+Widget _legacyAlertWidget() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+    child: FadeInDown(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300),
         ),
-      );
-  }
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.info_outline,
+              size: 16,
+              color: Colors.grey,
+            ),
 
+            const SizedBox(width: 8),
 
+            Expanded(
+              child: Text(
+                _activeAlert?['message'] ?? '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.black87,
+                  height: 1.3,
+                ),
+              ),
+            ),
 
-  void _showAnnouncementsScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-          appBar: AppBar(
-            title: const Text('TREK BROADCASTS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 13, color: Colors.white)),
-            backgroundColor: Colors.black,
-            elevation: 0,
-          ),
-          body: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: Supabase.instance.client.from('global_announcements').stream(primaryKey: ['id']).order('created_at', ascending: false),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-              final items = snapshot.data!;
-              if (items.isEmpty) return _buildEmptyState();
+            const SizedBox(width: 6),
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(25),
-                itemCount: items.length,
-                itemBuilder: (context, i) {
-                   final a = items[i];
-                   final date = DateTime.parse(a['created_at']).toLocal();
-                   final bool isUrgent = a['is_urgent'] ?? false;
-                   final isDark = Theme.of(context).brightness == Brightness.dark;
-
-                   return FadeInUp(
-                     delay: Duration(milliseconds: i * 50),
-                     child: Container(
-                       margin: const EdgeInsets.only(bottom: 20),
-                       decoration: BoxDecoration(
-                         color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                         borderRadius: BorderRadius.circular(25),
-                         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 10))],
-                         border: Border.all(color: isUrgent ? Colors.redAccent.withOpacity(0.3) : (isDark ? Colors.white10 : Colors.grey.shade100)),
-                       ),
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           Container(
-                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                             decoration: BoxDecoration(
-                               color: isUrgent ? Colors.redAccent : (isDark ? Colors.white10 : Colors.grey.shade50),
-                               borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                             ),
-                             child: Row(
-                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                               children: [
-                                 Row(
-                                   children: [
-                                     Icon(isUrgent ? Icons.warning_amber_rounded : Icons.info_outline, color: isUrgent ? Colors.white : Colors.blueAccent, size: 14),
-                                     const SizedBox(width: 8),
-                                     Text(isUrgent ? 'URGENT PRIORITY' : 'OFFICIAL INTEL', style: TextStyle(color: isUrgent ? Colors.white : Colors.blueAccent, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                                   ],
-                                 ),
-                                 Text(DateFormat('MMM dd, HH:mm').format(date), style: TextStyle(color: isUrgent ? Colors.white70 : Colors.grey, fontSize: 9, fontWeight: FontWeight.bold)),
-                               ],
-                             ),
-                           ),
-                           Padding(
-                             padding: const EdgeInsets.all(20),
-                             child: Column(
-                               crossAxisAlignment: CrossAxisAlignment.start,
-                               children: [
-                                 Text(a['title'] ?? 'Announcement', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
-                                 const SizedBox(height: 8),
-                                 Text(a['content'], style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black54, height: 1.5)),
-                               ],
-                             ),
-                           ),
-                         ],
-                       ),
-                     ),
-                   );
-                },
-              );
-            },
-          ),
+            GestureDetector(
+              onTap: () => setState(() => _activeAlert = null),
+              child: const Icon(
+                Icons.close,
+                size: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+  
 
+
+void _showAnnouncementsScreen() {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => Scaffold(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF0F172A)
+            : const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text(
+            'TRIP BROADCASTS',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+              fontSize: 13,
+              color: Colors.white,
+            ),
+          ),
+          backgroundColor: const Color(0xFFD32F2F),
+          elevation: 0,
+        ),
+        body: StreamBuilder<List<Map<String, dynamic>>>(
+          stream: Supabase.instance.client
+              .from('global_announcements')
+              .stream(primaryKey: ['id'])
+              .order('created_at', ascending: false),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final items = snapshot.data!;
+            if (items.isEmpty) return _buildEmptyState();
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: items.length,
+              itemBuilder: (context, i) {
+                final a = items[i];
+                final date =
+                    DateTime.parse(a['created_at']).toLocal();
+                final bool isUrgent = a['is_urgent'] ?? false;
+                final isDark =
+                    Theme.of(context).brightness == Brightness.dark;
+
+                return GestureDetector(
+                  onTap: () => _showFullAnnouncement(a),
+                  child: FadeInUp(
+                    delay: Duration(milliseconds: i * 40),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF1E293B)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isUrgent
+                              ? Colors.redAccent.withOpacity(0.25)
+                              : (isDark
+                                  ? Colors.white10
+                                  : Colors.grey.shade200),
+                        ),
+                        boxShadow: [
+                          if (!isDark)
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 6),
+                            ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              isUrgent
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.info_outline,
+                              size: 18,
+                              color: isUrgent
+                                  ? Colors.redAccent
+                                  : Colors.blueAccent,
+                            ),
+
+                            const SizedBox(width: 10),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        isUrgent
+                                            ? 'URGENT'
+                                            : 'UPDATE',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: isUrgent
+                                              ? Colors.redAccent
+                                              : Colors.blueAccent,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        DateFormat('MMM dd, HH:mm')
+                                            .format(date),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color:
+                                              Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 6),
+
+                                  Text(
+                                    a['title'] ?? 'Announcement',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 4),
+
+                                  Text(
+                                    a['content'],
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.white70 : Colors.black54,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -616,11 +1245,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    // Determine page set based on role
+    // Error Logger
+    ErrorWidget.builder = (details) {
+      debugPrint('HOME_UI_ERROR: ${details.exception}');
+      return Center(child: Text('Error: ${details.exception}', style: TextStyle(color: Colors.red)));
+    };
+
     final List<Widget> pages;
     final List<BottomNavigationBarItem> navItems;
+    final String title;
 
     if (_userRole == 'admin') {
+      title = 'ADMIN CENTER';
       pages = [
         _buildExploreScreen(context),
         const ChatRoomListScreen(),
@@ -630,34 +1266,35 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       navItems = [
         const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
         BottomNavigationBarItem(icon: _buildChatIcon(true), label: 'Chats'),
-        const BottomNavigationBarItem(icon: Icon(Icons.shield_outlined), label: 'Admin HQ'),
+        const BottomNavigationBarItem(icon: Icon(Icons.shield_outlined), label: 'Admin'),
         const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
       ];
-    } else if (_userRole == 'guide' || _userRole == 'staff') {
+    } else if (_userRole == 'staff') {
+      title = 'STAFF PORTAL';
       pages = [
         _buildExploreScreen(context),
         const ChatRoomListScreen(),
-        const EmployeeTerminalScreen(),
+        const EmployeeDashboardScreen(),
         ProfileScreen(),
       ];
       navItems = [
         const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
         BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
-        const BottomNavigationBarItem(icon: Icon(Icons.terminal_outlined), label: 'Terminal'),
+        const BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
         const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
       ];
     } else {
-      // Default User
+      title = 'TRIP INDIA';
       pages = [
         _buildExploreScreen(context),
         const ChatRoomListScreen(),
-        const TrekkerTerminalScreen(),
+        const TripDashboardScreen(),
         ProfileScreen(),
       ];
       navItems = [
         const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
         BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
-        const BottomNavigationBarItem(icon: Icon(Icons.hub_outlined), label: 'Terminal'),
+        const BottomNavigationBarItem(icon: Icon(Icons.hub_outlined), label: 'Dashboard'),
         const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
       ];
     }
@@ -665,15 +1302,126 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (_selectedIndex >= pages.length) _selectedIndex = 0;
 
     return Scaffold(
+      appBar: _selectedIndex == 0 ? AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('EXPEDITION HQ', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white70)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+          ],
+        ),
+        backgroundColor: const Color(0xFFD32F2F),
+        centerTitle: false,
+        actions: [
+          _glassHeaderAction(_notificationBadge()),
+          Padding(
+            padding: const EdgeInsets.only(right: 16, left: 8),
+            child: GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProfileScreen())),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6)],
+                    ),
+                    child: UserAvatar(
+                      imageUrl: _userAvatar, 
+                      name: _userName, 
+                      width: 44, 
+                      height: 44, 
+                      borderRadius: BorderRadius.circular(14)
+                    ),
+                  ),
+                  if (_isVerified)
+                    Positioned(
+                      right: -1,
+                      bottom: -1,
+                      child: Container(
+                        padding: const EdgeInsets.all(1),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent, 
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1),
+                        ),
+                        child: const Icon(Icons.verified, color: Colors.white, size: 6),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+            child: Container(
+              height: 45,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => _filterTrips(),
+                style: const TextStyle(color: Colors.black87, fontSize: 14),
+                decoration: const InputDecoration(
+                  hintText: 'Search your next peak...',
+                  hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                  border: InputBorder.none,
+                  icon: Icon(Icons.search, size: 18, color: Color(0xFFD32F2F)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ) : null,
       floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
         heroTag: 'support_fab',
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AIGuideScreen())),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: const Color(0xFFD32F2F),
         child: const Icon(Icons.support_agent, color: Colors.white),
       ) : null,
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: pages,
+      body: Column(
+        children: [
+          if (_isOffline)
+            Container(
+              color: Colors.redAccent,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 14),
+                  const SizedBox(width: 8),
+                  const Text('OFFLINE MODE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => _handleInitialLoad(),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      minimumSize: Size.zero,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                    child: const Text('RECONNECT', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: _isLoading 
+              ? _buildHomeShimmer()
+              : IndexedStack(
+                  index: _selectedIndex,
+                  children: pages,
+                ),
+          ),
+        ],
       ),
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
@@ -684,7 +1432,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           onTap: (index) {
             setState(() => _selectedIndex = index);
           },
-          selectedItemColor: Theme.of(context).primaryColor,
+          selectedItemColor: const Color(0xFFD32F2F),
           unselectedItemColor: Colors.grey,
           type: BottomNavigationBarType.fixed,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
@@ -745,7 +1493,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 200, // Wider card for more info
+          width: 200,
           margin: const EdgeInsets.only(right: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -865,7 +1613,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             itemBuilder: (context, index) {
                               final u = users[index];
                               return ListTile(
-                                leading: UserAvatar(imageUrl: u['avatar_url'], name: u['full_name'], radius: 18),
+                                leading: UserAvatar(imageUrl: u['avatar_url'], name: u['full_name'], width: 36, height: 36, borderRadius: BorderRadius.circular(8)),
                                 title: Text(u['full_name'] ?? 'Tracker'),
                                 subtitle: Text(u['role'] ?? 'user'),
                                 trailing: PopupMenuButton<String>(
@@ -874,15 +1622,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     try {
                                       await Supabase.instance.client.from('profiles').update({'role': newRole}).eq('id', u['id']);
                                       setSheetState(() => u['role'] = newRole);
-                                      // Optionally refresh the main screen's data if needed
-                                      // fetchData(); // Assuming fetchData is accessible or passed
                                     } catch (e) {
                                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                                     }
                                   },
                                   itemBuilder: (context) => [
                                     const PopupMenuItem(value: 'user', child: Text('User')),
-                                    const PopupMenuItem(value: 'guide', child: Text('Expedition Guide')),
+                                    const PopupMenuItem(value: 'staff', child: Text('Staff / Guide')),
                                     const PopupMenuItem(value: 'admin', child: Text('Administrator')),
                                   ],
                                 ),
@@ -901,44 +1647,60 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       },
     );
   }
+}
 
-  Widget _notificationBadge() {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return const SizedBox.shrink();
+class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final TabController tabController;
+  final List<String> categoryNames;
+  final Function(int) onTap;
+  final Key? key;
 
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: Supabase.instance.client
-          .from('notifications')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', user.id),
-      builder: (context, snapshot) {
-        final all = snapshot.data ?? [];
-        final count = all.where((n) => n['is_read'] == false).length;
-        return IconButton(
-          icon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(Icons.notifications_outlined, color: Colors.blueAccent),
-              if (count > 0)
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
+  _CategoryHeaderDelegate({
+    required this.tabController,
+    required this.categoryNames,
+    required this.onTap,
+    this.key,
+  });
+
+  @override
+  double get minExtent => 70;
+  @override
+  double get maxExtent => 70;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: TabBar(
+          key: ValueKey(categoryNames.join(',')),
+          controller: tabController,
+          onTap: onTap,
+          isScrollable: true,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.grey,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+          indicator: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            color: Colors.white, // 👈 WHITE TEXT ON DARK BG
           ),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => NotificationCenterScreen(role: _userRole))),
-        );
-      },
+          indicatorSize: TabBarIndicatorSize.tab,
+          dividerColor: Colors.transparent,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          tabs: categoryNames.map((c) => Tab(text: (c ?? 'Adventure').toUpperCase())).toList(),
+        ),
+      ),
     );
   }
+
+  @override
+  bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) {
+    return oldDelegate.categoryNames.join(',') != categoryNames.join(',') || 
+           oldDelegate.tabController != tabController;
+  }
 }
+// END OF HOME SCREEN

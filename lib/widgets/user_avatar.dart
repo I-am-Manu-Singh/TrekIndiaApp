@@ -5,12 +5,18 @@ class UserAvatar extends StatelessWidget {
   final String? imageUrl;
   final String? name;
   final double radius;
+  final double? width;
+  final double? height;
+  final BorderRadius? borderRadius;
 
   const UserAvatar({
     super.key,
     this.imageUrl,
     this.name,
     this.radius = 20,
+    this.width,
+    this.height,
+    this.borderRadius,
   });
 
   String get _initials {
@@ -30,31 +36,55 @@ class UserAvatar extends StatelessWidget {
                           imageUrl != 'null' && 
                           imageUrl!.startsWith('http');
     
+    final effectiveWidth = width ?? radius * 2;
+    final effectiveHeight = height ?? radius * 2;
+    
+    // If borderRadius is null, default to circular (ClipOval)
+    final bool isCircular = borderRadius == null;
+
     if (hasImage) {
-      return ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: imageUrl!,
-          width: radius * 2,
-          height: radius * 2,
-          fit: BoxFit.cover,
-          errorWidget: (context, url, error) => _initialsWidget(context),
-          placeholder: (context, url) => _initialsWidget(context),
-        ),
-      );
+      return isCircular 
+        ? ClipOval(
+            child: CachedNetworkImage(
+              imageUrl: imageUrl!,
+              width: effectiveWidth,
+              height: effectiveHeight,
+              fit: BoxFit.cover,
+              errorWidget: (context, url, error) => _initialsWidget(context, effectiveWidth, effectiveHeight, isCircular),
+              placeholder: (context, url) => _initialsWidget(context, effectiveWidth, effectiveHeight, isCircular),
+            ),
+          )
+        : ClipRRect(
+            borderRadius: borderRadius!,
+            child: CachedNetworkImage(
+              imageUrl: imageUrl!,
+              width: effectiveWidth,
+              height: effectiveHeight,
+              fit: BoxFit.cover,
+              errorWidget: (context, url, error) => _initialsWidget(context, effectiveWidth, effectiveHeight, isCircular),
+              placeholder: (context, url) => _initialsWidget(context, effectiveWidth, effectiveHeight, isCircular),
+            ),
+          );
     }
-    return _initialsWidget(context);
+    return _initialsWidget(context, effectiveWidth, effectiveHeight, isCircular);
   }
 
-  Widget _initialsWidget(BuildContext context) {
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+  Widget _initialsWidget(BuildContext context, double w, double h, bool isCircular) {
+    return Container(
+      width: w,
+      height: h,
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.8),
+        shape: isCircular ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: isCircular ? null : borderRadius,
+      ),
+      alignment: Alignment.center,
       child: Text(
         _initials,
         style: TextStyle(
-          color: Theme.of(context).primaryColor,
-          fontWeight: FontWeight.bold,
-          fontSize: radius * 0.8,
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+          fontSize: (w < h ? w : h) * 0.45,
         ),
       ),
     );

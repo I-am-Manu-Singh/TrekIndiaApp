@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/trek.dart';
+import '../models/trip.dart';
 import '../services/database_service.dart';
-import 'edit_trek_screen.dart';
+import 'edit_trip_screen.dart';
 
 class AdminPackageManagementScreen extends StatefulWidget {
   const AdminPackageManagementScreen({super.key});
@@ -14,7 +14,7 @@ class AdminPackageManagementScreen extends StatefulWidget {
 
 class _AdminPackageManagementScreenState extends State<AdminPackageManagementScreen> {
   final DatabaseService _dbService = DatabaseService();
-  List<Trek> _allTreks = [];
+  List<Trip> _allTrips = [];
   bool _isLoading = true;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -22,35 +22,35 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
   @override
   void initState() {
     super.initState();
-    _loadTreks();
+    _loadTrips();
   }
 
-  Future<void> _loadTreks() async {
+  Future<void> _loadTrips() async {
     setState(() => _isLoading = true);
-    final treks = await _dbService.fetchTreks();
+    final trips = await _dbService.fetchTrips();
     if (mounted) {
       setState(() {
-        _allTreks = treks;
+        _allTrips = trips;
         _isLoading = false;
       });
     }
   }
 
-  List<Trek> get _filteredTreks {
-    if (_searchQuery.isEmpty) return _allTreks;
-    return _allTreks.where((t) => 
+  List<Trip> get _filteredTrips {
+    if (_searchQuery.isEmpty) return _allTrips;
+    return _allTrips.where((t) => 
       t.title.toLowerCase().contains(_searchQuery.toLowerCase()) || 
       t.location.toLowerCase().contains(_searchQuery.toLowerCase()) ||
       t.category.toLowerCase().contains(_searchQuery.toLowerCase())
     ).toList();
   }
 
-  Future<void> _deleteTrek(String id) async {
+  Future<void> _deleteTrip(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Delete Package?'),
-        content: const Text('This will permanently remove this trek package and all associated booking options.'),
+        content: const Text('This will permanently remove this trip package and all associated booking options.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
           ElevatedButton(
@@ -64,8 +64,8 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
 
     if (confirmed == true) {
       try {
-        await Supabase.instance.client.from('treks').delete().eq('id', id);
-        _loadTreks();
+        await Supabase.instance.client.from('trips').delete().eq('id', id);
+        _loadTrips();
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Package deleted successfully.')));
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
@@ -83,8 +83,8 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
         foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () async {
-            final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => const EditTrekScreen()));
-            if (r == true) _loadTreks();
+            final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => const EditTripScreen()));
+            if (r == true) _loadTrips();
           }),
         ],
       ),
@@ -94,7 +94,7 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
           Expanded(
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator())
-              : _buildTrekList(),
+              : _buildTripList(),
           ),
         ],
       ),
@@ -134,9 +134,9 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
     );
   }
 
-  Widget _buildTrekList() {
-    final treks = _filteredTreks;
-    if (treks.isEmpty) {
+  Widget _buildTripList() {
+    final trips = _filteredTrips;
+    if (trips.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -151,9 +151,9 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: treks.length,
+      itemCount: trips.length,
       itemBuilder: (context, index) {
-        final t = treks[index];
+        final t = trips[index];
         return FadeInUp(
           delay: Duration(milliseconds: index * 20),
           child: Container(
@@ -196,11 +196,11 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
                     IconButton(
                       icon: const Icon(Icons.edit_note, color: Colors.blue), 
                       onPressed: () async {
-                        final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => EditTrekScreen(trek: t)));
-                        if (r == true) _loadTreks();
+                        final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => EditTripScreen(trip: t)));
+                        if (r == true) _loadTrips();
                       }
                     ),
-                    IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => _deleteTrek(t.id)),
+                    IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => _deleteTrip(t.id)),
                   ],
                 ),
               ],

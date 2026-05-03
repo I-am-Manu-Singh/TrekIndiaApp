@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import '../services/database_service.dart';
 
 class AdminComplaintsScreen extends StatefulWidget {
   const AdminComplaintsScreen({super.key});
@@ -24,9 +25,10 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
   Future<void> _fetchComplaints() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _client.from('complaints').select('*, profiles(*)').order('created_at', ascending: false);
+      final res = await _client.from('complaints').select('*, profiles(id, full_name, avatar_url, role)').order('created_at', ascending: false);
       if (mounted) setState(() { _complaints = res; _isLoading = false; });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ADMIN COMPLAINTS FETCH ERROR: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -37,7 +39,7 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('ADMIN COMPLAINTS MANAGEMENT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-        backgroundColor: const Color(0xFF2E7B32),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: _isLoading 
@@ -125,7 +127,7 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(profile?['full_name'] ?? 'Trekker', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
+                    Text(profile?['full_name'] ?? 'Trip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
                     Text(DateFormat('MMM dd, yyyy • HH:mm').format(DateTime.parse(c['created_at'])), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
@@ -146,7 +148,12 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
           const SizedBox(height: 12),
           Text('NEW REPORT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
           const SizedBox(height: 8),
-          Text(c['content'] ?? '', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87, height: 1.5)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 150),
+            child: SingleChildScrollView(
+              child: Text(c['content'] ?? '', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87, height: 1.5)),
+            ),
+          ),
           const SizedBox(height: 24),
           if (c['admin_reply'] != null) 
             _replyBox(c['admin_reply'])
@@ -156,7 +163,7 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
               height: 45,
               child: ElevatedButton(
                 onPressed: () => _showResponseModal(c),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7B32), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
                 child: const Text('TAKE ACTION', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
               ),
             ),
@@ -198,15 +205,25 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL', style: TextStyle(color: Color(0xFF2E7B32), fontWeight: FontWeight.bold))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL', style: TextStyle(color: Color(0xFFD32F2F), fontWeight: FontWeight.bold))),
           ElevatedButton(
             onPressed: () async {
               if (ctrl.text.isEmpty) return;
               await _client.from('complaints').update({'admin_reply': ctrl.text, 'status': 'resolved'}).eq('id', c['id']);
+              
+              // Notify User
+              final db = DatabaseService();
+              await db.createNotification(
+                userId: c['user_id'],
+                title: 'Complaint Resolved',
+                body: 'TRIP INDIA has addressed your report: "${c['type']}". Check details in support.',
+                category: 'support',
+              );
+
               Navigator.pop(ctx);
               _fetchComplaints();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7B32), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             child: const Text('SUBMIT RESPONSE', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           ),
         ],

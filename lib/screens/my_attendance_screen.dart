@@ -75,7 +75,7 @@ class _MyAttendanceScreenState extends State<MyAttendanceScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('MY ATTENDANCE RECORD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 1.5)),
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: Column(
@@ -93,7 +93,7 @@ class _MyAttendanceScreenState extends State<MyAttendanceScreen> {
   Widget _buildMonthHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
-      color: Colors.black,
+      color: const Color(0xFFD32F2F),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

@@ -13,7 +13,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
   Map<String, dynamic>? _profile;
-  int _completedTreks = 0;
+  int _completedTrips = 0;
 
   @override
   void initState() {
@@ -26,11 +26,11 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     if (user == null) return;
     try {
       final p = await _client.from('profiles').select().eq('id', user.id).maybeSingle();
-      final treks = await _client.from('bookings').select('id').eq('user_id', user.id).eq('status', 'Completed');
+      final trips = await _client.from('bookings').select('id').eq('user_id', user.id).eq('status', 'Completed');
       if (mounted) {
         setState(() {
           _profile = p;
-          _completedTreks = (treks as List).length;
+          _completedTrips = (trips as List).length;
           _isLoading = false;
         });
       }
@@ -52,27 +52,26 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('HONOR & ACHIEVEMENTS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2, color: Colors.white)),
-        backgroundColor: Colors.black,
+        title: const Text('HONOR & ACHIEVEMENTS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
           _buildRankHeader(xp),
           const SizedBox(height: 32),
-          Text('TREK ACCOMPLISHED', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: isDark ? Colors.white54 : Colors.grey)),
+          Text('TRIP ACCOMPLISHED', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: isDark ? Colors.white54 : Colors.grey)),
           const SizedBox(height: 16),
-          _badgeItem('Summit Seeker', 'Completed first 4,000m+ trek', Icons.terrain, Colors.orangeAccent, _completedTreks >= 1),
+          _badgeItem('Summit Seeker', 'Completed first 4,000m+ trip', Icons.terrain, Colors.orangeAccent, _completedTrips >= 1),
           _badgeItem('Night Scout', 'Completed a night navigation exercise', Icons.bedtime, Colors.blueAccent, xp > 500),
           _badgeItem('Iron Hiker', '5 consecutive days with 10km+ movement', Icons.fitness_center, Colors.redAccent, xp > 2000),
-          _badgeItem('Eco Guardian', 'Participated in a mountain cleanup group', Icons.eco, Colors.greenAccent, _completedTreks > 5),
+          _badgeItem('Eco Guardian', 'Participated in a mountain cleanup group', Icons.eco, Colors.greenAccent, _completedTrips > 5),
           const SizedBox(height: 32),
-          Text('TREK PROGRESSION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: isDark ? Colors.white54 : Colors.grey)),
+          Text('TRIP PROGRESSION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: isDark ? Colors.white54 : Colors.grey)),
           const SizedBox(height: 16),
           _progressTile('Navigation Mastery', (xp / 5000).clamp(0.0, 1.0)),
-          _progressTile('Altitude Resilience', (_completedTreks / 10).clamp(0.0, 1.0)),
+          _progressTile('Altitude Resilience', (_completedTrips / 10).clamp(0.0, 1.0)),
           _progressTile('Survival Skills', (xp / 10000).clamp(0.0, 1.0)),
           const SizedBox(height: 40),
         ],
@@ -100,7 +99,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
             const CircleAvatar(radius: 40, backgroundColor: Colors.white10, child: Icon(Icons.shield, color: Colors.amber, size: 40)),
             const SizedBox(height: 16),
             Text('RANK: $rank', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
-            Text('Total XP: $xp • $_completedTreks Treks', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            Text('Total XP: $xp • $_completedTrips Trips', style: const TextStyle(color: Colors.white38, fontSize: 11)),
           ],
         ),
       ),

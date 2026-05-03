@@ -25,7 +25,7 @@ class _AdminWalletScreenState extends State<AdminWalletScreen> {
   Future<void> _fetchWalletData() async {
     setState(() => _isLoading = true);
     try {
-      // For Admin, it shows the "Expedition Ledger" or total revenue trends
+      // For Admin, it shows the "Trip Ledger" or total revenue trends
       final tx = await _client.from('bookings').select('*, profiles(full_name)').order('created_at', ascending: false);
       
       double totalBalance = 0;
@@ -53,7 +53,7 @@ class _AdminWalletScreenState extends State<AdminWalletScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('OFFICIAL REVENUE LEDGER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 2)),
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.refresh, color: Colors.white, size: 20), onPressed: _fetchWalletData),
@@ -66,7 +66,7 @@ class _AdminWalletScreenState extends State<AdminWalletScreen> {
               _buildBalanceCard(),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Text('RECENT TREK FUNDING RECEIPTS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
+                child: Text('RECENT TRIP FUNDING RECEIPTS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
               ),
               ..._transactions.map((t) => _transactionTile(t)).toList(),
             ],
@@ -81,7 +81,7 @@ class _AdminWalletScreenState extends State<AdminWalletScreen> {
         decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
         child: const Icon(Icons.download_for_offline_outlined, color: Colors.green, size: 20),
       ),
-      title: Text(t['profiles']?['full_name'] ?? 'Trekker Payment', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      title: Text(t['profiles']?['full_name'] ?? 'Trip Payment', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
       subtitle: Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(t['created_at'])), style: const TextStyle(fontSize: 10, color: Colors.grey)),
       trailing: Text('+₹${t['paid_amount'] ?? t['total_price']}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w900, fontSize: 14)),
     );

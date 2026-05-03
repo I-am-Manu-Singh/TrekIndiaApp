@@ -12,7 +12,10 @@ class UnreadBadge extends StatefulWidget {
   State<UnreadBadge> createState() => _UnreadBadgeState();
 }
 
-class _UnreadBadgeState extends State<UnreadBadge> {
+class _UnreadBadgeState extends State<UnreadBadge> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+  
   DateTime? _lastRead;
   Stream<List<Map<String, dynamic>>>? _messageStream;
   StreamSubscription? _readSubscription;
@@ -21,7 +24,7 @@ class _UnreadBadgeState extends State<UnreadBadge> {
   void initState() {
     super.initState();
     _fetchLastRead();
-    // Trek subscription to global read receipts
+    // Trip subscription to global read receipts
     _readSubscription = PreferencesService().readStream.listen((roomId) {
       if (roomId == widget.roomId) {
         _fetchLastRead();
@@ -39,17 +42,26 @@ class _UnreadBadgeState extends State<UnreadBadge> {
     final lr = await PreferencesService().getLastRead(widget.roomId);
     if (!mounted) return;
     
+    // Fetch user profile for accurate mention detection
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null && _userName == null) {
+      final profile = await Supabase.instance.client.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+      if (mounted) _userName = profile?['full_name'];
+    }
+
     setState(() {
       _lastRead = lr;
       _messageStream = Supabase.instance.client
-          .from('messages')
+          .from('chat_messages')
           .stream(primaryKey: ['id'])
           .eq('room_id', widget.roomId);
     });
   }
+  String? _userName;
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_messageStream == null) return const SizedBox.shrink();
 
     return StreamBuilder<List<Map<String, dynamic>>>(
@@ -63,10 +75,10 @@ class _UnreadBadgeState extends State<UnreadBadge> {
         int unreadCount = 0;
         bool hasMention = false;
         final user = Supabase.instance.client.auth.currentUser;
-        final userName = user?.userMetadata?['full_name'] ?? '';
-        final firstName = userName.contains(' ') ? userName.split(' ').first : userName;
+        final fullName = _userName ?? user?.userMetadata?['full_name'] ?? '';
+        final firstName = fullName.contains(' ') ? fullName.split(' ').first : fullName;
 
-        final lowerUserName = userName.toLowerCase();
+        final lowerUserName = fullName.toLowerCase();
         final lowerFirstName = firstName.toLowerCase();
 
         for (var msg in snapshot.data!) {
@@ -75,9 +87,10 @@ class _UnreadBadgeState extends State<UnreadBadge> {
             unreadCount++;
             final content = (msg['content'] ?? '').toString().toLowerCase();
             
-            // Trek Mention Detection: Case-insensitive check
-            bool isMe = lowerUserName.isNotEmpty && content.contains('@$lowerUserName') || 
-                        lowerFirstName.isNotEmpty && content.contains('@$lowerFirstName');
+            // Trip Mention Detection: Case-insensitive check
+            bool isMe = (lowerUserName.isNotEmpty && content.contains('@$lowerUserName')) || 
+                        (lowerFirstName.isNotEmpty && content.contains('@$lowerFirstName')) ||
+                        content.contains('@all');
             
             if (isMe) hasMention = true;
           }

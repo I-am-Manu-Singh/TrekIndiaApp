@@ -82,8 +82,8 @@ class _EmployeeSalaryBreakupScreenState extends State<EmployeeSalaryBreakupScree
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('PAYROLL TERMINAL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2)),
-        backgroundColor: Colors.black,
+        title: const Text('PAYROLL DASHBOARD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2)),
+        backgroundColor: const Color(0xFFD32F2F),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -211,7 +211,7 @@ class _EmployeeSalaryBreakupScreenState extends State<EmployeeSalaryBreakupScree
             _breakupRow('Field Allowance (${presentCount}d active)', '₹${totalAllowance.toInt()}', Icons.add_chart_outlined, color: Colors.blueAccent),
             _breakupRow('Attendance Deductions (${lopDays}d)', '-₹${lopsPrice.toInt()}', Icons.event_busy_outlined, color: Colors.orange),
             if (profileAdvances > 0) _breakupRow('Company Advances', '-₹${profileAdvances.toInt()}', Icons.money_off_csred_outlined, color: Colors.redAccent),
-            if (profileDues > 0) _breakupRow('Tactical Dues/Penalty', '-₹${profileDues.toInt()}', Icons.gavel_outlined, color: Colors.redAccent),
+            if (profileDues > 0) _breakupRow('Outstanding Dues/Adjustment', '-₹${profileDues.toInt()}', Icons.gavel_outlined, color: Colors.redAccent),
             const SizedBox(height: 16),
             const Divider(height: 32),
             Row(
@@ -300,7 +300,7 @@ class _EmployeeSalaryBreakupScreenState extends State<EmployeeSalaryBreakupScree
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(date, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
-                const Text('Disbursed via HQ Bank Transfer', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                const Text('Disbursed via TRIP INDIA Bank Transfer', style: TextStyle(fontSize: 9, color: Colors.grey)),
               ],
             ),
           ),

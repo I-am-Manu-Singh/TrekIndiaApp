@@ -6,41 +6,41 @@ class PreferencesService {
   factory PreferencesService() => _instance;
   PreferencesService._internal();
 
-  static const String _savedTreksKey = 'saved_treks';
+  static const String _savedTripsKey = 'saved_trips';
   
-  // Trek Event Bus for Read Receipts
+  // Trip Event Bus for Read Receipts
   final _readStreamController = StreamController<String>.broadcast();
   Stream<String> get readStream => _readStreamController.stream;
 
-  Future<List<String>> getSavedTreks() async {
+  Future<List<String>> getSavedTrips() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_savedTreksKey) ?? [];
+    return prefs.getStringList(_savedTripsKey) ?? [];
   }
 
-  Future<void> toggleSavedTrek(String trekId) async {
+  Future<void> toggleSavedTrip(String tripId) async {
     final prefs = await SharedPreferences.getInstance();
-    final savedTreks = prefs.getStringList(_savedTreksKey) ?? [];
+    final savedTrips = prefs.getStringList(_savedTripsKey) ?? [];
     
-    if (savedTreks.contains(trekId)) {
-      savedTreks.remove(trekId);
+    if (savedTrips.contains(tripId)) {
+      savedTrips.remove(tripId);
     } else {
-      savedTreks.add(trekId);
+      savedTrips.add(tripId);
     }
     
-    await prefs.setStringList(_savedTreksKey, savedTreks);
+    await prefs.setStringList(_savedTripsKey, savedTrips);
   }
 
-  Future<bool> isTrekSaved(String trekId) async {
+  Future<bool> isTripSaved(String tripId) async {
     final prefs = await SharedPreferences.getInstance();
-    final savedTreks = prefs.getStringList(_savedTreksKey) ?? [];
-    return savedTreks.contains(trekId);
+    final savedTrips = prefs.getStringList(_savedTripsKey) ?? [];
+    return savedTrips.contains(tripId);
   }
 
   Future<void> setLastRead(String roomId) async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now().toIso8601String();
     await prefs.setString('last_read_$roomId', now);
-    // Broadcast update to all tactical listen nodes
+    // Broadcast update to all details listen nodes
     _readStreamController.add(roomId);
   }
 

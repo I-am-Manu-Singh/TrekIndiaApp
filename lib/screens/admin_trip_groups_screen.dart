@@ -3,16 +3,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'admin_group_detail_screen.dart';
 
-class AdminTrekGroupsScreen extends StatefulWidget {
-  const AdminTrekGroupsScreen({super.key});
+class AdminTripGroupsScreen extends StatefulWidget {
+  const AdminTripGroupsScreen({super.key});
 
   @override
-  State<AdminTrekGroupsScreen> createState() => _AdminTrekGroupsScreenState();
+  State<AdminTripGroupsScreen> createState() => _AdminTripGroupsScreenState();
 }
 
-class _AdminTrekGroupsScreenState extends State<AdminTrekGroupsScreen> {
+class _AdminTripGroupsScreenState extends State<AdminTripGroupsScreen> {
   final _client = Supabase.instance.client;
-  List<dynamic> _groupedTreks = [];
+  List<dynamic> _groupedTrips = [];
   bool _isLoading = true;
 
   bool _isInitialized = false;
@@ -34,24 +34,24 @@ class _AdminTrekGroupsScreenState extends State<AdminTrekGroupsScreen> {
       final user = _client.auth.currentUser;
       final bool onlyMe = _onlyMe;
 
-      // Trek Fetch: Retrieve groups with their assigned guide/staff and participant bookings
-      final response = await _client.from('trek_groups')
-          .select('*, treks(title, image_url), bookings(*)')
+      // Trip Fetch: Retrieve groups with their assigned guide/staff and participant bookings
+      final response = await _client.from('trip_groups')
+          .select('*, trips(title, image_url), bookings(*)')
           .order('departure_date', ascending: true);
       
       if (mounted) {
         // Fetch staff assignments for the current user
         List<dynamic> staffAssignments = [];
         if (onlyMe && user != null) {
-          staffAssignments = await _client.from('trek_group_staff')
-              .select('trek_id, deployment_date')
+          staffAssignments = await _client.from('trip_group_staff')
+              .select('trip_id, deployment_date')
               .eq('user_id', user.id);
         }
 
         final List<Map<String, dynamic>> finalGroups = (response as List).map((g) => {
-          'trek_id': g['trek_id'],
-          'trek_title': g['treks']['title'],
-          'image_url': g['treks']['image_url'],
+          'trip_id': g['trip_id'],
+          'trip_title': g['trips']['title'],
+          'image_url': g['trips']['image_url'],
           'date': g['departure_date'],
           'guide_id': g['guide_id'],
           'staff_id': g['staff_id'],
@@ -61,18 +61,18 @@ class _AdminTrekGroupsScreenState extends State<AdminTrekGroupsScreen> {
 
         List<Map<String, dynamic>> filtered = finalGroups;
         if (onlyMe && user != null) {
-          // Trek Filter: Check if user is a participant, assigned guide/staff, or deployed via trek_group_staff
+          // Trip Filter: Check if user is a participant, assigned guide/staff, or deployed via trip_group_staff
           filtered = finalGroups.where((g) {
             final participants = g['bookings'] as List? ?? [];
             bool isParticipant = participants.any((b) => b['user_id'].toString() == user.id.toString());
             bool isLeader = (g['guide_id'] != null && g['guide_id'].toString() == user.id.toString()) || 
                           (g['staff_id'] != null && g['staff_id'].toString() == user.id.toString());
             
-            // Check if deployed in this specific trek on this specific date
+            // Check if deployed in this specific trip on this specific date
             bool isStaffDeployed = staffAssignments.any((sa) {
               final String sd = sa['deployment_date'].toString().split('T')[0];
               final String gd = g['date'].toString().split('T')[0];
-              return sa['trek_id'].toString() == g['trek_id'].toString() && sd == gd;
+              return sa['trip_id'].toString() == g['trip_id'].toString() && sd == gd;
             });
 
             return isParticipant || isLeader || isStaffDeployed;
@@ -80,7 +80,7 @@ class _AdminTrekGroupsScreenState extends State<AdminTrekGroupsScreen> {
         }
 
         setState(() {
-          _groupedTreks = filtered;
+          _groupedTrips = filtered;
           _isLoading = false;
         });
       }
@@ -94,19 +94,19 @@ class _AdminTrekGroupsScreenState extends State<AdminTrekGroupsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TREK GROUPS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5, color: Colors.white)),
+        title: const Text('TRIP GROUPS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5, color: Colors.white)),
         backgroundColor: Colors.black,
         elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _groupedTreks.isEmpty
-              ? const Center(child: Text('No active trek groups found.', style: TextStyle(fontSize: 18, color: Colors.grey)))
+          : _groupedTrips.isEmpty
+              ? const Center(child: Text('No active trip groups found.', style: TextStyle(fontSize: 18, color: Colors.grey)))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _groupedTreks.length,
+                  itemCount: _groupedTrips.length,
                   itemBuilder: (context, index) {
-                    final group = _groupedTreks[index];
+                    final group = _groupedTrips[index];
                     return FadeInUp(
                       child: Card(
                         margin: const EdgeInsets.only(bottom: 16),
@@ -120,8 +120,8 @@ class _AdminTrekGroupsScreenState extends State<AdminTrekGroupsScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => AdminGroupDetailScreen(
-                                  trekId: group['trek_id'],
-                                  trekTitle: group['trek_title'],
+                                  tripId: group['trip_id'],
+                                  tripTitle: group['trip_title'],
                                   date: group['date'],
                                 ),
                               ),
@@ -156,7 +156,7 @@ class _AdminTrekGroupsScreenState extends State<AdminTrekGroupsScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        group['trek_title'] ?? 'Unknown Trek',
+                                        group['trip_title'] ?? 'Unknown Trip',
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                                       ),
                                       const SizedBox(height: 8),

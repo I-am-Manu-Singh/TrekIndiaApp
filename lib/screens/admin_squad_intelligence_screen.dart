@@ -6,22 +6,22 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../widgets/user_avatar.dart';
 
-class AdminSquadIntelligenceScreen extends StatefulWidget {
-  final String trekId;
-  final String? deploymentDate;
-  const AdminSquadIntelligenceScreen({
+class AdminGroupDetailsScreen extends StatefulWidget {
+  final String tripId;
+  final String? tripDate;
+  const AdminGroupDetailsScreen({
     super.key,
-    required this.trekId,
-    this.deploymentDate,
+    required this.tripId,
+    this.tripDate,
   });
 
   @override
-  State<AdminSquadIntelligenceScreen> createState() =>
-      _AdminSquadIntelligenceScreenState();
+  State<AdminGroupDetailsScreen> createState() =>
+      _AdminGroupDetailsScreenState();
 }
 
-class _AdminSquadIntelligenceScreenState
-    extends State<AdminSquadIntelligenceScreen> {
+class _AdminGroupDetailsScreenState
+    extends State<AdminGroupDetailsScreen> {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
   List<dynamic> _participants = [];
@@ -34,36 +34,36 @@ class _AdminSquadIntelligenceScreenState
   @override
   void initState() {
     super.initState();
-    _fetchSquad();
+    _fetchGroup();
   }
 
-  Future<void> _fetchSquad() async {
+  Future<void> _fetchGroup() async {
     setState(() => _isLoading = true);
     try {
       // 1. Fetch Core Participants
       final res = await _client
           .from('bookings')
           .select('*, profiles(*)')
-          .eq('trek_id', widget.trekId);
+          .eq('trip_id', widget.tripId);
 
       // 2. Tactical Date Normalization
-      final String filterDate = (widget.deploymentDate ?? '').toString().split('T')[0].split(' ')[0].trim();
-      debugPrint('SQUAD ANALYTICS: Target Trek=${widget.trekId} Date=$filterDate');
+      final String filterDate = (widget.tripDate ?? '').toString().split('T')[0].split(' ')[0].trim();
+      debugPrint('GROUP ANALYTICS: Target Trip=${widget.tripId} Date=$filterDate');
       
-      final List<dynamic> squadParticipants = res.where((b) {
-         final dRaw = (b['trek_date'] ?? b['booking_date'] ?? b['departure_date'] ?? '').toString().trim();
+      final List<dynamic> groupParticipants = res.where((b) {
+         final dRaw = (b['trip_date'] ?? b['booking_date'] ?? b['departure_date'] ?? '').toString().trim();
          final String d = dRaw.split('T')[0].split(' ')[0].trim();
          final bool match = d == filterDate || dRaw.contains(filterDate);
-         if (res.length < 10) debugPrint('SQUAD EVAL: dRaw=$dRaw vs filterDate=$filterDate -> Match=$match');
+         if (res.length < 10) debugPrint('GROUP EVAL: dRaw=$dRaw vs filterDate=$filterDate -> Match=$match');
          return match;
       }).toList();
 
-      debugPrint('SQUAD STRENGTH: Filtered Count=${squadParticipants.length}');
+      debugPrint('GROUP STRENGTH: Filtered Count=${groupParticipants.length}');
 
       // 3. Decoupled Staff Intelligence (Resilient Fetch)
-      List<dynamic> squadStaff = [];
+      List<dynamic> groupStaff = [];
       try {
-        final List<dynamic> staffList = await _client.from('trek_group_staff').select().eq('trek_id', widget.trekId);
+        final List<dynamic> staffList = await _client.from('trip_group_staff').select().eq('trip_id', widget.tripId);
         
         // Manual Profile Join for absolute Resilience
         final List<String> userIds = staffList.map((s) => s['user_id'].toString()).toList();
@@ -71,7 +71,7 @@ class _AdminSquadIntelligenceScreenState
         
         final Map<String, dynamic> profileMap = { for (var p in profilesRes) p['id'] : p };
 
-        squadStaff = staffList.where((s) {
+        groupStaff = staffList.where((s) {
            final dRaw = (s['deployment_date'] ?? '').toString().trim();
            final String d = dRaw.split('T')[0].split(' ')[0].trim();
            final bool match = d == filterDate || dRaw.contains(filterDate);
@@ -90,7 +90,7 @@ class _AdminSquadIntelligenceScreenState
       int pendingCount = 0;
       double pendingVal = 0;
 
-      for (var b in squadParticipants) {
+      for (var b in groupParticipants) {
         // RADICAL LOGISTICS SYNC: Fetch Addons/Gear for this specific booking
         List<dynamic> addons = [];
         try {
@@ -117,8 +117,8 @@ class _AdminSquadIntelligenceScreenState
 
       if (mounted) {
         setState(() {
-          _participants = squadParticipants;
-          _assignedStaff = squadStaff;
+          _participants = groupParticipants;
+          _assignedStaff = groupStaff;
 
           _cleared = clearedCount;
           _pending = pendingCount;
@@ -128,7 +128,7 @@ class _AdminSquadIntelligenceScreenState
       }
     } catch (e) {
       if (mounted) {
-        debugPrint('HQ INTEL FATAL: $e');
+        debugPrint('TRIP INDIA INFO FATAL: $e');
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('FATAL: $e')));
         setState(() => _isLoading = false);
       }
@@ -141,7 +141,7 @@ class _AdminSquadIntelligenceScreenState
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
-          'GROUP INTELLIGENCE',
+          'GROUP DETAILS',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 14,
@@ -149,13 +149,12 @@ class _AdminSquadIntelligenceScreenState
             letterSpacing: 2,
           ),
         ),
-        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add_alt_1, color: Colors.blueAccent),
-            onPressed: _showAddTrekker,
+            onPressed: _showAddTrip,
           ),
         ],
       ),
@@ -169,7 +168,7 @@ class _AdminSquadIntelligenceScreenState
                 _buildTopDeploymentActions(),
                 if (_assignedStaff.isNotEmpty) ...[
                   const SizedBox(height: 32),
-                  const Text('ASSIGNED COMMAND STAFF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.indigo, letterSpacing: 1.5)),
+                  const Text('ASSIGNED CONTROL STAFF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.indigo, letterSpacing: 1.5)),
                   const SizedBox(height: 16),
                   ..._assignedStaff.map((s) => _buildStaffCard(s)).toList(),
                 ],
@@ -177,7 +176,7 @@ class _AdminSquadIntelligenceScreenState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('DEPLOYED PERSONNEL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey, letterSpacing: 1.5)),
+                    const Text('DEPLOYED STAFF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey, letterSpacing: 1.5)),
                     _infoChip('${_participants.length} TOTAL', Colors.blueGrey),
                   ],
                 ),
@@ -195,20 +194,20 @@ class _AdminSquadIntelligenceScreenState
         Expanded(
           child: _actionBtn(
             Icons.person_add_alt_1_outlined,
-            'DEPLOY TREKKER',
+            'ADD TRAVELER',
             Colors.blueAccent,
             Colors.white,
-            onTap: _showAddTrekker,
+            onTap: _showAddTrip,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _actionBtn(
             Icons.badge_outlined,
-            'DEPLOY STAFF',
+            'ASSIGN STAFF',
             const Color(0xFF1E293B),
             Colors.white,
-            onTap: _showDeployPersonnel,
+            onTap: _showDeployEmployee,
           ),
         ),
       ],
@@ -234,7 +233,7 @@ class _AdminSquadIntelligenceScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Group Intelligence',
+                'Group Status',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: isDark ? Colors.white : Colors.black87),
               ),
               const Icon(
@@ -245,7 +244,7 @@ class _AdminSquadIntelligenceScreenState
             ],
           ),
           Text(
-            'Assignment: ${widget.deploymentDate != null ? DateFormat('EEEE, MMM dd yyyy').format(DateTime.parse(widget.deploymentDate!)) : "Pending Schedule"}',
+            'Assignment: ${widget.tripDate != null ? DateFormat('EEEE, MMM dd yyyy').format(DateTime.parse(widget.tripDate!)) : "Pending Schedule"}',
             style: const TextStyle(
               color: Colors.grey,
               fontSize: 12,
@@ -256,7 +255,7 @@ class _AdminSquadIntelligenceScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _headerStat('${_participants.length}', 'STRENGTH', Colors.blue),
+              _headerStat('${_participants.length}', 'TRAVELERS', Colors.blue),
               _headerStat(
                 '₹${(_participants.length * 8000).toInt()}',
                 'EST. REVENUE',
@@ -271,7 +270,7 @@ class _AdminSquadIntelligenceScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'COMMAND VALUE PENDING',
+                'BALANCE DUE',
                 style: TextStyle(
                   color: Colors.grey,
                   fontSize: 10,
@@ -375,7 +374,7 @@ class _AdminSquadIntelligenceScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(profile?['full_name']?.toUpperCase() ?? 'PERSONNEL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: -0.5, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
+                Text(profile?['full_name']?.toUpperCase() ?? 'STAFF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: -0.5, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -517,7 +516,7 @@ class _AdminSquadIntelligenceScreenState
   void _showFinancialRecord(dynamic b) {
     final double total = double.tryParse(b['total_price']?.toString() ?? '0') ?? 0;
     final double paid = double.tryParse(b['paid_amount']?.toString() ?? '0') ?? 0;
-    final double trekBase = double.tryParse(b['trek_price']?.toString() ?? '0') ?? 0;
+    final double tripBase = double.tryParse(b['trip_price']?.toString() ?? '0') ?? 0;
     final double pkgUpgrade = double.tryParse(b['package_price']?.toString() ?? '0') ?? 0;
     final double pickupLogistics = double.tryParse(b['pickup_fee']?.toString() ?? '0') ?? 0;
     
@@ -553,9 +552,9 @@ class _AdminSquadIntelligenceScreenState
                 ),
               ),
               const SizedBox(height: 32),
-              _dossierRow('Sector Entry (Base)', '₹${trekBase.toInt()}'),
-              if (pkgUpgrade > 0) _dossierRow('Tactical Package Ops', '₹${pkgUpgrade.toInt()}', color: Colors.orange),
-              if (pickupLogistics > 0) _dossierRow('Field Logistics (Pickup)', '₹${pickupLogistics.toInt()}', color: Colors.teal),
+              _documentsRow('Sector Entry (Base)', '₹${tripBase.toInt()}'),
+              if (pkgUpgrade > 0) _documentsRow('Tactical Package Ops', '₹${pkgUpgrade.toInt()}', color: Colors.orange),
+              if (pickupLogistics > 0) _documentsRow('Field Logistics (Pickup)', '₹${pickupLogistics.toInt()}', color: Colors.teal),
               if (addons.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Text('ARMORY / RENTAL BREAKDOWN', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
@@ -565,9 +564,9 @@ class _AdminSquadIntelligenceScreenState
                   final n = g != null ? (g['name'] ?? 'Gear') : 'Rental Item';
                   final qty = a['quantity'] ?? 1;
                   final p = double.tryParse(a['price_at_booking']?.toString() ?? '0') ?? 0;
-                  return _dossierRow('• $n (x$qty)', '₹${p.toInt()}');
+                  return _documentsRow('• $n (x$qty)', '₹${p.toInt()}');
                 }),
-                _dossierRow('Total Armory Value', '₹${gearTotal.toInt()}', color: Colors.blueAccent),
+                _documentsRow('Total Armory Value', '₹${gearTotal.toInt()}', color: Colors.blueAccent),
               ],
               const SizedBox(height: 24),
               const Divider(),
@@ -579,8 +578,8 @@ class _AdminSquadIntelligenceScreenState
                    Text('₹${total.toInt()}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Color(0xFF2E7B32))),
                 ],
               ),
-              _dossierRow('Credits Received', '₹${paid.toInt()}', color: Colors.green),
-              _dossierRow('Remaining Liability', '₹${(total - paid).toInt()}', color: (total - paid) > 0 ? Colors.redAccent : Colors.grey),
+              _documentsRow('Credits Received', '₹${paid.toInt()}', color: Colors.green),
+              _documentsRow('Remaining Liability', '₹${(total - paid).toInt()}', color: (total - paid) > 0 ? Colors.redAccent : Colors.grey),
               const SizedBox(height: 20),
             ],
           ),
@@ -589,7 +588,7 @@ class _AdminSquadIntelligenceScreenState
     );
   }
 
-  Widget _dossierRow(String label, String value, {Color? color}) {
+  Widget _documentsRow(String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -665,7 +664,7 @@ class _AdminSquadIntelligenceScreenState
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'TREKKER: ${b['profiles']?['full_name']}',
+                  'TRIPKER: ${b['profiles']?['full_name']}',
                   style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87),
                 ),
                 const SizedBox(height: 12),
@@ -752,7 +751,7 @@ class _AdminSquadIntelligenceScreenState
                       ),
                     ),
                     child: const Text(
-                      'ENGAGE LOG',
+                      'SUBMIT LOG',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -833,7 +832,7 @@ class _AdminSquadIntelligenceScreenState
     );
   }
 
-  void _showAddTrekker() {
+  void _showAddTrip() {
     String search = '';
     showModalBottomSheet(
       context: context,
@@ -850,7 +849,7 @@ class _AdminSquadIntelligenceScreenState
           child: Column(
             children: [
               Text(
-                'DEPLOY TREKKER REGISTRY',
+                'DEPLOY TRIPKER REGISTRY',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 18,
@@ -895,7 +894,7 @@ class _AdminSquadIntelligenceScreenState
                       itemCount: users.length,
                       itemBuilder: (context, i) {
                         final u = users[i];
-                        final name = u['full_name'] ?? 'Trekker';
+                        final name = u['full_name'] ?? 'Trip';
                         bool isAlreadyPinned = _participants.any(
                           (p) => p['user_id'] == u['id'],
                         );
@@ -920,13 +919,13 @@ class _AdminSquadIntelligenceScreenState
                                   try {
                                     await _client.from('bookings').insert({
                                       'user_id': u['id'],
-                                      'trek_id': widget.trekId,
+                                      'trip_id': widget.tripId,
                                       'payment_status': 'Pending',
                                       'paid_amount': 0,
                                       'total_price': 8000,
-                                      'trek_price': 8000,
-                                      'trek_date': widget.deploymentDate != null && widget.deploymentDate!.isNotEmpty 
-                                          ? (widget.deploymentDate!.contains(',') ? DateFormat('EEEE, MMM dd yyyy').parse(widget.deploymentDate!).toIso8601String() : widget.deploymentDate)
+                                      'trip_price': 8000,
+                                      'trip_date': widget.tripDate != null && widget.tripDate!.isNotEmpty 
+                                          ? (widget.tripDate!.contains(',') ? DateFormat('EEEE, MMM dd yyyy').parse(widget.tripDate!).toIso8601String() : widget.tripDate)
                                           : DateTime.now().toIso8601String(),
                                       'booking_date': DateTime.now().toIso8601String(),
                                     });
@@ -960,16 +959,16 @@ class _AdminSquadIntelligenceScreenState
     );
   }
 
-  void _showDeployPersonnel() {
+  void _showDeployEmployee() {
     List<dynamic> currentStaff = [];
     bool staffLoading = true;
 
     Future<void> fetchStaff(StateSetter setModalState) async {
       try {
         final res = await _client
-            .from('trek_group_staff')
+            .from('trip_group_staff')
             .select()
-            .eq('trek_id', widget.trekId);
+            .eq('trip_id', widget.tripId);
         currentStaff = res;
         setModalState(() => staffLoading = false);
       } catch (_) {
@@ -991,7 +990,7 @@ class _AdminSquadIntelligenceScreenState
             children: [
               const SizedBox(height: 30),
               const Text(
-                'DEPLOY HQ PERSONNEL',
+                'DEPLOY TRIP INDIA STAFF',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 18,
@@ -1025,7 +1024,7 @@ class _AdminSquadIntelligenceScreenState
                             name: s['full_name'],
                             radius: 20,
                           ),
-                          title: Text(s['full_name'] ?? 'Personnel'),
+                          title: Text(s['full_name'] ?? 'Employee'),
                           subtitle: Text(
                             s['role']?.toString().toUpperCase() ?? 'STAFF',
                           ),
@@ -1042,32 +1041,36 @@ class _AdminSquadIntelligenceScreenState
                               : () async {
                                   try {
                                     String rawDate = DateTime.now().toIso8601String();
-                                    if (widget.deploymentDate != null && widget.deploymentDate!.isNotEmpty) {
+                                    if (widget.tripDate != null && widget.tripDate!.isNotEmpty) {
                                       try {
-                                        if (widget.deploymentDate!.contains(',')) {
-                                          rawDate = DateFormat('EEEE, MMM dd yyyy').parse(widget.deploymentDate!).toIso8601String();
+                                        if (widget.tripDate!.contains(',')) {
+                                          rawDate = DateFormat('EEEE, MMM dd yyyy').parse(widget.tripDate!).toIso8601String();
                                         } else {
-                                          rawDate = widget.deploymentDate!;
+                                          rawDate = widget.tripDate!;
                                         }
                                       } catch (_) {}
                                     }
 
-                                    final existing = await _client.from('trek_group_staff').select().eq('trek_id', widget.trekId).eq('user_id', s['id']).maybeSingle();
-                                    if (existing != null) throw 'Personnel already deployed to this mission.';
+                                    final existing = await _client.from('trip_group_staff').select().eq('trip_id', widget.tripId).eq('user_id', s['id']).maybeSingle();
+                                    if (existing != null) throw 'Employee already deployed to this trip.';
 
                                     // ROLE NORMALIZATION: Ensure it matches the check constraint in DB
-                                    String role = (s['role'] ?? 'guide').toString().toLowerCase();
-                                    if (role == 'admin') role = 'manager'; 
+                                    String role = (s['role'] ?? 'staff').toString().toLowerCase();
+                                    if (role == 'admin') role = 'staff'; 
 
-                                    // Infrastructure Sync: Ensure the global group entry exists so it shows in chats/squads
-                                    await _client.from('trek_groups').upsert({
-                                      'trek_id': widget.trekId,
+                                    // Infrastructure Sync: Ensure the global group entry exists so it shows in chats/groups
+                                    String staffName = s['full_name'] ?? 'Staff';
+                                    if (staffName.toLowerCase() == 'null') staffName = 'Staff';
+                                    
+                                    await _client.from('trip_groups').upsert({
+                                      'trip_id': widget.tripId,
                                       'departure_date': rawDate,
-                                      'group_name': '${s['full_name']}\'s Assignment Group',
+                                      'group_name': '$staffName\'s Assignment Group',
+                                      role == 'staff' ? 'guide_id' : 'staff_id': s['id'],
                                     });
 
-                                    await _client.from('trek_group_staff').insert({
-                                      'trek_id': widget.trekId,
+                                    await _client.from('trip_group_staff').insert({
+                                      'trip_id': widget.tripId,
                                       'user_id': s['id'],
                                       'role': role,
                                       'deployment_date': rawDate,
@@ -1096,9 +1099,9 @@ class _AdminSquadIntelligenceScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('REMOVE TREKKER?'),
+        title: const Text('REMOVE TRIPKER?'),
         content: const Text(
-          'This will abort their mission and delete the booking record.',
+          'This will abort their trip and delete the booking record.',
         ),
         actions: [
           TextButton(
@@ -1174,7 +1177,7 @@ class _AdminSquadIntelligenceScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      profile?['full_name'] ?? 'Personnel',
+                      profile?['full_name'] ?? 'Employee',
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 22,
@@ -1320,7 +1323,7 @@ class _AdminSquadIntelligenceScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(profile?["full_name"] ?? "COMMANDER", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(profile?["full_name"] ?? "CONTROLER", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 Text(s["role"]?.toString().toUpperCase() ?? "STAFF", style: TextStyle(fontSize: 10, color: Colors.indigo.shade700, fontWeight: FontWeight.bold)),
               ],
             ),
@@ -1328,7 +1331,7 @@ class _AdminSquadIntelligenceScreenState
           IconButton(
             icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
             onPressed: () async {
-               await _client.from("trek_group_staff").delete().eq("id", s["id"]);
+               await _client.from("trip_group_staff").delete().eq("id", s["id"]);
                _fetchSquad();
             },
           ),

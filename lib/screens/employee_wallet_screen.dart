@@ -48,7 +48,7 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('MY OFFICIAL WALLET', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-        backgroundColor: const Color(0xFF2E7B32),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: _isLoading 
@@ -58,7 +58,7 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
             children: [
               _buildBalanceCard(),
         const SizedBox(height: 32),
-        const Text('HQ FINANCIAL STANDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+        const Text('TRIP INDIA FINANCIAL STANDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -151,9 +151,9 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
     return Container(
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF2E7B32), Color(0xFF1B5E20)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(colors: [Color(0xFFD32F2F), Color(0xFFB71C1C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: const Color(0xFF2E7B32).withOpacity(0.2), blurRadius: 15)],
+        boxShadow: [BoxShadow(color: const Color(0xFFD32F2F).withOpacity(0.2), blurRadius: 15)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,7 +166,7 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
             children: [
               _label('RANK: $role', Colors.white24),
               const SizedBox(width: 8),
-              _label('STATUS: TREK READY', Colors.white24),
+              _label('STATUS: TRIP READY', Colors.white24),
             ],
           ),
         ],

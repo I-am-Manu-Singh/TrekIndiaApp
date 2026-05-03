@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import '../services/database_service.dart';
 import '../services/preferences_service.dart';
-import '../models/trek.dart';
-import '../widgets/trek_card.dart';
+import '../models/trip.dart';
+import '../widgets/trip_card.dart';
 
 class SavedScreen extends StatefulWidget {
   const SavedScreen({super.key});
@@ -13,34 +13,34 @@ class SavedScreen extends StatefulWidget {
 }
 
 class _SavedScreenState extends State<SavedScreen> {
-  List<Trek> _savedTreksList = [];
+  List<Trip> _savedTripsList = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedTreks();
+    _loadSavedTrips();
   }
 
-  Future<void> _loadSavedTreks() async {
+  Future<void> _loadSavedTrips() async {
     try {
-      final savedIds = await PreferencesService().getSavedTreks();
+      final savedIds = await PreferencesService().getSavedTrips();
       if (savedIds.isEmpty) {
         if (mounted) {
           setState(() {
-            _savedTreksList = [];
+            _savedTripsList = [];
             _isLoading = false;
           });
         }
         return;
       }
       
-      final allTreks = await DatabaseService().fetchTreks();
-      final filteredTreks = allTreks.where((trek) => savedIds.contains(trek.id)).toList();
+      final allTrips = await DatabaseService().fetchTrips();
+      final filteredTrips = allTrips.where((trip) => savedIds.contains(trip.id)).toList();
       
       if (mounted) {
         setState(() {
-          _savedTreksList = filteredTreks;
+          _savedTripsList = filteredTrips;
           _isLoading = false;
         });
       }
@@ -53,13 +53,13 @@ class _SavedScreenState extends State<SavedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saved Treks', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Saved Trips', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : _savedTreksList.isEmpty 
+        : _savedTripsList.isEmpty 
           ? Center(
               child: FadeInDown(
                 child: Column(
@@ -68,12 +68,12 @@ class _SavedScreenState extends State<SavedScreen> {
                     Icon(Icons.favorite_border, size: 80, color: Colors.grey[300]),
                     const SizedBox(height: 20),
                     const Text(
-                      'No saved treks yet!',
+                      'No saved trips yet!',
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Hit the heart icon on a trek to save it here for later.',
+                      'Hit the heart icon on a trip to save it here for later.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
@@ -83,13 +83,13 @@ class _SavedScreenState extends State<SavedScreen> {
               ),
             )
           : RefreshIndicator(
-              onRefresh: _loadSavedTreks,
+              onRefresh: _loadSavedTrips,
               child: ListView.builder(
                 padding: const EdgeInsets.all(20),
-                itemCount: _savedTreksList.length,
+                itemCount: _savedTripsList.length,
                 itemBuilder: (context, index) {
                   return FadeInUp(
-                    child: TrekCard(trek: _savedTreksList[index]),
+                    child: TripCard(trip: _savedTripsList[index]),
                   );
                 },
               ),

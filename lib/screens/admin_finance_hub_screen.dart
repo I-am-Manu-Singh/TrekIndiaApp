@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 import '../widgets/user_avatar.dart';
 
 class AdminFinanceHubScreen extends StatefulWidget {
@@ -17,9 +18,11 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
   bool _isLoading = true;
   double _liquidity = 0;
   double _totalVolume = 0;
+  double _receivable = 0;
   double _gstReserve = 0;
   List<dynamic> _logs = [];
-  List<dynamic> _treksAnalytics = [];
+  List<dynamic> _tripsAnalytics = [];
+  Map<String, dynamic> _recentBookingsStats = {'weekly': 0, 'monthly': 0, 'top': []};
 
   @override
   void initState() {
@@ -40,35 +43,50 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
       final client = Supabase.instance.client;
       
       // Fetch core datasets independently for maximum resilience
-      final List<dynamic> logsRes = await client.from('payment_logs').select('*, profiles(*), bookings(*)').order('created_at', ascending: false);
-      final List<dynamic> treksRes = await client.from('treks').select('*');
+      final List<dynamic> logsRes = await client.from('payment_logs').select('*').order('created_at', ascending: false);
+      final List<dynamic> tripsRes = await client.from('trips').select('*');
       final List<dynamic> bookingsRes = await client.from('bookings').select('*, profiles(*)').order('created_at', ascending: false);
-      final List<dynamic> rentalsRes = await client.from('user_rentals').select('*, profiles(*), gears(*)').order('created_at', ascending: false);
+      final List<dynamic> rentalsRes = await client.from('user_rentals').select('*').order('created_at', ascending: false);
+      final List<dynamic> gearsRes = await client.from('gears').select('*');
       
       double totalRev = 0;
+      double pendingRev = 0;
       double rentalRev = 0;
       double logLiq = 0;
       List<dynamic> analytics = [];
       
       // 1. Calculate Revenue and Yield from all Bookings
       for (var b in bookingsRes) {
-        final amt = double.tryParse(b['paid_amount']?.toString() ?? '0') ?? 
-                    double.tryParse(b['total_price']?.toString() ?? '0') ?? 0;
-        totalRev += amt;
-        analytics.add({'trek_id': b['trek_id']?.toString(), 'rev': amt});
+        final paid = double.tryParse(b['paid_amount']?.toString() ?? '0') ?? 0;
+        final total = double.tryParse(b['total_price']?.toString() ?? '0') ?? 0;
+        final pStatus = b['payment_status']?.toString().toLowerCase();
+        
+        if (pStatus == 'paid' || pStatus == 'confirmed') {
+          totalRev += total;
+        } else {
+          pendingRev += total;
+        }
+        
+        analytics.add({'trip_id': b['trip_id']?.toString(), 'rev': paid});
       }
 
       // 2. Calculate Rental Revenue
       for (var r in rentalsRes) {
         final amt = double.tryParse(r['total_price']?.toString() ?? '0') ?? 0;
         rentalRev += amt;
+        
+        // Manual Join for Ledger visibility
+        final gearId = r['gear_id']?.toString();
+        final userId = r['user_id']?.toString();
+        r['gears'] = gearsRes.firstWhereOrNull((g) => g['id'].toString() == gearId);
+        r['profiles'] = bookingsRes.firstWhereOrNull((b) => b['user_id'].toString() == userId)?['profiles'];
       }
 
-      // Map analytics to treks
-      List<dynamic> trekAnalytics = treksRes.map((t) {
+      // Map analytics to trips
+      List<dynamic> tripAnalytics = tripsRes.map((t) {
         final tId = t['id'].toString();
-        final tRev = analytics.where((a) => a['trek_id']?.toString() == tId).fold(0.0, (sum, a) => sum + (a['rev'] as double));
-        final tCount = bookingsRes.where((b) => b['trek_id']?.toString() == tId).length;
+        final tRev = analytics.where((a) => a['trip_id']?.toString() == tId).fold(0.0, (sum, a) => sum + (a['rev'] as double));
+        final tCount = bookingsRes.where((b) => b['trip_id']?.toString() == tId).length;
         return {...t, 'rev': tRev, 'count': tCount};
       }).toList();
 
@@ -84,13 +102,39 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
       }
 
       // 4. Synthesize Virtual Ledger (Merging Logs + Bookings + Rentals for visibility)
-      List<dynamic> virtualLedger = [...logsRes];
+      List<dynamic> virtualLedger = [];
+
+        for (var l in logsRes) {
+          final bId = l['booking_id']?.toString();
+          final uId = l['user_id']?.toString();
+
+          final booking = bId != null
+              ? bookingsRes.firstWhereOrNull(
+                  (b) => b['id'].toString() == bId,
+                )
+              : null;
+
+          final userBooking = uId != null
+              ? bookingsRes.firstWhereOrNull(
+                  (b) => b['user_id'].toString() == uId,
+                )
+              : null;
+
+          final profile = userBooking != null ? userBooking['profiles'] : null;
+
+          virtualLedger.add({
+            ...l,
+            'bookings': booking,
+            'profiles': profile,
+          });
+        }
+      
       for (var b in bookingsRes) {
          virtualLedger.add({
            'id': 'b_${b['id']}',
            'amount': double.tryParse(b['total_price']?.toString() ?? '0') ?? 0,
            'is_incoming': true,
-           'payment_type': 'TREK BOOKING',
+           'payment_type': 'TRIP BOOKING',
            'created_at': b['created_at'],
            'profiles': b['profiles'],
          });
@@ -107,13 +151,38 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
       }
       virtualLedger.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
 
+      // 5. Calculate Performance Insights
+      final now = DateTime.now();
+      final lastWeek = now.subtract(const Duration(days: 7));
+      final lastMonth = now.subtract(const Duration(days: 30));
+
+      final recentBookingsCount = bookingsRes.where((b) {
+        final date = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? now;
+        return date.isAfter(lastWeek);
+      }).length;
+
+      final monthlyBookingsCount = bookingsRes.where((b) {
+        final date = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? now;
+        return date.isAfter(lastMonth);
+      }).length;
+
+      // Top 3 Popular Trips
+      final sortedTrips = List<dynamic>.from(tripAnalytics)..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+      final topTrips = sortedTrips.take(3).toList();
+
       if (mounted) {
         setState(() {
           _logs = virtualLedger;
-          _treksAnalytics = trekAnalytics;
+          _tripsAnalytics = tripAnalytics;
           _totalVolume = totalRev + rentalRev;
+          _receivable = pendingRev;
           _liquidity = totalRev + rentalRev + logLiq;
           _gstReserve = _totalVolume * 0.05;
+          _recentBookingsStats = {
+            'weekly': recentBookingsCount,
+            'monthly': monthlyBookingsCount,
+            'top': topTrips,
+          };
           _isLoading = false;
         });
       }
@@ -130,8 +199,8 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('HQ FINANCE COMMAND', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white, letterSpacing: 1.5)),
-        backgroundColor: Colors.black,
+        title: const Text('FINANCE DASHBOARD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white, letterSpacing: 1.5)),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
@@ -142,7 +211,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
           labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
           tabs: const [
             Tab(text: 'OVERVIEW'),
-            Tab(text: 'TREK ANALYTICS'),
+            Tab(text: 'TRIP ANALYTICS'),
             Tab(text: 'LEDGER'),
             Tab(text: 'PAYOUTS'),
             Tab(text: 'TAXES'),
@@ -155,7 +224,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
             controller: _tabController,
             children: [
               _buildOverviewTab(),
-              _buildTrekAnalyticsTab(),
+              _buildTripAnalyticsTab(),
               _buildLedgerTab(),
               _buildPayoutsTab(),
               _buildTaxInfoTab(),
@@ -170,7 +239,9 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
       children: [
         _buildLiquidityCard(),
         const SizedBox(height: 32),
-        const Text('TREK METRICS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+        _buildPerformanceInsights(),
+        const SizedBox(height: 32),
+        const Text('KEY METRICS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
         const SizedBox(height: 16),
         GridView.count(
           crossAxisCount: 2,
@@ -181,9 +252,9 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
           childAspectRatio: 1.5,
           children: [
             _diagnosticCard('Gross Revenue', '₹${(_totalVolume / 1000).toStringAsFixed(1)}K', Icons.analytics),
+            _diagnosticCard('Receivables', '₹${(_receivable / 1000).toStringAsFixed(1)}K', Icons.hourglass_empty, color: Colors.orange),
             _diagnosticCard('Tax Liability', '₹${(_gstReserve / 1000).toStringAsFixed(1)}K', Icons.gavel_outlined),
-            _diagnosticCard('Active Treks', '${_treksAnalytics.where((t)=>t['count']>0).length}', Icons.landscape),
-            _diagnosticCard('Personnel Cost', '₹${_treksAnalytics.length * 2}.0K', Icons.people_outline),
+            _diagnosticCard('Weekly Growth', '+${_recentBookingsStats['weekly']}', Icons.trending_up),
           ],
         ),
         const SizedBox(height: 32),
@@ -194,12 +265,59 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
     );
   }
 
-  Widget _buildTrekAnalyticsTab() {
+  Widget _buildPerformanceInsights() {
+    final List<dynamic> top = _recentBookingsStats['top'] ?? [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('PERFORMANCE INSIGHTS (PAST 30D)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100),
+          ),
+          child: Column(
+            children: [
+              if (top.isEmpty) const Text('No recent booking trends detected.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ...top.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 30,
+                      decoration: BoxDecoration(color: Colors.blueAccent, borderRadius: BorderRadius.circular(2)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t['title']?.toString().toUpperCase() ?? 'TRIP', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+                          Text('${t['count']} BOOKINGS COMPLETED', style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    Text('₹${(t['rev'] / 1000).toStringAsFixed(1)}K', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.green)),
+                  ],
+                ),
+              )).toList(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTripAnalyticsTab() {
     return ListView.builder(
       padding: const EdgeInsets.all(24),
-      itemCount: _treksAnalytics.length,
+      itemCount: _tripsAnalytics.length,
       itemBuilder: (context, i) {
-        final t = _treksAnalytics[i];
+        final t = _tripsAnalytics[i];
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(20),
@@ -208,11 +326,11 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
             children: [
                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                  Text(t['title'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
-                 Text('${t['count']} Trekkers deployed', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                 Text('${t['count']} Travellers', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                ])),
                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                  Text('₹${t['rev'].toInt()}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.blueAccent)),
-                 const Text('TOTAL YIELD', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
+                 const Text('TOTAL REVENUE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
                ]),
             ],
           ),
@@ -279,25 +397,32 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('PERSONNEL PAYOUTS',
+                  const Text('STAFF PAYOUTS',
                       style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 10,
                           letterSpacing: 1.5,
                           color: Colors.grey)),
-                  TextButton.icon(
-                    onPressed: _showDeployPersonnelModal,
-                    icon: const Icon(Icons.person_add_outlined, size: 14),
-                    label: const Text('DEPLOY PERSONNEL',
-                        style: TextStyle(
-                            fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
+                 Container(
+  decoration: BoxDecoration(
+    color: Colors.black.withOpacity(0.05),
+    shape: BoxShape.circle,
+  ),
+  child: IconButton(
+    onPressed: _showDeployEmployeeModal,
+    icon: const Icon(
+      Icons.person_add_outlined,
+      size: 22,
+      color: Colors.black,
+    ),
+  ),
+),
                 ],
               ),
             ),
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _fetchPersonnel(),
+                  future: _fetchEmployees(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
@@ -305,14 +430,14 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                     }
                     if (snapshot.hasError) {
                       return Center(
-                          child: Text('Telemetry Failure: ${snapshot.error}',
+                          child: Text('Data Load Error: ${snapshot.error}',
                               style: const TextStyle(color: Colors.red)));
                     }
 
                     final staff = snapshot.data!;
                     if (staff.isEmpty) {
                       return const Center(
-                          child: Text('No personnel deployments found.',
+                          child: Text('No staff trips found.',
                               style: TextStyle(color: Colors.grey)));
                     }
 
@@ -355,7 +480,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                                       child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                        Text(s['full_name']?.toUpperCase() ?? 'PERSONNEL',
+                                        Text(s['full_name']?.toUpperCase() ?? 'STAFF',
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w900,
                                                 fontSize: 16,
@@ -384,7 +509,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                                                 fontWeight: FontWeight.w900,
                                                 color: Colors.green,
                                                 fontSize: 22)),
-                                        const Text('NET SETTLEMENT',
+                                        const Text('TOTAL PAYOUT',
                                             style: TextStyle(
                                                 fontSize: 8,
                                                 fontWeight: FontWeight.w900,
@@ -440,27 +565,32 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
             ),
           ],
         ),
-        Positioned(
-          bottom: 24,
-          right: 24,
-          child: FloatingActionButton.extended(
-            onPressed: _deployPersonnelModal,
-            label: const Text('DEPLOY PERSONNEL',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            icon: const Icon(Icons.person_add_outlined),
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-          ),
-        ),
+      Positioned(
+  bottom: 24,
+  right: 24,
+  child: FloatingActionButton(
+    onPressed: _deployEmployeeModal,
+    backgroundColor: Colors.black,
+    foregroundColor: Colors.white,
+    elevation: 8,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: const Icon(
+      Icons.person_add_outlined,
+      size: 26,
+    ),
+  ),
+),
       ],
     );
   }
 
-  void _showDeployPersonnelModal() {
-    _deployPersonnelModal();
+  void _showDeployEmployeeModal() {
+    _deployEmployeeModal();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchPersonnel() async {
+  Future<List<Map<String, dynamic>>> _fetchEmployees() async {
     return _client
         .from('profiles')
         .select()
@@ -468,7 +598,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
         .order('created_at', ascending: false);
   }
 
-  void _deployPersonnelModal() {
+  void _deployEmployeeModal() {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final salaryCtrl = TextEditingController();
@@ -494,7 +624,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'DEPLOY NEW PERSONNEL',
+                      'ADD NEW STAFF',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
                     ),
                     IconButton(
@@ -541,7 +671,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                       if (name.isEmpty || email.isEmpty) return;
                       
                       try {
-                        // TREK: Insert into profiles (assumes email is enough, or using invite flow)
+                        // TRIP: Insert into profiles (assumes email is enough, or using invite flow)
                         await _client.from('profiles').insert({
                           'full_name': name,
                           'email': email,
@@ -555,11 +685,11 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                         
                         if (mounted) {
                           Navigator.pop(context);
-                          _fetchPersonnel(); // Refresh list
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PERSONNEL DEPLOYED SUCCESSFULLY'), backgroundColor: Colors.green));
+                          _fetchEmployees(); // Refresh list
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('STAFF ADDED SUCCESSFULLY'), backgroundColor: Colors.green));
                         }
                       } catch (e) {
-                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DEPLOYMENT ERROR: $e'), backgroundColor: Colors.red));
+                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('TRIP ERROR: $e'), backgroundColor: Colors.red));
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -568,7 +698,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('DEPLOY', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text('ADD', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -607,14 +737,14 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
     return Container(
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: const Color(0xFFD32F2F),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.1), blurRadius: 20)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('TOTAL COMMAND LIQUIDITY', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          const Text('TOTAL BALANCE', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2)),
           const SizedBox(height: 12),
           Text('₹${_liquidity.toInt()}', style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w900)),
           const SizedBox(height: 32),
@@ -623,6 +753,10 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                _heroBtn(Icons.upload, 'Withdrawal', () {}),
                const SizedBox(width: 12),
                _heroBtn(Icons.history, 'Ledger', () => _tabController.animateTo(2)),
+               const SizedBox(width: 12),
+               _heroBtn(Icons.receipt, 'Estimate', () {
+                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating Custom Estimate Invoice...')));
+               }),
             ],
           )
         ],
@@ -641,15 +775,16 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
     ));
   }
 
-  Widget _diagnosticCard(String label, String value, IconData icon) {
+  Widget _diagnosticCard(String label, String value, IconData icon, {Color? color}) {
+    final c = color ?? Colors.blueAccent;
      return Container(
        padding: const EdgeInsets.all(20),
        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100)),
        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-         Icon(icon, color: Colors.blueAccent, size: 20),
+         Icon(icon, color: c, size: 20),
          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.bold)),
-           Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+           Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: c)),
          ]),
        ]),
      );
@@ -725,10 +860,10 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
                   
                   Navigator.pop(ctx);
                   setState(() {}); // Refresh list
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Financial intelligence updated successfully.'), backgroundColor: Colors.black));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Financial details updated successfully.'), backgroundColor: Colors.black));
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                child: const Text('AUTHORIZE UPDATE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                child: const Text('SAVE UPDATE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
             ),
           ],
@@ -782,20 +917,20 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
             children: [
               const Center(child: SizedBox(width: 40, child: Divider(thickness: 4))),
               const SizedBox(height: 24),
-              Text('HQ PAYOUT COMMAND', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
+              Text('PROCESS PAYOUT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
               const SizedBox(height: 32),
               _payoutRow('Base Salary', salary),
               _payoutRow('Allowance', allowance),
               _payoutRow('Leave Deductions', -deduction, isRed: true),
               const Divider(height: 32),
-              _payoutRow('NET SEQUESTRATION', netPayout, isBold: true),
+              _payoutRow('NET PAYOUT', netPayout, isBold: true),
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7B32), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                   child: const Text('AUTHORIZE PAYOUT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 ),
               ),

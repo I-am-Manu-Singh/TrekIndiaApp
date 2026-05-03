@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import '../widgets/glass_shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../widgets/user_avatar.dart';
 import 'admin_finance_hub_screen.dart';
-import 'admin_personnel_management_screen.dart';
+import 'admin_employee_management_screen.dart';
 import 'app_info_screen.dart';
 import 'leaderboard_screen.dart';
-import 'certificate_screen.dart';
+import 'trip_certificate_screen.dart';
+import 'gear_checklist_screen.dart';
 import '../services/preferences_service.dart';
 import '../main.dart';
 
@@ -23,9 +25,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   dynamic _userData;
 
-  int _trekCount = 0;
+  int _tripCount = 0;
   double _totalDistance = 0;
   List<dynamic> _recentBookings = [];
+  double _packingProgress = 0.0;
+  String? _activeTripId;
+  String? _activeTripTitle;
   String get role => (_userData?['role']?.toString().toLowerCase() ?? 'user');
 
   @override
@@ -38,37 +43,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = _client.auth.currentUser;
     if (user != null) {
       try {
+        // 1. Fetch Profile Data (Essential)
         final res = await _client
             .from('profiles')
             .select()
             .eq('id', user.id)
             .maybeSingle();
-        final statsRes = await _client
-            .from('bookings')
-            .select('*, treks(*)')
-            .eq('user_id', user.id)
-            .eq('status', 'Completed');
 
-        if (mounted) {
-          int treks = 0;
-          double dist = 0;
-          for (var b in statsRes) {
-            treks++;
-            // Parse distance from string like "15 km" or "10"
-            String dStr = (b['treks']?['total_distance'] ?? '0').toString().toLowerCase();
-            double dVal = double.tryParse(dStr.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
-            dist += dVal;
+        if (mounted && res != null) {
+          String? name = res['full_name'];
+          if (name == null || name.trim().isEmpty || name == 'Explorer') {
+            name = user.userMetadata?['full_name'] ?? user.userMetadata?['name'];
+            if (name == null || name.trim().isEmpty) {
+              name = user.email?.split('@')[0] ?? 'Explorer';
+              // Silent Repair
+              _client.from('profiles').update({'full_name': name}).eq('id', user.id).then((_) {});
+            }
           }
-
           setState(() {
-            _userData = res;
-            _trekCount = treks;
-            _totalDistance = dist;
-            _recentBookings = statsRes;
-            _isLoading = false;
+            _userData = {...res, 'full_name': name};
           });
+        } else if (mounted && res == null) {
+           // Fallback if DB is empty
+           String name = user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@')[0] ?? 'Explorer';
+           setState(() {
+             _userData = {
+               'full_name': name,
+               'avatar_url': user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'] ?? '',
+               'email': user.email,
+               'role': 'user',
+             };
+           });
+           // Create profile if missing
+           _client.from('profiles').insert({'id': user.id, 'full_name': name, 'email': user.email, 'role': 'user'}).then((_) {});
+        }
+
+        // 2. Fetch Stats (Non-essential, handle errors silently)
+        try {
+          final statsRes = await _client
+              .from('bookings')
+              .select('*, trips(*)')
+              .eq('user_id', user.id)
+              .ilike('status', 'completed');
+
+          if (mounted) {
+            int trips = 0;
+            double dist = 0;
+            for (var b in statsRes) {
+              trips++;
+              if (b['trips'] != null) {
+                String dStr = (b['trips']['total_distance'] ?? '0').toString().toLowerCase();
+                double dVal = double.tryParse(dStr.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+                dist += dVal;
+              }
+            }
+
+            setState(() {
+              _tripCount = trips;
+              _totalDistance = dist;
+              _recentBookings = statsRes;
+            });
+            
+            // 3. Fetch Packing Progress for the most recent trip
+            final allBookings = await _client.from('bookings').select('trip_id, trip_name').eq('user_id', user.id).order('created_at', ascending: false).limit(1);
+            if (allBookings.isNotEmpty) {
+              final tripId = allBookings[0]['trip_id'];
+              final tripTitle = allBookings[0]['trip_name'];
+              
+              // Always set the active trip if a booking exists
+              setState(() {
+                _activeTripId = tripId;
+                _activeTripTitle = tripTitle;
+              });
+
+              final checklist = await _client.from('gear_checklists').select('is_packed').eq('user_id', user.id).eq('trip_id', tripId);
+              if (checklist.isNotEmpty) {
+                int packed = (checklist as List).where((i) => i['is_packed'] == true).length;
+                setState(() {
+                  _packingProgress = packed / checklist.length;
+                });
+              } else {
+                setState(() {
+                  _packingProgress = 0;
+                });
+              }
+            }
+            if (mounted) setState(() => _isLoading = false);
+          }
+        } catch (e) {
+          debugPrint('Stats fetch failed: $e');
+          if (mounted) setState(() => _isLoading = false);
         }
       } catch (e) {
+        debugPrint('Profile fetch failed: $e');
         if (mounted) setState(() => _isLoading = false);
       }
     } else {
@@ -106,21 +173,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading)
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text('PROFILE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+          backgroundColor: const Color(0xFFD32F2F),
+          elevation: 0,
+        ),
+        body: _buildShimmerProfile(),
+      );
+    }
+
+    final String? role = _userData?['role']?.toString().toLowerCase();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
-          'My Profile',
+          'PROFILE',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 12,
             color: Colors.white,
           ),
         ),
-        backgroundColor: const Color(0xFF2E7B32),
+        backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -130,9 +208,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildHeader(),
             const SizedBox(height: 30),
 
-            // Operational modules have been moved to Command Panels (Admin HQ / Terminals)
+            // Operational modules have been moved to Admin Panels (Admin TRIP INDIA / Dashboards)
             if (role == 'user') ...[
               _buildMedalCase(),
+              const SizedBox(height: 20),
+              _buildPreparationHub(),
               const SizedBox(height: 20),
             ],
             
@@ -140,14 +220,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildListItem(
                 Icons.leaderboard_outlined,
                 'Global Ranking',
-                'Check your status in the trekker community',
+                'Check your status in the trip community',
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const LeaderboardScreen())),
               ),
             ],
             _buildListItem(
               Icons.info_outline,
               'App Info',
-              'Build v1.0.4, contacts, & mission info',
+              'Build v1.0.4, contacts, & trip info',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (c) => const AppInfoScreen()),
@@ -156,7 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildListItem(
               Icons.settings_outlined,
               'App Settings',
-              'Trek configs & device sync',
+              'Trip configs & device sync',
               onTap: () => _showAppSettings(),
             ),
             _buildListItemColor(
@@ -182,10 +262,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Column(
       children: [
-        UserAvatar(
-          radius: 45,
-          imageUrl: avatarUrl,
-          name: fullName,
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3), width: 2),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, 8))],
+              ),
+              child: UserAvatar(
+                imageUrl: avatarUrl,
+                name: fullName,
+                width: 110,
+                height: 110,
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            if (_userData?['aadhar_url'] != null || _userData?['medical_certificate_url'] != null)
+              Positioned(
+                right: 4,
+                bottom: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+                  ),
+                  child: const Icon(Icons.verified, color: Colors.white, size: 16),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
         Row(
@@ -198,7 +307,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.edit_note, color: Colors.blueAccent, size: 20),
-              onPressed: () => Navigator.pushNamed(context, '/tactical_dossier'),
+              onPressed: () async {
+                await Navigator.pushNamed(context, '/travel_documents');
+                _fetchProfile();
+              },
             ),
           ],
         ),
@@ -296,7 +408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('MEDAL CASE', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.blueGrey)),
-              Text('$_trekCount COMPLETED', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              Text('$_tripCount COMPLETED', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
             ],
           ),
           const SizedBox(height: 20),
@@ -308,8 +420,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Text('No medals earned yet.', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     ]
                   : _recentBookings.map<Widget>((b) => _achievementBadge(
-                      b['treks']?['title'] ?? 'Trek',
-                      b['treks']?['image_url'] ?? 'https://images.unsplash.com/photo-1544735716-932d56158227',
+                      b['trips']?['title'] ?? 'Trip',
+                      b['trips']?['image_url'] ?? 'https://images.unsplash.com/photo-1544735716-932d56158227',
                     )).toList(),
             ),
           ),
@@ -318,7 +430,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
                 _miniStat('TOTAL DISTANCE', '${_totalDistance.toInt()} KM'),
-                _miniStat('TREK XP', '${_userData?['xp'] ?? 0}'),
+                _miniStat('TRIP XP', '${_userData?['xp'] ?? 0}'),
                 _miniStat('RANK LEVEL', '${_userData?['level'] ?? 1}'),
             ],
           ),
@@ -422,7 +534,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('STAFF INTELLIGENCE', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5, color: isDark ? Colors.white : Colors.black87)),
+                  Text('STAFF ANALYTICS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5, color: isDark ? Colors.white : Colors.black87)),
                   Text('Assignment & Attendance Metrics', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -543,7 +655,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             height: 45,
             child: OutlinedButton(
               onPressed: () =>
-                  Navigator.pushNamed(context, '/tactical_dossier'),
+                  Navigator.pushNamed(context, '/travel_documents'),
               style: OutlinedButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -710,6 +822,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).showSnackBar(SnackBar(content: Text('$title screen under maintenance.')));
   }
 
+  Widget _buildPreparationHub() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('MY EXPEDITION PREP', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Theme.of(context).primaryColor)),
+              const Icon(Icons.inventory_2_outlined, size: 16, color: Colors.grey),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Bag Packing Progress', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Text(_activeTripTitle != null ? 'Preparing for $_activeTripTitle' : 'Ensure you have everything for your next trip', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                  ],
+                ),
+              ),
+              Text('${(_packingProgress * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.green)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: _packingProgress,
+              backgroundColor: isDark ? Colors.white10 : Colors.grey.shade100,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildListItem(
+            Icons.checklist_rtl_rounded, 
+            'Gear Checklist', 
+            'Verify your essential gear', 
+            onTap: () {
+              if (_activeTripId != null) {
+                Navigator.push(context, MaterialPageRoute(builder: (c) => GearChecklistScreen(tripId: _activeTripId!, tripTitle: _activeTripTitle!))).then((_) => _fetchProfile());
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active bookings found to pack for.')));
+              }
+            }
+          ),
+        ],
+      ),
+    );
+  }
+
+
   void _showAppSettings() {
     showModalBottomSheet(
       context: context,
@@ -738,7 +915,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'TREK CONFIGS',
+              'APP SETTINGS',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 22,
@@ -746,7 +923,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const Text(
-              'Trek overrides & hardware sync',
+              'Customize according to your preferences',
               style: TextStyle(
                 color: Colors.grey,
                 fontSize: 10,
@@ -755,29 +932,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 32),
             _settingToggle(
-              'Trek Theme',
+              'Trip Theme',
               'Switch between Light & Dark mode',
               Theme.of(context).brightness == Brightness.dark,
               isTheme: true,
             ),
             _settingToggle(
               'Push Notifications',
-              'Intel Alerts & Assignment signals',
+              'Status Alerts & Assignment signals',
               true,
             ),
             _settingToggle(
               'Biometric Auth',
-              'Secure access to HQ systems',
+              'Secure access to TRIP INDIA systems',
               false,
             ),
             _settingToggle(
               'Offline Mode',
-              'Cache mission data for low signal areas',
+              'Cache trip data for low signal areas',
               true,
             ),
             _settingToggle(
               'Location Tracking',
-              'Real-time squad positioning',
+              'Real-time group positioning',
               true,
             ),
             const SizedBox(height: 32),
@@ -818,6 +995,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (mounted) Navigator.pop(context); // Close sheet to reflect changes
           }
         },
+      ),
+    );
+  }
+
+  Widget _buildShimmerProfile() {
+    return GlassShimmer(
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
+            const ShimmerBlock(width: 110, height: 110, borderRadius: 22),
+            const SizedBox(height: 20),
+            const ShimmerBlock(width: 180, height: 24, borderRadius: 8),
+            const SizedBox(height: 12),
+            const ShimmerBlock(width: 120, height: 16, borderRadius: 8),
+            const SizedBox(height: 40),
+            const ShimmerBlock(width: double.infinity, height: 180, margin: EdgeInsets.symmetric(horizontal: 20), borderRadius: 25),
+            const SizedBox(height: 30),
+            ...List.generate(4, (i) => const ShimmerBlock(width: double.infinity, height: 70, margin: EdgeInsets.symmetric(horizontal: 20, vertical: 8), borderRadius: 15)),
+          ],
+        ),
       ),
     );
   }
