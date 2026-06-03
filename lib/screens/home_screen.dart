@@ -475,88 +475,97 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildWebHeader(context),
-        _buildCombinedInsights(),
-        _buildTransportHub(),
-        // CATEGORIES MOVED ABOVE CURATED COLLECTIONS
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-          decoration: BoxDecoration(
-            // color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: TabBar(
-            key: ValueKey(_categoryNames.join(',')),
-            controller: _tabController,
-            isScrollable: true,
-            labelColor: Colors.white,
-            unselectedLabelColor: isDark ? Colors.white38 : Colors.grey,
-            labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
-            indicator: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: const Color(0xFFD32F2F),
-              boxShadow: [BoxShadow(color: const Color(0xFFD32F2F).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildWebHeader(context),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (kIsWeb) _buildWebSearchBar(context),
+                  _buildCombinedInsights(),
+                  _buildTransportHub(),
+                  // CATEGORIES MOVED ABOVE CURATED COLLECTIONS
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TabBar(
+                      key: ValueKey(_categoryNames.join(',')),
+                      controller: _tabController,
+                      isScrollable: true,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: isDark ? Colors.white38 : Colors.grey,
+                      labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
+                      indicator: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFD32F2F),
+                        boxShadow: [BoxShadow(color: const Color(0xFFD32F2F).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.all(4),
+                      tabs: _categoryNames.map((c) => Tab(text: (c ?? 'TRIP').toUpperCase())).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        () {
+                          final specialTrips = _allTrips.where((t) {
+                            final cat = _availableCategories.firstWhere(
+                              (c) => c.name == t.category, 
+                              orElse: () => TripCategory(id: 'default', name: '', isSpecial: false)
+                            );
+                            bool matchesCat = _selectedCategory == 'All' || 
+                                             t.category?.toLowerCase() == _selectedCategory.toLowerCase() ||
+                                             _selectedCategory.toLowerCase().contains(t.category?.toLowerCase() ?? '');
+                            return cat.isSpecial && matchesCat;
+                          }).toList();
+
+                          if (specialTrips.isEmpty) return const SizedBox.shrink();
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionHeader('Curated Collections', onSeeAll: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AllTripsScreen(
+                                      initialCategory: 'Special',
+                                      allTrips: _allTrips,
+                                    ),
+                                  ),
+                                );
+                              }),
+                              const SizedBox(height: 8),
+                              _buildHorizontalTripList(specialTrips, heroPrefix: 'special'),
+                              const SizedBox(height: 8),
+                            ],
+                          );
+                        }(),
+                      ],
+                    ),
+                  ),
+                  _buildPackagesSection(), // 👈 ADDED PACKAGES SECTION
+                  _buildTripsList(),
+                ],
+              ),
             ),
-            indicatorSize: TabBarIndicatorSize.tab,
-            dividerColor: Colors.transparent,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.all(4),
-            tabs: _categoryNames.map((c) => Tab(text: (c ?? 'TRIP').toUpperCase())).toList(),
           ),
-        ),
-        const SizedBox(height: 2),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              () {
-                final specialTrips = _allTrips.where((t) {
-                  final cat = _availableCategories.firstWhere(
-                    (c) => c.name == t.category, 
-                    orElse: () => TripCategory(id: 'default', name: '', isSpecial: false)
-                  );
-                  bool matchesCat = _selectedCategory == 'All' || 
-                                   t.category?.toLowerCase() == _selectedCategory.toLowerCase() ||
-                                   _selectedCategory.toLowerCase().contains(t.category?.toLowerCase() ?? '');
-                  return cat.isSpecial && matchesCat;
-                }).toList();
-
-                if (specialTrips.isEmpty) return const SizedBox.shrink();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionHeader('Curated Collections', onSeeAll: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AllTripsScreen(
-                            initialCategory: 'Special',
-                            allTrips: _allTrips,
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 8),
-                    _buildHorizontalTripList(specialTrips, heroPrefix: 'special'),
-                    const SizedBox(height: 8),
-                  ],
-                );
-              }(),
-            ],
-          ),
-        ),
-        
-        _buildPackagesSection(), // 👈 ADDED PACKAGES SECTION
-        _buildTripsList(),
-        _buildWebFooter(context),
-        const SizedBox(height: 100),
-      ],
-    )
+          _buildWebFooter(context),
+          const SizedBox(height: 100),
+        ],
+      ),
     );
   }
 
@@ -1364,8 +1373,17 @@ void _showAnnouncementsScreen() {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('EXPEDITION HQ', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white70)),
-            Text(appBarTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+            const Text('TREKWITHMUSSAFIRR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
+            if (_user != null)
+              Text(
+                appBarTitle,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
+              )
+            else
+              const Text(
+                'trekwithmussafirr',
+                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white70),
+              ),
           ],
         ),
         backgroundColor: const Color(0xFFD32F2F),
@@ -1450,7 +1468,7 @@ void _showAnnouncementsScreen() {
           ),
         ],
       ),
-      bottomNavigationBar: _user == null ? null : Theme(
+      bottomNavigationBar: (_user == null || kIsWeb) ? null : Theme(
         data: Theme.of(context).copyWith(
           canvasColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
         ),
@@ -1713,9 +1731,20 @@ void _showAnnouncementsScreen() {
             children: [
               Image.asset('assets/images/app_logo.png', width: 40, height: 40),
               const SizedBox(width: 12),
-              Text(
-                displayTitle,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1, color: Color(0xFFD32F2F)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'trekwithmussafirr',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1, color: Color(0xFFD32F2F)),
+                  ),
+                  if (_user != null)
+                    Text(
+                      displayTitle,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white60 : Colors.black54),
+                    ),
+                ],
               ),
             ],
           ),
@@ -1751,6 +1780,42 @@ void _showAnnouncementsScreen() {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWebSearchBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 800),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, color: Colors.grey),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) {
+                  _filterTrips();
+                },
+                decoration: const InputDecoration(
+                  hintText: 'Search treks, package destinations, guides...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -117,6 +117,30 @@ class TripBookingApp extends StatelessWidget {
               useMaterial3: true,
             ),
             home: const AuthGuard(),
+            builder: (context, child) {
+              if (!kIsWeb) return child!;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              return Container(
+                color: isDark ? const Color(0xFF0F172A) : Colors.grey[100],
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1200),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          )
+                        ],
+                      ),
+                      child: child!,
+                    ),
+                  ),
+                ),
+              );
+            },
             routes: {
               '/home': (context) => const HomeScreen(),
               '/admin': (context) => const AdminPanelScreen(),

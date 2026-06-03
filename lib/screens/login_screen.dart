@@ -43,6 +43,13 @@ class _LoginScreenState extends State<LoginScreen> {
           name = res.user!.userMetadata?['full_name'] ?? res.user!.email?.split('@')[0] ?? 'Explorer';
           await Supabase.instance.client.from('profiles').update({'full_name': name}).eq('id', res.user!.id);
         }
+        if (mounted) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            Navigator.of(context).pushReplacementNamed('/home');
+          }
+        }
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
@@ -121,6 +128,13 @@ class _LoginScreenState extends State<LoginScreen> {
           name = res.user!.userMetadata?['full_name'] ?? res.user!.email?.split('@')[0] ?? 'Explorer';
           await Supabase.instance.client.from('profiles').update({'full_name': name}).eq('id', res.user!.id);
         }
+        if (mounted) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            Navigator.of(context).pushReplacementNamed('/home');
+          }
+        }
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
@@ -169,61 +183,66 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 40),
-              FadeInDown(
-                child: Image.asset(
-                  'assets/images/app_logo.png',
-                  height: 80,
-                  errorBuilder: (context, error, stackTrace) => Icon(
-                    Icons.terrain_rounded,
-                    size: 80,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildTitle(),
-              const SizedBox(height: 40),
-              
-              if (_currentStatus == AuthFlowStatus.login) _buildLoginForm(),
-              if (_currentStatus == AuthFlowStatus.signup) _buildSignupForm(),
-              if (_currentStatus == AuthFlowStatus.verify) _buildVerifyForm(),
-              if (_currentStatus == AuthFlowStatus.setPassword) _buildSetPasswordForm(),
-              if (_currentStatus == AuthFlowStatus.forgotPassword) _buildForgotPasswordForm(),
-              
-              const SizedBox(height: 40),
-              if (_currentStatus == AuthFlowStatus.login || _currentStatus == AuthFlowStatus.signup) ...[
-                FadeInUp(
-                  child: Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('OR', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold)),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 40),
+                  FadeInDown(
+                    child: Image.asset(
+                      'assets/images/app_logo.png',
+                      height: 80,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        Icons.terrain_rounded,
+                        size: 80,
+                        color: Theme.of(context).primaryColor,
                       ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                FadeInUp(
-                  child: OutlinedButton.icon(
-                    onPressed: _isLoading ? null : _signInWithGoogle,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     ),
-                    icon: const FaIcon(FontAwesomeIcons.google, size: 18),
-                    label: Text('Continue with Google', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
                   ),
-                ),
-              ],
-            ],
+                  const SizedBox(height: 16),
+                  _buildTitle(),
+                  const SizedBox(height: 40),
+                  
+                  if (_currentStatus == AuthFlowStatus.login) _buildLoginForm(),
+                  if (_currentStatus == AuthFlowStatus.signup) _buildSignupForm(),
+                  if (_currentStatus == AuthFlowStatus.verify) _buildVerifyForm(),
+                  if (_currentStatus == AuthFlowStatus.setPassword) _buildSetPasswordForm(),
+                  if (_currentStatus == AuthFlowStatus.forgotPassword) _buildForgotPasswordForm(),
+                  
+                  const SizedBox(height: 40),
+                  if (_currentStatus == AuthFlowStatus.login || _currentStatus == AuthFlowStatus.signup) ...[
+                    FadeInUp(
+                      child: Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('OR', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold)),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FadeInUp(
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        ),
+                        icon: const FaIcon(FontAwesomeIcons.google, size: 18),
+                        label: Text('Continue with Google', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
