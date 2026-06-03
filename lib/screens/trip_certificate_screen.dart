@@ -24,7 +24,7 @@ class _TripCertificateScreenState extends State<TripCertificateScreen> {
       final directory = await getApplicationDocumentsDirectory();
       final imagePath = await File('${directory.path}/certificate.png').create();
       await imagePath.writeAsBytes(image);
-      await Share.shareXFiles([XFile(imagePath.path)], text: 'Achievement Unlocked: Finished ${widget.booking['trips']['title']} with Trip India!');
+      await Share.shareXFiles([XFile(imagePath.path)], text: 'Achievement Unlocked: Finished ${widget.booking['trips']['title']} with trekwithmussafirr!');
     }
   }
 
@@ -108,7 +108,7 @@ class _TripCertificateScreenState extends State<TripCertificateScreen> {
                                     ),
                                     Column(
                                       children: [
-                                        Text('TREK INDIA EXPEDITIONS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 6, color: Colors.black)),
+                                        Text('TREKWITHMUSSAFIRR EXPEDITIONS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 6, color: Colors.black)),
                                         const SizedBox(height: 8),
                                         Divider(color: Colors.amber.shade800, thickness: 1.5, indent: 110, endIndent: 110),
                                         const Spacer(flex: 2),

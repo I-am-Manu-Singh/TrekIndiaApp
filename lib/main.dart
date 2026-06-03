@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/home_screen.dart';
@@ -59,7 +60,7 @@ class TripBookingApp extends StatelessWidget {
       builder: (_, mode, __) {
         return OverlaySupport.global(
           child: MaterialApp(
-            title: 'Trip India',
+            title: 'trekwithmussafirr',
             debugShowCheckedModeBanner: false,
             themeMode: mode,
             theme: ThemeData(
@@ -117,6 +118,7 @@ class TripBookingApp extends StatelessWidget {
             ),
             home: const AuthGuard(),
             routes: {
+              '/home': (context) => const HomeScreen(),
               '/admin': (context) => const AdminPanelScreen(),
               '/admin_panel': (context) => const AdminPanelScreen(),
               '/admin_trip_groups': (context) => const AdminTripGroupsScreen(),
@@ -196,6 +198,9 @@ class _AuthGuardState extends State<AuthGuard> {
     if (_session != null) {
       NotificationService.listenToMessages();
       NotificationService.listenToBookingChanges();
+      return const HomeScreen();
+    }
+    if (kIsWeb) {
       return const HomeScreen();
     }
     return const LoginScreen();

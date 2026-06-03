@@ -27,8 +27,10 @@ class _EditTripScreenState extends State<EditTripScreen> {
   late TextEditingController _descriptionCtrl;
   late TextEditingController _imageUrlCtrl;
   late TextEditingController _bestMonthsCtrl;
-  late TextEditingController _latCtrl;
-  late TextEditingController _lngCtrl;
+  late TextEditingController _googleMapLinkCtrl;
+  late TextEditingController _termsCtrl;
+  late TextEditingController _cancellationCtrl;
+  late TextEditingController _travelerFormCtrl;
   late TextEditingController _altCtrl;
   late TextEditingController _diffCtrl;
   late TextEditingController _distCtrl;
@@ -64,8 +66,10 @@ class _EditTripScreenState extends State<EditTripScreen> {
     _descriptionCtrl = TextEditingController(text: widget.trip?.description ?? '');
     _imageUrlCtrl = TextEditingController(text: widget.trip?.imageUrl ?? '');
     _bestMonthsCtrl = TextEditingController(text: widget.trip?.bestMonths ?? 'Mar-Jun, Sep-Dec');
-    _latCtrl = TextEditingController(text: (widget.trip?.latitude ?? 30.7333).toString());
-    _lngCtrl = TextEditingController(text: (widget.trip?.longitude ?? 76.7794).toString());
+    _googleMapLinkCtrl = TextEditingController(text: widget.trip?.googleMapLink ?? '');
+    _termsCtrl = TextEditingController(text: widget.trip?.termsConditions ?? '');
+    _cancellationCtrl = TextEditingController(text: widget.trip?.cancellationPolicy ?? '');
+    _travelerFormCtrl = TextEditingController(text: widget.trip?.travelerFormUrl ?? '');
     _altCtrl = TextEditingController(text: widget.trip?.altitude ?? '');
     _diffCtrl = TextEditingController(text: widget.trip?.difficulty ?? 'Moderate');
     _distCtrl = TextEditingController(text: widget.trip?.totalDistance ?? '');
@@ -134,8 +138,10 @@ class _EditTripScreenState extends State<EditTripScreen> {
         'image_url': _imageUrlCtrl.text.trim(),
         'category': _selectedCategory,
         'best_months': _bestMonthsCtrl.text.trim(),
-        'latitude': double.tryParse(_latCtrl.text) ?? 30.7333,
-        'longitude': double.tryParse(_lngCtrl.text) ?? 76.7794,
+        'google_map_link': _googleMapLinkCtrl.text.trim(),
+        'terms_conditions': _termsCtrl.text.trim(),
+        'cancellation_policy': _cancellationCtrl.text.trim(),
+        'traveler_form_url': _travelerFormCtrl.text.trim(),
         'altitude': _altCtrl.text.trim(),
         'difficulty': _diffCtrl.text.trim(),
         'total_distance': _distCtrl.text.trim(),
@@ -223,13 +229,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
           children: [
             _sectionHeader('CORE TRIP INFO'),
             _buildInput('Operation Name', _titleCtrl, Icons.terrain),
-            Row(
-              children: [
-                Expanded(child: _buildInput('Latitude', _latCtrl, Icons.location_on, type: TextInputType.number)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildInput('Longitude', _lngCtrl, Icons.location_on, type: TextInputType.number)),
-              ],
-            ),
+            _buildInput('Google Map Link', _googleMapLinkCtrl, Icons.pin_drop),
             Row(
               children: [
                 Expanded(child: _buildInput('Duration', _durationCtrl, Icons.timer)),
@@ -341,6 +341,26 @@ class _EditTripScreenState extends State<EditTripScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
               child: TextField(controller: _descriptionCtrl, maxLines: 8, decoration: const InputDecoration(border: InputBorder.none, hintText: 'Enter full trip story...')),
+            ),
+            const SizedBox(height: 32),
+
+            _sectionHeader('LEGAL & POLICIES'),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
+              child: TextField(controller: _termsCtrl, maxLines: 4, decoration: const InputDecoration(border: InputBorder.none, hintText: 'Terms & Conditions...')),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
+              child: TextField(controller: _cancellationCtrl, maxLines: 4, decoration: const InputDecoration(border: InputBorder.none, hintText: 'Cancellation Policy...')),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
+              child: TextField(controller: _travelerFormCtrl, decoration: const InputDecoration(border: InputBorder.none, hintText: 'Google Form URL for Traveler Details...', icon: Icon(Icons.link))),
             ),
             const SizedBox(height: 48),
 

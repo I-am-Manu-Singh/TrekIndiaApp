@@ -10,6 +10,7 @@ import 'admin_finance_hub_screen.dart';
 import 'admin_employee_management_screen.dart';
 import 'payment_ledger_screen.dart';
 import 'blogs_screen.dart';
+import 'admin_rewards_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:animate_do/animate_do.dart';
@@ -374,6 +375,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         _dashboardCard('Gear\nHub', Icons.warehouse_outlined, const Color(0xFFE0F7FA), Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminRentalTrackingScreen()))),
         _dashboardCard('Manage\nPackages', Icons.redeem, const Color(0xFFE0F7FA), Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminPackageManagementScreen()))),
         _dashboardCard('Broadcast', Icons.campaign_outlined, const Color(0xFFFCE4EC), Colors.pink, () => Navigator.pushNamed(context, '/admin_broadcast')),
+        _dashboardCard('Rewards\nPoints', Icons.card_giftcard, const Color(0xFFE8F5E9), Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminRewardsScreen()))),
       ],
     );
   }

@@ -563,7 +563,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
               title: const Text('Call Participant'),
               onTap: () {
                 Navigator.pop(c);
-                WhatsAppService.contactAdminForPayment(hikerName: p['full_name'] ?? 'Trip', tripName: 'Inquiry', bookingId: 'Call', method: 'Call'); // Placeholder for calling
+                launchUrl(Uri.parse("tel:$phone"));
               },
             ),
             ListTile(
@@ -571,7 +571,9 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
               title: const Text('WhatsApp Message'),
               onTap: () {
                 Navigator.pop(c);
-                WhatsAppService.contactAdminForPayment(hikerName: p['full_name'] ?? 'Trip', tripName: 'Inquiry', bookingId: phone, method: 'WhatsApp');
+                final String formattedPhone = phone.replaceAll('+', '').replaceAll(' ', '');
+                final String webUrl = "https://wa.me/$formattedPhone?text=${Uri.encodeComponent('Hello from trekwithmussafirr regarding your booking!')}";
+                launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
               },
             ),
           ],

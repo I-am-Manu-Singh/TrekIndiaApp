@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/glass_shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/user_avatar.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import 'payment_ledger_screen.dart';
@@ -10,6 +11,10 @@ import 'policy_handbook_screen.dart';
 import 'app_info_screen.dart';
 import 'user_support_screen.dart';
 import 'admin_trip_groups_screen.dart';
+import 'admin_package_management_screen.dart';
+import 'admin_broadcast_screen.dart';
+import 'employee_tasks_screen.dart';
+import 'employee_bookings_screen.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   const EmployeeDashboardScreen({super.key});
@@ -112,7 +117,33 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         elevation: 0,
         actions: [
           _liveBadge(),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/edit_profile'),
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                UserAvatar(
+                  imageUrl: _employeeData?['avatar_url'],
+                  name: _employeeData?['full_name'],
+                  width: 38,
+                  height: 38,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                if (_employeeData?['aadhar_url'] != null)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(1),
+                      decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                      child: const Icon(Icons.verified, color: Colors.white, size: 8),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
         ],
       ),
       body: SingleChildScrollView(
@@ -215,7 +246,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         _dashboardCard('Assigned\nGroups', Icons.groups_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/employee_groups')),
         _dashboardCard('Attendance\nRecord', Icons.event_note_outlined, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const MyAttendanceScreen()))),
         _dashboardCard('Trip\nTasks', Icons.assignment_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/employee_tasks')),
-        _dashboardCard('Field\nReports', Icons.report_problem_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/user_complaints')),
+        if (_employeeData?['can_manage_trips'] == true)
+          _dashboardCard('Manage\nPackages', Icons.redeem, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminPackageManagementScreen()))),
+        if (_employeeData?['can_broadcast'] == true)
+          _dashboardCard('Broadcast\nAlerts', Icons.campaign_outlined, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminBroadcastScreen()))),
         _dashboardCard('Official\nHandbook', Icons.menu_book_outlined, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PolicyHandbookScreen()))),
         _dashboardCard('Salary\nBreakup', Icons.payments_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/salary_breakup')),
       ],
@@ -223,7 +257,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   }
 
   void _showPlaceholder(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title is currently offline. Trip India will release updates soon.')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title is currently offline. trekwithmussafirr will release updates soon.')));
   }
 
   Widget _dashboardCard(String label, IconData icon, Color bgColor, Color iconColor, VoidCallback onTap) {

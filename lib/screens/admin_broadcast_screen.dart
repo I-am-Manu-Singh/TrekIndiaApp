@@ -85,7 +85,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
                       'content': contentCtrl.text.trim(),
                       'is_urgent': isUrgent,
                       'sender_id': _client.auth.currentUser?.id,
-                      'sender_name': 'TRIP INDIA CONTROL',
+                      'sender_name': 'TREKWITHMUSSAFIRR CONTROL',
                       'created_at': DateTime.now().toIso8601String(),
                     };
 

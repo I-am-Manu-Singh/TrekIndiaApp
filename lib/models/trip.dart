@@ -107,6 +107,10 @@ class Trip {
   final String? startPoint;
   final String? packageType;
   final List<DateTime>? availableDates;
+  final String? googleMapLink;
+  final String? termsConditions;
+  final String? cancellationPolicy;
+  final String? travelerFormUrl;
 
   Trip({
     required this.id,
@@ -140,6 +144,10 @@ class Trip {
     this.startPoint,
     this.packageType,
     this.availableDates,
+    this.googleMapLink,
+    this.termsConditions,
+    this.cancellationPolicy,
+    this.travelerFormUrl,
   });
 
   double get discountedPrice {
@@ -204,6 +212,10 @@ class Trip {
       packages: pkgsList,
       startPoint: json['start_point']?.toString(),
       packageType: json['package_type']?.toString(),
+      googleMapLink: json['google_map_link']?.toString(),
+      termsConditions: json['terms_conditions']?.toString(),
+      cancellationPolicy: json['cancellation_policy']?.toString(),
+      travelerFormUrl: json['traveler_form_url']?.toString(),
     );
   }
 

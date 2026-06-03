@@ -37,7 +37,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
       }
     } catch (e) {
       if (mounted) {
-        debugPrint('TRIP INDIA SUPPORT ERROR: $e');
+        debugPrint('TREKWITHMUSSAFIRR SUPPORT ERROR: $e');
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

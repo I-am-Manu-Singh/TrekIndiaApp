@@ -29,11 +29,11 @@ class TermsOfServiceScreen extends StatelessWidget {
             ),
             const Divider(height: 60, thickness: 1),
             
-            _buildSection(context, 'I. ACCEPTANCE OF TERMS', 'By downloading, accessing, or using the Trip India mobile application, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our application.'),
-            _buildSection(context, 'II. ELIGIBILITY', 'You must be at least 18 years old to use Trip India. Users under 18 must have the consent of a parent or legal guardian to participate in trips.'),
+            _buildSection(context, 'I. ACCEPTANCE OF TERMS', 'By downloading, accessing, or using the trekwithmussafirr mobile application, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our application.'),
+            _buildSection(context, 'II. ELIGIBILITY', 'You must be at least 18 years old to use trekwithmussafirr. Users under 18 must have the consent of a parent or legal guardian to participate in trips.'),
             _buildSection(context, 'III. USER ACCOUNTS', 'You are responsible for maintaining the confidentiality of your account information. You agree to notify us immediately of any unauthorized use of your account or any other breach of security.'),
             _buildSection(context, 'IV. TRIP PARTICIPATION', 'Trips are responsible for providing accurate health information and following all instructions from our guides to ensure their safety and the safety of others on the trip.'),
-            _buildSection(context, 'V. LIMITATION OF LIABILITY', 'Trip India is not liable for any injuries, losses, or damages occurring during trips, except those resulting from our gross negligence or willful misconduct.'),
+            _buildSection(context, 'V. LIMITATION OF LIABILITY', 'trekwithmussafirr is not liable for any injuries, losses, or damages occurring during trips, except those resulting from our gross negligence or willful misconduct.'),
             
             const SizedBox(height: 50),
             Container(

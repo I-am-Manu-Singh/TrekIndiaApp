@@ -32,6 +32,13 @@ import 'trip_dashboard_screen.dart';
 import '../widgets/global_unread_badge.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'legal/privacy_policy_screen.dart';
+import 'legal/refund_policy_screen.dart';
+import 'legal/safety_protocols_screen.dart';
+import 'legal/terms_of_service_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -282,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Theme.of(context).primaryColor,
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
-        title: const Text('TRIP INDIA', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+        title: const Text('TREKWITHMUSSAFIRR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
         centerTitle: false,
         background: Stack(
           fit: StackFit.expand,
@@ -303,53 +310,70 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
       ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: _notificationBadge(),
-        ),
-        GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const ProfileScreen())),
-            child: Padding(
-              padding: EdgeInsets.zero,
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
-                    ),
-                    child: UserAvatar(
-                      imageUrl: _userAvatar, 
-                      name: _userName, 
-                      width: 48,
-                      height: 48,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  if (_isVerified)
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent, 
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
-                        ),
-                        child: const Icon(Icons.verified, color: Colors.white, size: 10),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-        ),
-      ],
+      actions: _buildAppBarActions(context),
     );
+  }
+
+  List<Widget> _buildAppBarActions(BuildContext context) {
+    if (_user == null) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: TextButton.icon(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const LoginScreen())),
+            icon: const Icon(Icons.login, color: Colors.white, size: 18),
+            label: const Text('LOGIN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      _glassHeaderAction(_notificationBadge()),
+      Padding(
+        padding: const EdgeInsets.only(right: 16, left: 8),
+        child: GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProfileScreen())),
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6)],
+                ),
+                child: UserAvatar(
+                  imageUrl: _userAvatar, 
+                  name: _userName, 
+                  width: 44, 
+                  height: 44, 
+                  borderRadius: BorderRadius.circular(14)
+                ),
+              ),
+              if (_isVerified)
+                Positioned(
+                  right: -1,
+                  bottom: -1,
+                  child: Container(
+                    padding: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent, 
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: const Icon(Icons.verified, color: Colors.white, size: 6),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _glassHeaderAction(Widget child, {EdgeInsets padding = const EdgeInsets.only(right: 12)}) {
@@ -435,6 +459,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildWebHeader(context),
         _buildCombinedInsights(),
         _buildTransportHub(),
         // CATEGORIES MOVED ABOVE CURATED COLLECTIONS
@@ -510,6 +535,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         
         _buildPackagesSection(), // 👈 ADDED PACKAGES SECTION
         _buildTripsList(),
+        _buildWebFooter(context),
         const SizedBox(height: 100),
       ],
     )
@@ -920,7 +946,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final String createdAt = a['created_at']?.toString() ?? DateTime.now().toIso8601String();
     final date = DateTime.parse(createdAt).toLocal();
     final timeStr = DateFormat('MMM dd | HH:mm').format(date);
-    final senderName = a['sender_name']?.toString() ?? 'TRIP INDIA OFFICE';
+    final senderName = a['sender_name']?.toString() ?? 'TREKWITHMUSSAFIRR OFFICE';
     final bool isUrgent = a['is_urgent'] == true;
     final String content = a['content']?.toString() ?? 'No details provided.';
 
@@ -1269,7 +1295,7 @@ void _showAnnouncementsScreen() {
         const BottomNavigationBarItem(icon: Icon(Icons.shield_outlined), label: 'Admin'),
         const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
       ];
-    } else if (_userRole == 'staff') {
+    } else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') {
       title = 'STAFF PORTAL';
       pages = [
         _buildExploreScreen(context),
@@ -1284,7 +1310,7 @@ void _showAnnouncementsScreen() {
         const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
       ];
     } else {
-      title = 'TRIP INDIA';
+      title = 'TREKWITHMUSSAFIRR';
       pages = [
         _buildExploreScreen(context),
         const ChatRoomListScreen(),
@@ -1312,48 +1338,7 @@ void _showAnnouncementsScreen() {
         ),
         backgroundColor: const Color(0xFFD32F2F),
         centerTitle: false,
-        actions: [
-          _glassHeaderAction(_notificationBadge()),
-          Padding(
-            padding: const EdgeInsets.only(right: 16, left: 8),
-            child: GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProfileScreen())),
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6)],
-                    ),
-                    child: UserAvatar(
-                      imageUrl: _userAvatar, 
-                      name: _userName, 
-                      width: 44, 
-                      height: 44, 
-                      borderRadius: BorderRadius.circular(14)
-                    ),
-                  ),
-                  if (_isVerified)
-                    Positioned(
-                      right: -1,
-                      bottom: -1,
-                      child: Container(
-                        padding: const EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent, 
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1),
-                        ),
-                        child: const Icon(Icons.verified, color: Colors.white, size: 6),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        actions: _buildAppBarActions(context),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
@@ -1381,12 +1366,22 @@ void _showAnnouncementsScreen() {
           ),
         ),
       ) : null,
-      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
-        heroTag: 'support_fab',
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AIGuideScreen())),
-        backgroundColor: const Color(0xFFD32F2F),
-        child: const Icon(Icons.support_agent, color: Colors.white),
-      ) : null,
+      floatingActionButton: _selectedIndex == 0
+        ? (kIsWeb
+            ? FloatingActionButton.extended(
+                heroTag: 'support_fab',
+                onPressed: _launchGoogleForm,
+                backgroundColor: const Color(0xFFD32F2F),
+                icon: const Icon(Icons.assignment_outlined, color: Colors.white),
+                label: const Text('Enquire Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              )
+            : FloatingActionButton(
+                heroTag: 'support_fab',
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AIGuideScreen())),
+                backgroundColor: const Color(0xFFD32F2F),
+                child: const Icon(Icons.support_agent, color: Colors.white),
+              ))
+        : null,
       body: Column(
         children: [
           if (_isOffline)
@@ -1423,7 +1418,7 @@ void _showAnnouncementsScreen() {
           ),
         ],
       ),
-      bottomNavigationBar: Theme(
+      bottomNavigationBar: _user == null ? null : Theme(
         data: Theme.of(context).copyWith(
           canvasColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
         ),
@@ -1645,6 +1640,159 @@ void _showAnnouncementsScreen() {
           },
         );
       },
+    );
+  }
+  Future<void> _launchGoogleForm() async {
+    final Uri url = Uri.parse('https://forms.google.com'); // Placeholder Google Form
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      throw Exception('Could not launch $url');
+    }
+  }
+
+  Widget _buildWebHeader(BuildContext context) {
+    if (!kIsWeb) return const SizedBox.shrink();
+    final bool isWide = MediaQuery.of(context).size.width > 900;
+    if (!isWide) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Image.asset('assets/images/app_logo.png', width: 40, height: 40),
+              const SizedBox(width: 12),
+              const Text(
+                'trekwithmussafirr',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1, color: Color(0xFFD32F2F)),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              _webNavLink(context, 'Explore', () => setState(() => _selectedIndex = 0)),
+              _webNavLink(context, 'Privacy Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen()))),
+              _webNavLink(context, 'Terms of Service', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const TermsOfServiceScreen()))),
+              _webNavLink(context, 'Refund Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RefundPolicyScreen()))),
+              _webNavLink(context, 'Safety Protocols', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SafetyProtocolsScreen()))),
+              const SizedBox(width: 20),
+              if (_user == null)
+                ElevatedButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const LoginScreen())),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
+                  child: const Text('Login / Register', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                )
+              else
+                IconButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProfileScreen())),
+                  icon: const Icon(Icons.person, color: Color(0xFFD32F2F)),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _webNavLink(BuildContext context, String title, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: InkWell(
+        onTap: onTap,
+        child: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebFooter(BuildContext context) {
+    if (!kIsWeb) return const SizedBox.shrink();
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      width: double.infinity,
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('trekwithmussafirr', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Your premier trekking companion in the Himalayas. Discover trails, book expeditions, and explore the unexplored with professional safety guidance.',
+                      style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 40),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Policies', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    _footerLink(context, 'Privacy Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen()))),
+                    _footerLink(context, 'Terms of Service', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const TermsOfServiceScreen()))),
+                    _footerLink(context, 'Refund Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RefundPolicyScreen()))),
+                    _footerLink(context, 'Safety Protocols', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SafetyProtocolsScreen()))),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Contact Us', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Text('Email: info@trekwithmussafirr.com', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Text('Phone: +91 9876543210', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Text('Address: Manali, Himachal Pradesh, India', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+          const Divider(color: Colors.white10),
+          const SizedBox(height: 15),
+          Text(
+            '© ${DateTime.now().year} trekwithmussafirr. All rights reserved. Managed with pride.',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _footerLink(BuildContext context, String label, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        child: Text(label, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+      ),
     );
   }
 }

@@ -25,7 +25,7 @@ class PolicyHandbookScreen extends StatelessWidget {
           const SizedBox(height: 28),
           Center(
             child: Text(
-              'REVISED OFFICIAL VERSION 2.1.0\nPROPERTY OF TRIP INDIA TRIP INDIA',
+              'REVISED OFFICIAL VERSION 2.1.0\nPROPERTY OF TREKWITHMUSSAFIRR TREKWITHMUSSAFIRR',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2),
             ),

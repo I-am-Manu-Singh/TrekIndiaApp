@@ -208,7 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildHeader(),
             const SizedBox(height: 30),
 
-            // Operational modules have been moved to Admin Panels (Admin TRIP INDIA / Dashboards)
+            // Operational modules have been moved to Admin Panels (Admin TREKWITHMUSSAFIRR / Dashboards)
             if (role == 'user') ...[
               _buildMedalCase(),
               const SizedBox(height: 20),
@@ -944,7 +944,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             _settingToggle(
               'Biometric Auth',
-              'Secure access to TRIP INDIA systems',
+              'Secure access to TREKWITHMUSSAFIRR systems',
               false,
             ),
             _settingToggle(

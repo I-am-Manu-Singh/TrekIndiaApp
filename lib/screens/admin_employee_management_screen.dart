@@ -245,7 +245,7 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
                 DropdownButtonFormField<String>(
                   value: currentRole,
                   decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 16)),
-                  items: ['user', 'admin', 'staff', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
+                  items: ['user', 'admin', 'guide', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
                   onChanged: (v) async {
                     if (v == null) return;
                     await _client.from('profiles').update({'role': v}).eq('id', p['id']);
@@ -370,6 +370,7 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
   Widget _permissionsManagement(dynamic p, StateSetter setModalState) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     bool canManage = p['can_manage_trips'] == true;
+    bool canBroadcast = p['can_broadcast'] == true;
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -378,30 +379,54 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200)
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Trip/Package Customization', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
-              const Text('Allow staff to add or edit trips', style: TextStyle(fontSize: 10, color: Colors.grey)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Trip/Package Customization', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
+                  const Text('Allow staff to add or edit trips', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+              Switch(
+                value: canManage,
+                activeColor: Colors.blueAccent,
+                onChanged: (val) async {
+                  setModalState(() => p['can_manage_trips'] = val);
+                  try {
+                    await _client.from('profiles').update({'can_manage_trips': val}).eq('id', p['id']);
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permissions Updated.')));
+                  } catch (_) {}
+                },
+              ),
             ],
           ),
-          Switch(
-            value: canManage,
-            activeColor: Colors.blueAccent,
-            onChanged: (val) async {
-              setModalState(() => p['can_manage_trips'] = val);
-              try {
-                // If column doesn't exist, this will fail gracefully but update UI
-                await _client.from('profiles').update({'can_manage_trips': val}).eq('id', p['id']);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permissions Updated.')));
-              } catch (_) {
-                // Ignore error if column not added to profiles yet
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permissions sync failed. Ensure DB schema is updated.')));
-              }
-            },
+          const Divider(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Group Broadcast Authority', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
+                  const Text('Allow staff to send global alerts', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+              Switch(
+                value: canBroadcast,
+                activeColor: Colors.orangeAccent,
+                onChanged: (val) async {
+                  setModalState(() => p['can_broadcast'] = val);
+                  try {
+                    await _client.from('profiles').update({'can_broadcast': val}).eq('id', p['id']);
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Broadcast Authority Updated.')));
+                  } catch (_) {}
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -704,7 +729,7 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
                     labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                   ),
-                  items: ['admin', 'staff', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
+                  items: ['admin', 'guide', 'staff'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
                   onChanged: (v) => setModalState(() => selectedRole = v),
                 ),
                 const SizedBox(height: 32),

@@ -300,7 +300,7 @@ class _EmployeeSalaryBreakupScreenState extends State<EmployeeSalaryBreakupScree
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(date, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
-                const Text('Disbursed via TRIP INDIA Bank Transfer', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                const Text('Disbursed via TREKWITHMUSSAFIRR Bank Transfer', style: TextStyle(fontSize: 9, color: Colors.grey)),
               ],
             ),
           ),

@@ -175,7 +175,17 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 40),
-              FadeInDown(child: Icon(Icons.terrain_rounded, size: 80, color: Theme.of(context).primaryColor)),
+              FadeInDown(
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  height: 80,
+                  errorBuilder: (context, error, stackTrace) => Icon(
+                    Icons.terrain_rounded,
+                    size: 80,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               _buildTitle(),
               const SizedBox(height: 40),
@@ -221,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildTitle() {
-    String title = "Trip India";
+    String title = "TrekWithMussafirr";
     String subtitle = "Your gateway to the Himalayas";
     
     if (_currentStatus == AuthFlowStatus.signup) {
@@ -265,6 +275,11 @@ class _LoginScreenState extends State<LoginScreen> {
         TextButton(
           onPressed: () => setState(() => _currentStatus = AuthFlowStatus.signup),
           child: Text("New User? Create Account", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+          child: const Text("Browse as Guest", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16)),
         ),
       ],
     );

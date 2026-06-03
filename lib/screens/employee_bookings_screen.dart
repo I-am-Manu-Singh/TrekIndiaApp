@@ -34,15 +34,10 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
           .select()
           .eq('user_id', user.id);
       
-      final directDeployments = await _client.from('trip_groups')
-          .select('*, trips(title, image_url)')
-          .or('guide_id.eq.${user.id},staff_id.eq.${user.id}');
-      
       // 2. Aggregate Trip Identifiers
       final Set<String> myTripIds = {
-        ...staffDeployments.map<String>((s) => s['trip_id'].toString()),
-        ...directDeployments.map<String>((g) => g['trip_id'].toString())
-      };
+        ...staffDeployments.map<String>((s) => s['trip_id']?.toString() ?? '')
+      }..removeWhere((id) => id.isEmpty || id == 'null');
 
       if (myTripIds.isEmpty) {
         if (mounted) setState(() { _tripGroups = []; _isLoading = false; });
@@ -80,16 +75,7 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
         }
       }
 
-      // Create groups from trips first
-      for (var g in directDeployments) {
-        final tripId = g['trip_id']?.toString();
-        final date = (g['departure_date'] ?? '').toString().split('T')[0].trim();
-        if (tripId != null && date.isNotEmpty) {
-           final groupKey = '${tripId}_$date';
-           addToGroup(groupKey, g['trips'] ?? tripMap[tripId], date, null);
-        }
-      }
-
+      // Create groups from staffDeployments
       for (var d in staffDeployments) {
         final tripId = d['trip_id']?.toString();
         final date = (d['deployment_date'] ?? '').toString().split('T')[0].trim();
@@ -123,7 +109,7 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        print('TRIP INDIA EMPLOYEE GROUP ERROR: $e');
+        print('TREKWITHMUSSAFIRR EMPLOYEE GROUP ERROR: $e');
         setState(() => _isLoading = false);
       }
     }
@@ -170,7 +156,7 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statCol('GROUPS', '${_tripGroups.length}', Colors.blueAccent),
+          _statCol('ASSIGNMENTS', '${_tripGroups.length}', Colors.blueAccent),
           _statCol('TRIPKERS', '${_tripGroups.fold(0, (sum, g) => sum + (g['total_strength'] as int))}', Colors.greenAccent),
         ],
       ),
@@ -233,7 +219,7 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
                 children: [
                   const Icon(Icons.groups_outlined, size: 14, color: Colors.blueAccent),
                   const SizedBox(width: 8),
-                  Text('${g['total_strength']} Employee Enrolled', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                  Text('${g['total_strength']} Tripkers Enrolled', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
                 ],
               ),
             ),

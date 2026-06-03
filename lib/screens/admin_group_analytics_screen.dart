@@ -1113,8 +1113,13 @@ class _AdminGroupAnalyticsScreenState
                                       } catch (_) {}
                                     }
 
-                                    final existing = await _client.from('trip_group_staff').select().eq('trip_id', widget.tripId).eq('user_id', s['id']).maybeSingle();
-                                    if (existing != null) throw 'Employee already deployed to this trip.';
+                                    final existing = await _client.from('trip_group_staff')
+                                      .select()
+                                      .eq('trip_id', widget.tripId)
+                                      .eq('user_id', s['id'])
+                                      .eq('deployment_date', rawDate)
+                                      .maybeSingle();
+                                    if (existing != null) throw 'Employee already deployed to this trip on this date.';
 
                                     // ROLE NORMALIZATION: Ensure it matches the check constraint in DB
                                     String role = (s['role'] ?? 'staff').toString().toLowerCase();
@@ -1128,7 +1133,6 @@ class _AdminGroupAnalyticsScreenState
                                       'trip_id': widget.tripId,
                                       'departure_date': rawDate,
                                       'group_name': '$staffName\'s Assignment Group',
-                                      role == 'staff' ? 'guide_id' : 'staff_id': s['id'],
                                     });
 
                                     await _client.from('trip_group_staff').insert({

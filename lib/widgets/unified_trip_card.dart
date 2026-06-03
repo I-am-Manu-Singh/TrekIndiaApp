@@ -115,18 +115,23 @@ class UnifiedTripCard extends StatelessWidget {
               placeholder: (context, url) => Container(color: isDark ? Colors.grey[800] : Colors.grey[100]),
               errorWidget: (context, url, error) => Container(
                 color: isDark ? const Color(0xFF334155) : Colors.grey[200],
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.terrain_outlined, size: 40, color: primaryColor.withOpacity(0.2)),
-                    const SizedBox(height: 8),
-                    Text('TREK INDIA', style: TextStyle(
-                      color: primaryColor.withOpacity(0.3),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                    )),
-                  ],
+                padding: const EdgeInsets.all(20),
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (c, e, s) => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.terrain_outlined, size: 40, color: primaryColor.withOpacity(0.2)),
+                      const SizedBox(height: 8),
+                      Text('TREKWITHMUSSAFIRR', style: TextStyle(
+                        color: primaryColor.withOpacity(0.3),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      )),
+                    ],
+                  ),
                 ),
               ),
             ),

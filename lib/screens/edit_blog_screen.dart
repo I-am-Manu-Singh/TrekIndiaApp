@@ -50,7 +50,7 @@ class _EditBlogScreenState extends State<EditBlogScreen> {
       if (mounted) setState(() => _isAuthorized = true);
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UNAUTHORIZED: ONLY THE TRIP ARCHITECT OR TRIP INDIA CAN EDIT THIS INFO.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UNAUTHORIZED: ONLY THE TRIP ARCHITECT OR TREKWITHMUSSAFIRR CAN EDIT THIS INFO.')));
         Navigator.pop(context);
       }
     }

@@ -11,7 +11,7 @@ import 'legal/safety_protocols_screen.dart';
 class AppInfoScreen extends StatelessWidget {
   const AppInfoScreen({super.key});
 
-  final String companyName = "Trip India Expeditions";
+  final String companyName = "trekwithmussafirr Expeditions";
   final String phoneNumber = "+91 98765 43210";
   final String supportEmail = "support@tripindia.com";
   final String website = "https://tripindia.com";
@@ -77,7 +77,7 @@ class AppInfoScreen extends StatelessWidget {
                     label: 'Share',
                     onTap: () {
                       Share.share(
-                        'Join me on the most epic trips in India! Download Trip India Expeditions now: $website',
+                        'Join me on the most epic trips in India! Download trekwithmussafirr Expeditions now: $website',
                       );
                     },
                     isDark: isDark,
@@ -122,7 +122,7 @@ class AppInfoScreen extends StatelessWidget {
         _infoTile(Icons.health_and_safety_outlined, 'Safety Protocols', 'Trip survival rules', 
           () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SafetyProtocolsScreen())), isDark),
         const SizedBox(height: 30), // Reduced from 60
-            Text('© 2026 Trip India Expeditions. All Rights Reserved.', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey.withOpacity(0.5), fontSize: 10)),
+            Text('© 2026 trekwithmussafirr Expeditions. All Rights Reserved.', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey.withOpacity(0.5), fontSize: 10)),
             const Text('E2E ENCRYPTED TRIP DATA', style: TextStyle(color: Color(0xFFD32F2F), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 2)),
           ],
         ),

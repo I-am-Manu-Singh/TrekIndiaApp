@@ -867,7 +867,7 @@ class _MembersListState extends State<_MembersList> {
                 return ListTile(
                   leading: UserAvatar(imageUrl: p['avatar_url'], name: p['full_name'], radius: 20),
                   title: Text(p['full_name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(isGlobalAdmin ? 'Trip India Official' : (isLeader ? 'Trip Leader' : 'Tripker'), style: TextStyle(fontSize: 10, color: isGlobalAdmin || isLeader ? Colors.blue : Colors.grey, fontWeight: isLeader ? FontWeight.bold : FontWeight.normal)),
+                  subtitle: Text(isGlobalAdmin ? 'trekwithmussafirr Official' : (isLeader ? 'Trip Leader' : 'Tripker'), style: TextStyle(fontSize: 10, color: isGlobalAdmin || isLeader ? Colors.blue : Colors.grey, fontWeight: isLeader ? FontWeight.bold : FontWeight.normal)),
                   trailing: isGlobalAdmin ? const Icon(Icons.verified, color: Colors.blue, size: 16) : (isLeader ? const Icon(Icons.star, color: Colors.amber, size: 16) : null),
                 );
               },

@@ -808,7 +808,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                 ),
               IconButton(
                 icon: const Icon(Icons.share, color: Colors.white),
-                onPressed: () => Share.share('Check out this trip story: ${widget.blog['title']} on Trip India!'),
+                onPressed: () => Share.share('Check out this trip story: ${widget.blog['title']} on trekwithmussafirr!'),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(

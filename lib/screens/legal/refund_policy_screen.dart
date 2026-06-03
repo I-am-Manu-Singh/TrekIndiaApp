@@ -31,7 +31,7 @@ class RefundPolicyScreen extends StatelessWidget {
             
             _buildSection(context, 'I. CANCELLATION FEES', 'Cancellations made more than 30 days before the trip departure will receive a 90% refund. Cancellations between 15 and 30 days before departure will receive a 50% refund.'),
             _buildSection(context, 'II. NO REFUNDS', 'No refunds will be issued for cancellations made within 15 days of the trip departure date, or if a trip fails to show up for the expedition.'),
-            _buildSection(context, 'III. FORCE MAJEURE', 'In case of cancellations by Trip India due to force majeure events (e.g., natural disasters, government restrictions), trips will receive a full refund or a credit towards a future trip.'),
+            _buildSection(context, 'III. FORCE MAJEURE', 'In case of cancellations by trekwithmussafirr due to force majeure events (e.g., natural disasters, government restrictions), trips will receive a full refund or a credit towards a future trip.'),
             _buildSection(context, 'IV. REFUND PROCESS', 'Refunds will be processed within 7-10 business days after a valid cancellation request is received and approved.'),
             
             const SizedBox(height: 50),

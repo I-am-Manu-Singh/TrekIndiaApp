@@ -1,3 +1,4 @@
+import '../services/whatsapp_service.dart';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
@@ -827,7 +828,7 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> with Si
         "Date: ${DateFormat('dd MMM yyyy').format(_selectedDate)}\n"
         "Booking ID: ${bookingId.substring(0, 8).toUpperCase()}\n"
         "Amount: ₹${item['price']}\n\n"
-        "Thank you for choosing Trip India!";
+        "Thank you for choosing trekwithmussafirr!";
     
     final Uri uri = Uri(
       scheme: 'mailto',
@@ -841,7 +842,7 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> with Si
   }
 
   void _shareOnWhatsApp(Map<String, dynamic> item, String bookingId) async {
-    final String message = "Hello Trip India Support! I just booked a ${_tabController.index == 0 ? 'Bus' : 'Train'} ticket.\n\n"
+    final String message = "Hello trekwithmussafirr Support! I just booked a ${_tabController.index == 0 ? 'Bus' : 'Train'} ticket.\n\n"
         "Service: ${item['name']}\n"
         "Route: ${_fromCtrl.text} to ${_toCtrl.text}\n"
         "Date: ${DateFormat('dd MMM yyyy').format(_selectedDate)}\n"
@@ -849,11 +850,11 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> with Si
         "Amount: ₹${item['price']}\n\n"
         "Please confirm my departure details.";
     
-    final String url = "whatsapp://send?phone=+918949821211&text=${Uri.encodeComponent(message)}";
+    final String url = "whatsapp://send?phone=${WhatsAppService.adminPhone}&text=${Uri.encodeComponent(message)}";
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url));
     } else {
-      final String webUrl = "https://wa.me/918949821211?text=${Uri.encodeComponent(message)}";
+      final String webUrl = "https://wa.me/${WhatsAppService.adminPhone.replaceAll('+', '')}?text=${Uri.encodeComponent(message)}";
       await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
     }
   }

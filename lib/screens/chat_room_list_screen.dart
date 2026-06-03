@@ -95,7 +95,8 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
   }
 
   Future<dynamic> _getRoomsQuery(String userId) async {
-    if (_role == 'admin') {
+    final role = _role.toLowerCase();
+    if (role == 'admin') {
       // Fetch unique trip groups for admins
       final response = await _client.from('trip_groups').select('*, trips(*)').order('departure_date', ascending: _activeTabIndex == 0);
       
@@ -103,6 +104,50 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
         return (response as List).where((g) => g['status']?.toString().toLowerCase() != 'completed').toList();
       } else {
         return (response as List).where((g) => g['status']?.toString().toLowerCase() == 'completed').toList();
+      }
+    } else if (role == 'staff' || role == 'employee' || role == 'guide') {
+      final staffDeployments = await _client.from('trip_group_staff')
+          .select()
+          .eq('user_id', userId);
+          
+      List<dynamic> allMatchingGroups = [];
+      
+      if (staffDeployments.isNotEmpty) {
+        final Set<String> tripIds = staffDeployments.map((s) => s['trip_id']?.toString() ?? '').toSet()
+          ..removeWhere((id) => id.isEmpty || id == 'null');
+        
+        if (tripIds.isNotEmpty) {
+          final matchingTripGroups = await _client.from('trip_groups')
+              .select('*, trips(*)')
+              .inFilter('trip_id', tripIds.toList());
+              
+          for (var d in staffDeployments) {
+            final dTripId = d['trip_id']?.toString();
+            final dDate = (d['deployment_date'] ?? '').toString().split('T')[0];
+            
+            for (var g in matchingTripGroups) {
+              final gTripId = g['trip_id']?.toString();
+              final gDate = (g['departure_date'] ?? '').toString().split('T')[0];
+              if (dTripId == gTripId && dDate == gDate) {
+                if (!allMatchingGroups.any((existing) => existing['id'] == g['id'])) {
+                  allMatchingGroups.add(g);
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      allMatchingGroups.sort((a, b) {
+        final dateA = (a['departure_date'] ?? '').toString();
+        final dateB = (b['departure_date'] ?? '').toString();
+        return _activeTabIndex == 0 ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
+      });
+      
+      if (_activeTabIndex == 0) {
+        return allMatchingGroups.where((g) => g['status']?.toString().toLowerCase() != 'completed').toList();
+      } else {
+        return allMatchingGroups.where((g) => g['status']?.toString().toLowerCase() == 'completed').toList();
       }
     } else {
       final allBookings = await _client.from('bookings').select('status, group_id, trip_groups(*, trips(*))').eq('user_id', userId).not('group_id', 'is', null);
@@ -221,7 +266,8 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
   }
 
   Widget _buildRoomTile(dynamic item, int index) {
-    final group = (['admin', 'staff', 'staff', 'staff', 'staff', 'staff', 'staff'].contains(_role.toLowerCase())) ? item : item['trip_groups'];
+    final role = _role.toLowerCase();
+    final group = (['admin', 'staff', 'employee'].contains(role)) ? item : item['trip_groups'];
     if (group == null) return const SizedBox.shrink();
 
     final roomId = group['id'];

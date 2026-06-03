@@ -134,7 +134,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         const Icon(Icons.verified_user_outlined, size: 14, color: Colors.grey),
                         const SizedBox(width: 8),
                         const Text(
-                          'DATA ENCRYPTED & AUDITED BY TRIP INDIA HQ',
+                          'DATA ENCRYPTED & AUDITED BY TREKWITHMUSSAFIRR HQ',
                           style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                         ),
                       ],

@@ -2,7 +2,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 
 class WhatsAppService {
-  static const String adminPhone = "+919876543210"; // Replace with real admin phone
+  static const String adminPhone = "+918949821211"; // Default support number
 
   static Future<void> sendBookingReceipt({
     required String hikerName,
@@ -12,7 +12,7 @@ class WhatsAppService {
     required String date,
   }) async {
     final String message = 
-      "🌟 *TRIP INDIA BOOKING RECEIPT* 🌟\n\n"
+      "🌟 *TREKWITHMUSSAFIRR BOOKING RECEIPT* 🌟\n\n"
       "Hello Admin,\n"
       "A new booking has been confirmed!\n\n"
       "📍 *Trip:* $tripName\n"

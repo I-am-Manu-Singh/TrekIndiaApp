@@ -1,6 +1,6 @@
 {
-    "name": "trek_booking_app",
-    "short_name": "trek_booking_app",
+    "name": "trekwithmussafirr",
+    "short_name": "trekwithmussafirr",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

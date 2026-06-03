@@ -58,7 +58,7 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
             children: [
               _buildBalanceCard(),
         const SizedBox(height: 32),
-        const Text('TRIP INDIA FINANCIAL STANDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+        const Text('TREKWITHMUSSAFIRR FINANCIAL STANDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
         const SizedBox(height: 16),
         Row(
           children: [

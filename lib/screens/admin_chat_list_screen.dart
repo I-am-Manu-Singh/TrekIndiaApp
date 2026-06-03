@@ -70,7 +70,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TRIP INDIA SUPPORT CHATS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 13, color: Colors.white)),
+        title: const Text('TREKWITHMUSSAFIRR SUPPORT CHATS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 13, color: Colors.white)),
         backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         foregroundColor: Colors.white,
@@ -79,7 +79,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminSupportInquiriesScreen())),
         backgroundColor: const Color(0xFFD32F2F),
         icon: const Icon(Icons.support_agent, color: Colors.white),
-        label: const Text('TRIP INDIA SUPPORT REGISTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+        label: const Text('TREKWITHMUSSAFIRR SUPPORT REGISTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator()) 

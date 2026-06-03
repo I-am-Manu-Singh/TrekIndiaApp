@@ -121,7 +121,7 @@ class _DeclarationFormScreenState extends State<DeclarationFormScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
               child: const Text(
-                'I hereby declare that I am physically fit to participate in this trip. I understand the risks involved in high-altitude tripking and outdoor activities. I will not hold Trip India or its staff responsible for any accidents or health issues occurring during the trip.',
+                'I hereby declare that I am physically fit to participate in this trip. I understand the risks involved in high-altitude tripking and outdoor activities. I will not hold trekwithmussafirr or its staff responsible for any accidents or health issues occurring during the trip.',
                 style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
               ),
             ),

@@ -53,8 +53,6 @@ class _AdminTripGroupsScreenState extends State<AdminTripGroupsScreen> {
           'trip_title': g['trips']['title'],
           'image_url': g['trips']['image_url'],
           'date': g['departure_date'],
-          'guide_id': g['guide_id'],
-          'staff_id': g['staff_id'],
           'bookings': g['bookings'],
           'total_travelers': (g['bookings'] as List).fold(0, (sum, b) => sum + (b['travelers'] as int? ?? 0)),
         }).toList();
@@ -65,9 +63,6 @@ class _AdminTripGroupsScreenState extends State<AdminTripGroupsScreen> {
           filtered = finalGroups.where((g) {
             final participants = g['bookings'] as List? ?? [];
             bool isParticipant = participants.any((b) => b['user_id'].toString() == user.id.toString());
-            bool isLeader = (g['guide_id'] != null && g['guide_id'].toString() == user.id.toString()) || 
-                          (g['staff_id'] != null && g['staff_id'].toString() == user.id.toString());
-            
             // Check if deployed in this specific trip on this specific date
             bool isStaffDeployed = staffAssignments.any((sa) {
               final String sd = sa['deployment_date'].toString().split('T')[0];
@@ -75,7 +70,7 @@ class _AdminTripGroupsScreenState extends State<AdminTripGroupsScreen> {
               return sa['trip_id'].toString() == g['trip_id'].toString() && sd == gd;
             });
 
-            return isParticipant || isLeader || isStaffDeployed;
+            return isParticipant || isStaffDeployed;
           }).toList();
         }
 
@@ -175,16 +170,6 @@ class _AdminTripGroupsScreenState extends State<AdminTripGroupsScreen> {
                                           Text('Travelers: ${group['total_travelers']}', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87)),
                                         ],
                                       ),
-                                      if (group['guide_id'] != null) ...[
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.assignment_ind, size: 12, color: Colors.green[700]),
-                                            const SizedBox(width: 4),
-                                            const Text('Team Leader Assigned', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                      ],
                                     ],
                                   ),
                                 ),
