@@ -1,55 +1,57 @@
-# 🏔️ Trek India: Battalion Booking & Logistics Terminal
+# 🏔️ Trip India: Expedition HQ & Tactical Logistics
 
-**Trek India** is a high-performance, logistics-driven Flutter application designed to revolutionize the Himalayan trekking experience. Built with a tactical "Command & Control" design aesthetic, it provides a seamless interface for trekkers, a robust management panel for admins, and specialized terminals for field employees.
-
----
-
-## 🛠️ Tactical Tech-Stack
-The application is engineered for absolute reliability and real-time field intelligence:
-
-- **Frontend Core:** [Flutter](https://flutter.dev) (Dart) - For high-fidelity cross-platform deployment.
-- **Backend Hub:** [Supabase](https://supabase.com) - Leveraging PostgreSQL for mission-critical data, Row-Level Security (RLS) for battalion-grade protection, and Real-time syncing.
-- **Strategic UI:** [Animate Do](https://pub.dev/packages/animate_do) & [Cached Network Image](https://pub.dev/packages/cached_network_image) - For a premium, fluid, and optimized tactical interface.
-- **Field Reporting:** [PDF](https://pub.dev/packages/pdf) & [Printing](https://pub.dev/packages/printing) - Generating on-the-go itineraries and field dossiers.
+**Trip India** is a premium, high-performance logistics and mission-management platform designed for Himalayan expeditions. Engineered with a tactical "Command & Control" aesthetic, it bridges the gap between field explorers, ground battalion (staff), and HQ commanders (admins).
 
 ---
 
-## 👤 User-Tier Feature Matrix
+## 🛠️ High-Fidelity Tech-Stack
+The application is built for absolute reliability in low-connectivity high-altitude environments:
 
-### 1. 🥾 Trekker Terminal (User)
-*The primary interface for the field hiker, focused on mission discovery and identity.*
+- **Frontend Core:** [Flutter](https://flutter.dev) (Dart) - Optimized for high-fidelity cross-platform deployment.
+- **Backend Hub:** [Supabase](https://supabase.com) - Utilizing PostgreSQL for mission-critical data, Row-Level Security (RLS) for data integrity, and Real-time sync for field communications.
+- **Design System:** **GlassShimmer Framework** - A custom-built universal skeleton loading system for a premium, responsive user experience.
+- **Strategic UI:** [Animate Do](https://pub.dev/packages/animate_do) & [Google Fonts](https://fonts.google.com/) - Featuring the "Outfit" typography for a modern, sharp interface.
+- **Intelligence Layer:** Integrated **AI Guide** for automated trek assistance and mission briefing.
 
-- **Mission Intelligence:** Browse extensive Himalayan trek dossiers with layered itineraries, inclusions, and difficulty ratings.
-- **Gear Armory:** Integrated rental system allowing trekkers to book poles, jackets, and safety gear alongside their mission.
-- **Tactical Dossier (Profile):** Secure document upload for Passport, Aadhar, and Medical Certificates for HQ mission clearance.
-- **Squad Community:** Live blog updates, global leaderboard ranking, and an XP-based progress system.
-- **The Wallet:** Real-time visibility into mission credits, booking history, and tactical refunds.
+---
+
+## 👤 Feature Matrix: The Three Terminals
+
+### 1. 🥾 Explorer Terminal (User)
+*The primary interface for field hikers, focused on mission discovery and achievement.*
+
+- **Mission Discovery:** High-fidelity trek dossiers with day-wise itineraries, difficulty telemetry, and immersive visual previews.
+- **AI Guide:** Real-time intelligent assistant for gear advice, safety protocols, and trek-specific information.
+- **Tactical Gear Rental:** Integrated shop for booking mission-essential equipment (jackets, poles, shoes) with size-specific tracking.
+- **Digital Credentials:** Auto-generated **Trip Certificates** and mission dossiers upon successful completion.
+- **Squad Blogs & Community:** Social interaction hub for sharing field reports and viewing global leaderboard rankings.
+- **Live Wallet:** Real-time visibility into mission credits, booking status, and tactical refund tracking.
 
 ### 2. 🛡️ HQ Command Hub (Admin)
-*A centralized administrative fortress for battalion-wide management.*
+*A centralized administrative fortress for fleet-wide logistics and financial oversight.*
 
-- **Inventory Command:** Real-time management of Trek nodes and Gear rental stocks.
-- **Personnel Registry:** Comprehensive staff tracking including base compensation, attendance metrics, and task delegation.
-- **Support Hub:** Unified intelligence center for Enquiries and Complaints, featuring automated AI-context and resolution tracking.
-- **Squad Intelligence:** Battalion-level overview of trek groups, participant payment statuses, and staff deployment.
-- **Financial Analytics:** Live reporting on estimated revenue, dues pending, and operational payout logs.
+- **Revenue Command:** Real-time financial dashboard with revenue forecasting, pending dues tracking, and operational expense logs.
+- **Staff Operations:** Full lifecycle management of guides and trek leaders, including attendance sync, salary breakups, and task delegation.
+- **Unified Support Hub:** Centralized intelligence for user enquiries and complaints, featuring priority levels and resolution history.
+- **Inventory Logistics:** Live stock tracking for gear rentals and expedition slot management.
+- **Broadcast Engine:** Global announcement system for sending urgent weather alerts or mission updates to the entire battalion.
 
 ### 3. 🗺️ Battalion Staff Terminal (Employee)
-*Specialized deployment terminal for trek leaders, guides, and ground staff.*
+*Specialized deployment terminal for trek leaders and guides.*
 
-- **Strategic Feed:** Personalized view of assigned treks, participant counts, and mission dates.
-- **Attendance Logistics:** Integrated reporting for "Present", "Leave", and "Off-Duty" status sync with HQ.
-- **Task Deployment:** Direct mission checklists and tasks assigned by HQ Commanders.
-- **Asset Wallet:** Specialized view of salary breakups, tactical allowances, and payout history.
+- **Mission Feed:** Personalized view of assigned expeditions, participant counts, and deployment dates.
+- **Attendance 2.0:** Integrated "One-Tap" reporting for presence, leaves, and off-duty status synced directly to HQ.
+- **Task Management:** Real-time task board for checklists assigned by HQ commanders (e.g., "Check gear stocks", "Brief hikers").
+- **Asset Wallet:** Specialized view for tracking salary distributions, field allowances, and deployment history.
 
 ---
 
-## 🚀 Mission Deployment (Getting Started)
+## 🚀 Mission Deployment (Setup)
 
-### Battalion Prerequisites
+### Prerequisites
 - Flutter SDK (v3.13+)
-- Dart SDK (v3.0+)
-- Supabase Project URL & Anonymous Key
+- Supabase Project (URL & Anon Key)
+- Google Fonts & Cached Network Image dependencies
 
 ### Tactical Setup
 1. **Clone the Sector Repository:**
@@ -64,7 +66,10 @@ The application is engineered for absolute reliability and real-time field intel
    ```
 
 3. **Database Synchronization:**
-   Apply the provided SQL migrations (`master_supabase_setup.sql` and `hq_dossier_sync.sql`) to your Supabase SQL Editor to establish the battalion schema.
+   Apply the provided SQL migrations in the following order to establish the expedition schema:
+   - `master_supabase_setup.sql` (Core Schema)
+   - `modern_trip_inventory.sql` (Logistics)
+   - `seed_universal_packages.sql` (Initial Data)
 
 4. **Launch Application:**
    ```bash
@@ -73,17 +78,18 @@ The application is engineered for absolute reliability and real-time field intel
 
 ---
 
-## 🛡️ Security Protocols
-The application utilizes **Supabase Row Level Security (RLS)** to enforce sector-based access:
-- **Admin Tier:** Absolute global visibility and mutation rights.
-- **Employee Tier:** Visibility limited to assigned mission deployments and personal financial telemetry.
-- **User Tier:** Vision restricted to self-dossier, public treks, and authorized squad bookings.
+## 🛡️ Security & Protocol
+The platform utilizes **Row Level Security (RLS)** to enforce strict data silos:
+- **Admin Tier:** Full global read/write access.
+- **Employee Tier:** Access limited to assigned missions and personal financial telemetry.
+- **User Tier:** Vision restricted to personal bookings, public expeditions, and authorized profile data.
 
 ---
 
-## 📡 Deployment Logs & v1.4.x Updates
-- **v1.4.5:** Consolidated Enquiries & Complaints into "Support Hub".
-- **v1.4.6:** Standardized Profile Documentation (`medical_certificate_url`).
-- **v1.4.7:** Hardened field logistics with constrained bottom-sheet UI.
+## 📡 Version Logs & Tactical Updates
+- **v1.5.0:** Migrated branding from "Trek" to **Trip/Expedition India**.
+- **v1.5.2:** Implemented the **Universal GlassShimmer** architecture for loading states.
+- **v1.5.5:** Deployed the **Finance Hub** for advanced administrative revenue tracking.
+- **v1.5.8:** Added **AI Guide** and **Digital Certificate** generation systems.
 
-**Trek India - Scaling the Himalayas with Technology.**
+**Trip India - Scaling the Himalayas with Technology.**
