@@ -231,7 +231,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 10))],
@@ -306,7 +306,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 10))],
@@ -386,7 +386,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),

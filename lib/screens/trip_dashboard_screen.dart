@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../widgets/glass_shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
@@ -152,110 +153,115 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
           onPressed: _showSupportRegistry,
           backgroundColor: Colors.blueAccent,
           icon: const Icon(Icons.support_agent, color: Colors.white),
-          label: const Text('TREKWITHMUSSAFIRR SUPPORT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: const Text('trekwithmussafirr SUPPORT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ) : null,
-      body: _isLoading
-          ? _buildDashboardShimmer()
-          : RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  _buildWalletCard(),
-                  const SizedBox(height: 22),
-                  const Text('EXPLORER HUD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
-                  const SizedBox(height: 16),
-                  GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: kIsWeb ? 800 : double.infinity),
+          child: _isLoading
+              ? _buildDashboardShimmer()
+              : RefreshIndicator(
+                  onRefresh: _loadDashboardData,
+                  child: ListView(
+                    padding: const EdgeInsets.all(24),
                     children: [
-                      _hubItem(
-                        Icons.auto_stories_outlined,
-                        'Blogs',
-                        Colors.orange,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) =>
-                                const BlogsScreen(onlyMyBlogs: true),
+                      _buildWalletCard(),
+                      const SizedBox(height: 22),
+                      const Text('EXPLORER HUD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
+                      const SizedBox(height: 16),
+                      GridView.count(
+                        crossAxisCount: 3,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        children: [
+                          _hubItem(
+                            Icons.auto_stories_outlined,
+                            'Blogs',
+                            Colors.orange,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (c) =>
+                                    const BlogsScreen(onlyMyBlogs: true),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      _hubItem(
-                        Icons.map_outlined,
-                        'Journeys',
-                        Colors.blue,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const MyTripsScreen(),
+                          _hubItem(
+                            Icons.map_outlined,
+                            'Journeys',
+                            Colors.blue,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (c) => const MyTripsScreen(),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      _hubItem(
-                        Icons.shopping_bag_outlined,
-                        'Rentals',
-                        Colors.deepPurple,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const UserGearRentalScreen(),
+                          _hubItem(
+                            Icons.shopping_bag_outlined,
+                            'Rentals',
+                            Colors.deepPurple,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (c) => const UserGearRentalScreen(),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      _hubItem(
-                        Icons.report_problem_outlined,
-                        'Support',
-                        Colors.red,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const UserSupportScreen(),
+                          _hubItem(
+                            Icons.report_problem_outlined,
+                            'Support',
+                            Colors.red,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (c) => const UserSupportScreen(),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      _hubItem(
-                        Icons.fitness_center,
-                        'Training',
-                        Colors.green,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const TripTrainingHub(),
+                          _hubItem(
+                            Icons.fitness_center,
+                            'Training',
+                            Colors.green,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (c) => const TripTrainingHub(),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      if (_role != 'user')
-                        _hubItem(
-                          Icons.account_balance_outlined,
-                          'TREKWITHMUSSAFIRR Payroll',
-                          Colors.indigo,
-                          () => Navigator.pushNamed(context, '/salary_breakup'),
-                        ),
-                        _hubItem(
-                        Icons.badge_outlined,
-                        'Achievements',
-                        Colors.amber,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const AchievementsScreen(),
+                          if (_role != 'user')
+                            _hubItem(
+                              Icons.account_balance_outlined,
+                              'trekwithmussafirr Payroll',
+                              Colors.indigo,
+                              () => Navigator.pushNamed(context, '/salary_breakup'),
+                            ),
+                            _hubItem(
+                            Icons.badge_outlined,
+                            'Achievements',
+                            Colors.amber,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (c) => const AchievementsScreen(),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
+                      const SizedBox(height: 28),
+                      const Text('UPCOMING ADVENTURES', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
+                      if (_activeBookings.isEmpty) _emptyTripsCard()
+                      else ..._activeBookings.map((b) => _tripCard(b)).toList(),
                     ],
                   ),
-                  const SizedBox(height: 28),
-                  const Text('UPCOMING ADVENTURES', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
-                  if (_activeBookings.isEmpty) _emptyTripsCard()
-                  else ..._activeBookings.map((b) => _tripCard(b)).toList(),
-                ],
-              ),
-            ),
+                ),
+        ),
+      ),
     );
   }
 
@@ -264,7 +270,7 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1E293B), Colors.black],
+          colors: [Color(0xFF18181B), Colors.black],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -468,7 +474,7 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),

@@ -117,7 +117,7 @@ class _AdminTasksScreenState extends State<AdminTasksScreen> with SingleTickerPr
                   child: DropdownButton<String>(
                     value: selectedAssignee,
                     hint: Text('Select Employee', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey, fontSize: 13)),
-                    dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    dropdownColor: isDark ? const Color(0xFF18181B) : Colors.white,
                     isExpanded: true,
                     underline: const SizedBox(),
                     items: _staffList.map((s) => DropdownMenuItem<String>(
@@ -351,7 +351,7 @@ class _AdminTasksScreenState extends State<AdminTasksScreen> with SingleTickerPr
         : null;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF09090B) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: filteredStaff != null 
           ? Row(

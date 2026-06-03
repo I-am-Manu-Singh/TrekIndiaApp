@@ -131,7 +131,7 @@ class _TripTerminalScreenState extends State<TripTerminalScreen> {
           onPressed: _showSupportRegistry,
           backgroundColor: Colors.blueAccent,
           icon: const Icon(Icons.support_agent, color: Colors.white),
-          label: const Text('TREKWITHMUSSAFIRR SUPPORT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: const Text('trekwithmussafirr SUPPORT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ) : null,
       body: _isLoading
@@ -215,7 +215,7 @@ class _TripTerminalScreenState extends State<TripTerminalScreen> {
                       if (_role != 'user')
                         _hubItem(
                           Icons.account_balance_outlined,
-                          'TREKWITHMUSSAFIRR Payroll',
+                          'trekwithmussafirr Payroll',
                           Colors.indigo,
                           () => Navigator.pushNamed(context, '/salary_breakup'),
                         ),
@@ -247,7 +247,7 @@ class _TripTerminalScreenState extends State<TripTerminalScreen> {
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1E293B), Colors.black],
+          colors: [Color(0xFF18181B), Colors.black],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

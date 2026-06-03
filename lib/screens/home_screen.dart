@@ -40,6 +40,7 @@ import 'legal/safety_protocols_screen.dart';
 import 'legal/terms_of_service_screen.dart';
 import 'login_screen.dart';
 
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -87,6 +88,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (mounted) {
+        if (data.session == null) {
+          setState(() {
+            _selectedIndex = 0;
+            _userRole = 'user';
+            _userName = null;
+            _userAvatar = null;
+            _isVerified = false;
+          });
+        }
         _handleInitialLoad();
       }
     });
@@ -307,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Theme.of(context).primaryColor,
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
-        title: const Text('TREKWITHMUSSAFIRR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+        title: const Text('trekwithmussafirr', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
         centerTitle: false,
         background: Stack(
           fit: StackFit.expand,
@@ -411,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _notificationBadge() {
+  Widget _notificationBadge({Color? iconColor}) {
     return StreamBuilder<int>(
       initialData: 0,
       stream: Stream.periodic(const Duration(seconds: 15)).asyncMap((_) async {
@@ -426,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 32),
+              icon: Icon(Icons.notifications_none_rounded, color: iconColor ?? Colors.white, size: 32),
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const NotificationCenterScreen())),
             ),
             if (count > 0)
@@ -473,7 +483,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
 
     return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
+      physics: kIsWeb ? const ClampingScrollPhysics() : const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -520,6 +530,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         () {
+                          final query = _searchController.text.toLowerCase().trim();
                           final specialTrips = _allTrips.where((t) {
                             final cat = _availableCategories.firstWhere(
                               (c) => c.name == t.category, 
@@ -528,7 +539,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             bool matchesCat = _selectedCategory == 'All' || 
                                              t.category?.toLowerCase() == _selectedCategory.toLowerCase() ||
                                              _selectedCategory.toLowerCase().contains(t.category?.toLowerCase() ?? '');
-                            return cat.isSpecial && matchesCat;
+                            bool matchesQuery = query.isEmpty ||
+                                                t.title.toLowerCase().contains(query) ||
+                                                (t.location ?? '').toLowerCase().contains(query);
+                            return cat.isSpecial && matchesCat && matchesQuery;
                           }).toList();
 
                           if (specialTrips.isEmpty) return const SizedBox.shrink();
@@ -563,20 +577,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
           _buildWebFooter(context),
-          const SizedBox(height: 100),
+          if (!kIsWeb) const SizedBox(height: 100),
         ],
       ),
     );
   }
 
   Widget _buildPackagesSection() {
+    final query = _searchController.text.toLowerCase().trim();
     final packages = _allTrips.where((t) {
       final cat = t.category?.toLowerCase() ?? '';
       bool isPkg = cat == 'vacation' || cat == 'package' || cat == 'packages';
       bool matchesCat = _selectedCategory == 'All' || 
                        cat == _selectedCategory.toLowerCase() ||
                        _selectedCategory.toLowerCase().contains(cat);
-      return isPkg && matchesCat;
+      bool matchesQuery = query.isEmpty ||
+                          t.title.toLowerCase().contains(query) ||
+                          (t.location ?? '').toLowerCase().contains(query);
+      return isPkg && matchesCat && matchesQuery;
     }).toList();
 
     if (packages.isEmpty) return const SizedBox.shrink();
@@ -607,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   //   return Container(
   //     padding: const EdgeInsets.all(12),
   //     decoration: BoxDecoration(
-  //       color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+  //       color: isDark ? const Color(0xFF18181B) : const Color(0xFFF8FAFC),
   //       borderRadius: BorderRadius.circular(16),
   //       border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
   //     ),
@@ -636,7 +654,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   //   return Container(
   //     padding: const EdgeInsets.all(12),
   //     decoration: BoxDecoration(
-  //       color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+  //       color: isDark ? const Color(0xFF18181B) : const Color(0xFFF8FAFC),
   //       borderRadius: BorderRadius.circular(16),
   //       border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
   //     ),
@@ -665,7 +683,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF18181B) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
       ),
@@ -846,53 +864,121 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTransportHub() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _transportCard('Bus Service', Icons.directions_bus, Colors.orange, () {
-                  Navigator.push(context, MaterialPageRoute(builder: (c) => const TransportBookingScreen(initialMode: 'bus')));
-                }),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _transportCard('Train Bookings', Icons.train, Colors.blue, () {
-                  Navigator.push(context, MaterialPageRoute(builder: (c) => const TransportBookingScreen(initialMode: 'train')));
-                }),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+Widget _buildTransportHub() {
+  final isSmallScreen = MediaQuery.of(context).size.width < 400;
 
-  Widget _transportCard(String title, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
+  return Padding(
+    padding: const EdgeInsets.all(20),
+    child: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 700),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 36),
-            const SizedBox(height: 8),
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+            const Text(
+              'Transportation',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            isSmallScreen
+                ? Column(
+                    children: [
+                      _busCard(),
+                      const SizedBox(height: 16),
+                      _trainCard(),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: _busCard()),
+                      const SizedBox(width: 16),
+                      Expanded(child: _trainCard()),
+                    ],
+                  ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+Widget _busCard() {
+  return _transportCard(
+    'Book Bus Services',
+    Icons.directions_bus_filled,
+    const Color(0xFFD32F2F),
+    () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            const TransportBookingScreen(initialMode: 'bus'),
+      ),
+    ),
+  );
+}
 
+Widget _trainCard() {
+  return _transportCard(
+    'Book Train Services',
+    Icons.train,
+    const Color(0xFF1565C0),
+    () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            const TransportBookingScreen(initialMode: 'train'),
+      ),
+    ),
+  );
+}
+
+Widget _transportCard(
+  String title,
+  IconData icon,
+  Color color,
+  VoidCallback onTap,
+) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 16,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 36,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   Widget _buildTripsList() {
     if (_isTripsLoading) {
       return Column(
@@ -973,7 +1059,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final String createdAt = a['created_at']?.toString() ?? DateTime.now().toIso8601String();
     final date = DateTime.parse(createdAt).toLocal();
     final timeStr = DateFormat('MMM dd | HH:mm').format(date);
-    final senderName = a['sender_name']?.toString() ?? 'TREKWITHMUSSAFIRR OFFICE';
+    final senderName = a['sender_name']?.toString() ?? 'trekwithmussafirr OFFICE';
     final bool isUrgent = a['is_urgent'] == true;
     final String content = a['content']?.toString() ?? 'No details provided.';
 
@@ -1125,7 +1211,7 @@ void _showAnnouncementsScreen() {
     MaterialPageRoute(
       builder: (context) => Scaffold(
         backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF0F172A)
+            ? const Color(0xFF09090B)
             : const Color(0xFFF8FAFC),
         appBar: AppBar(
           title: const Text(
@@ -1172,7 +1258,7 @@ void _showAnnouncementsScreen() {
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF1E293B)
+                            ? const Color(0xFF18181B)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
@@ -1337,7 +1423,7 @@ void _showAnnouncementsScreen() {
         const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
       ];
     } else {
-      title = 'TREKWITHMUSSAFIRR';
+      title = 'trekwithmussafirr';
       pages = [
         _buildExploreScreen(context),
         const ChatRoomListScreen(),
@@ -1356,7 +1442,7 @@ void _showAnnouncementsScreen() {
 
     final String appBarTitle;
     if (_user == null) {
-      appBarTitle = 'TREKWITHMUSSAFIRR';
+      appBarTitle = 'trekwithmussafirr';
     } else {
       final name = _userName ?? 'Explorer';
       if (_userRole == 'admin') {
@@ -1373,7 +1459,7 @@ void _showAnnouncementsScreen() {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('TREKWITHMUSSAFIRR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
+            const Text('trekwithmussafirr', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
             if (_user != null)
               Text(
                 appBarTitle,
@@ -1417,20 +1503,13 @@ void _showAnnouncementsScreen() {
         ),
       ) : null,
       floatingActionButton: _selectedIndex == 0
-        ? (kIsWeb
-            ? FloatingActionButton.extended(
-                heroTag: 'support_fab',
-                onPressed: _launchGoogleForm,
-                backgroundColor: const Color(0xFFD32F2F),
-                icon: const Icon(Icons.assignment_outlined, color: Colors.white),
-                label: const Text('Enquire Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              )
-            : FloatingActionButton(
-                heroTag: 'support_fab',
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AIGuideScreen())),
-                backgroundColor: const Color(0xFFD32F2F),
-                child: const Icon(Icons.support_agent, color: Colors.white),
-              ))
+        ? FloatingActionButton.extended(
+            heroTag: 'support_fab',
+            onPressed: _showEnquiryForm,
+            backgroundColor: const Color(0xFFD32F2F),
+            icon: const Icon(Icons.assignment_outlined, color: Colors.white),
+            label: const Text('Enquire Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          )
         : null,
       body: Column(
         children: [
@@ -1470,7 +1549,7 @@ void _showAnnouncementsScreen() {
       ),
       bottomNavigationBar: (_user == null || kIsWeb) ? null : Theme(
         data: Theme.of(context).copyWith(
-          canvasColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+          canvasColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF18181B) : Colors.white,
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
@@ -1503,7 +1582,7 @@ void _showAnnouncementsScreen() {
           margin: const EdgeInsets.only(right: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: color.withOpacity(0.2)),
             boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
@@ -1542,7 +1621,7 @@ void _showAnnouncementsScreen() {
           margin: const EdgeInsets.only(right: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: color.withOpacity(0.2)),
             boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
@@ -1593,7 +1672,7 @@ void _showAnnouncementsScreen() {
         width: 140,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
         ),
@@ -1693,11 +1772,17 @@ void _showAnnouncementsScreen() {
     );
   }
   Future<void> _launchGoogleForm() async {
-    final Uri url = Uri.parse('https://forms.google.com'); // Placeholder Google Form
+    final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSfD_K_7h8YqUqyGvq7fO2Uv0Kz3c6W9v3G7Gg4Y5Q5Q5Q5Q5Q/viewform');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw Exception('Could not launch $url');
     }
   }
+
+  void _showEnquiryForm() {
+    const String formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfD_K_7h8YqUqyGvq7fO2Uv0Kz3c6W9v3G7Gg4Y5Q5Q5Q5Q5Q/viewform';
+    launchUrl(Uri.parse(formUrl), mode: LaunchMode.externalApplication);
+  }
+
 
   Widget _buildWebHeader(BuildContext context) {
     if (!kIsWeb) return const SizedBox.shrink();
@@ -1721,7 +1806,7 @@ void _showAnnouncementsScreen() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF18181B) : Colors.white,
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       child: Row(
@@ -1750,21 +1835,18 @@ void _showAnnouncementsScreen() {
           ),
           Row(
             children: [
-              _webNavLink(context, 'Explore', () => setState(() => _selectedIndex = 0)),
+              _webNavLink(context, 'Explore', () => setState(() => _selectedIndex = 0), isActive: _selectedIndex == 0),
               if (_user != null) ...[
-                if (_userRole == 'admin') ...[
-                  _webNavLink(context, 'Admin Panel', () => Navigator.pushNamed(context, '/admin')),
-                ] else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') ...[
-                  _webNavLink(context, 'Dashboard', () => Navigator.pushNamed(context, '/employee_dashboard')),
-                ] else ...[
-                  _webNavLink(context, 'My Trips', () => Navigator.pushNamed(context, '/my_trips')),
-                ],
-                _webNavLink(context, 'Chats', () => Navigator.pushNamed(context, '/chat_rooms')),
+                _webNavLink(context, 'Chats', () => setState(() => _selectedIndex = 1), isActive: _selectedIndex == 1),
+                if (_userRole == 'admin')
+                  _webNavLink(context, 'Admin Panel', () => setState(() => _selectedIndex = 2), isActive: _selectedIndex == 2)
+                else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide')
+                  _webNavLink(context, 'Dashboard', () => setState(() => _selectedIndex = 2), isActive: _selectedIndex == 2)
+                else
+                  _webNavLink(context, 'Dashboard', () => setState(() => _selectedIndex = 2), isActive: _selectedIndex == 2),
+                
+                _webNavLink(context, 'Account', () => setState(() => _selectedIndex = 3), isActive: _selectedIndex == 3),
               ],
-              _webNavLink(context, 'Privacy Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen()))),
-              _webNavLink(context, 'Terms of Service', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const TermsOfServiceScreen()))),
-              _webNavLink(context, 'Refund Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RefundPolicyScreen()))),
-              _webNavLink(context, 'Safety Protocols', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SafetyProtocolsScreen()))),
               const SizedBox(width: 20),
               if (_user == null)
                 ElevatedButton(
@@ -1772,11 +1854,30 @@ void _showAnnouncementsScreen() {
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
                   child: const Text('Login / Register', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 )
-              else
+              else ...[
+                _notificationBadge(iconColor: const Color(0xFFD32F2F)),
+                const SizedBox(width: 10),
                 IconButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProfileScreen())),
-                  icon: const Icon(Icons.person, color: Color(0xFFD32F2F)),
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Log Out?'),
+                        content: const Text('Are you sure you want to end your current session?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Log Out', style: TextStyle(color: Colors.redAccent))),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await Supabase.instance.client.auth.signOut();
+                    }
+                  },
+                  icon: const Icon(Icons.logout, color: Color(0xFFD32F2F)),
+                  tooltip: 'Log Out',
                 ),
+              ],
             ],
           ),
         ],
@@ -1793,7 +1894,7 @@ void _showAnnouncementsScreen() {
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.grey[100],
+          color: isDark ? const Color(0xFF18181B) : Colors.grey[100],
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
         ),
@@ -1820,17 +1921,26 @@ void _showAnnouncementsScreen() {
     );
   }
 
-  Widget _webNavLink(BuildContext context, String title, VoidCallback onTap) {
+  Widget _webNavLink(BuildContext context, String title, VoidCallback onTap, {bool isActive = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: InkWell(
         onTap: onTap,
-        child: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFFD32F2F).withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isActive
+                  ? const Color(0xFFD32F2F)
+                  : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
+            ),
           ),
         ),
       ),
@@ -1843,7 +1953,7 @@ void _showAnnouncementsScreen() {
     
     return Container(
       width: double.infinity,
-      color: isDark ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+      color: isDark ? const Color(0xFF09090B) : const Color(0xFF18181B),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Column(
         children: [

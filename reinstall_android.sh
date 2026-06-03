@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 🛡️ TREK INDIA: ANDROID TACTICAL REINSTALLATION SCRIPT
+# 🛡️ trekwithmussaffir: ANDROID TACTICAL REINSTALLATION SCRIPT
 # This script performs a deep reset of the Android environment to resolve AAR & Desugaring conflicts.
 
 echo "📡 Phase 1: Cleaning Flutter Battalion..."

@@ -66,7 +66,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final primaryColor = const Color(0xFFD32F2F);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF09090B) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('EDIT PROFILE', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1)),
         backgroundColor: primaryColor,
@@ -134,7 +134,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         const Icon(Icons.verified_user_outlined, size: 14, color: Colors.grey),
                         const SizedBox(width: 8),
                         const Text(
-                          'DATA ENCRYPTED & AUDITED BY TREKWITHMUSSAFIRR HQ',
+                          'DATA ENCRYPTED & AUDITED BY trekwithmussafirr HQ',
                           style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                         ),
                       ],
@@ -174,7 +174,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               decoration: BoxDecoration(
                 color: primaryColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? const Color(0xFF0F172A) : Colors.white, width: 3),
+                border: Border.all(color: isDark ? const Color(0xFF09090B) : Colors.white, width: 3),
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)],
               ),
               child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
@@ -204,7 +204,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -304,7 +304,7 @@ Widget _buildDocumentsSection(bool isDark) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+      color: isDark ? const Color(0xFF18181B) : Colors.white,
       borderRadius: BorderRadius.circular(20),
       border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
     ),
@@ -387,7 +387,7 @@ Widget _buildDocumentsSection(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.04)),
       ),

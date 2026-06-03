@@ -33,7 +33,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             _buildSection(context, 'II. INFORMATION COLLECTION', 'We collect information you provide directly to us, such as when you create an account, book a trip, or contact support. This includes your name, email address, phone number, emergency contact details, and medical information necessary for your safety during trips.'),
             _buildSection(context, 'III. USAGE OF INFORMATION', 'We use your information to facilitate trip bookings, ensure your safety during expeditions, provide customer support, and improve our services. We may also use your contact information to send you updates and promotional materials related to trekwithmussafirr.'),
             _buildSection(context, 'IV. DATA SECURITY', 'We implement industry-standard security measures to protect your data from unauthorized access, alteration, or destruction. However, no method of transtrip over the internet or electronic storage is 100% secure.'),
-            _buildSection(context, 'V. CONTACT TREKWITHMUSSAFIRR', 'If you have any questions about this Privacy Policy, please contact our details support team at support@tripindia.com.'),
+            _buildSection(context, 'V. CONTACT trekwithmussafirr', 'If you have any questions about this Privacy Policy, please contact our details support team at support@tripindia.com.'),
             
             const SizedBox(height: 50),
             Container(

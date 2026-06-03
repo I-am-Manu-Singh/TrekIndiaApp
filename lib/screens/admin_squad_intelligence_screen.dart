@@ -128,7 +128,7 @@ class _AdminGroupDetailsScreenState
       }
     } catch (e) {
       if (mounted) {
-        debugPrint('TREKWITHMUSSAFIRR INFO FATAL: $e');
+        debugPrint('trekwithmussafirr INFO FATAL: $e');
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('FATAL: $e')));
         setState(() => _isLoading = false);
       }
@@ -205,7 +205,7 @@ class _AdminGroupDetailsScreenState
           child: _actionBtn(
             Icons.badge_outlined,
             'ASSIGN STAFF',
-            const Color(0xFF1E293B),
+            const Color(0xFF18181B),
             Colors.white,
             onTap: _showDeployEmployee,
           ),
@@ -990,7 +990,7 @@ class _AdminGroupDetailsScreenState
             children: [
               const SizedBox(height: 30),
               const Text(
-                'DEPLOY TREKWITHMUSSAFIRR STAFF',
+                'DEPLOY trekwithmussafirr STAFF',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 18,

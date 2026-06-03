@@ -80,7 +80,7 @@ class _EmployeeSalaryBreakupScreenState extends State<EmployeeSalaryBreakupScree
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF09090B) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('PAYROLL DASHBOARD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2)),
         backgroundColor: const Color(0xFFD32F2F),
@@ -178,7 +178,7 @@ class _EmployeeSalaryBreakupScreenState extends State<EmployeeSalaryBreakupScree
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: BorderRadius.circular(25),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
@@ -300,7 +300,7 @@ class _EmployeeSalaryBreakupScreenState extends State<EmployeeSalaryBreakupScree
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(date, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
-                const Text('Disbursed via TREKWITHMUSSAFIRR Bank Transfer', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                const Text('Disbursed via trekwithmussafirr Bank Transfer', style: TextStyle(fontSize: 9, color: Colors.grey)),
               ],
             ),
           ),

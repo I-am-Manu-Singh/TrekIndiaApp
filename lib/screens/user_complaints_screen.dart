@@ -68,7 +68,7 @@ class _UserComplaintsScreenState extends State<UserComplaintsScreen> {
               controller: contentCtrl,
               maxLines: 5,
               decoration: InputDecoration(
-                hintText: 'Describe the situation for TREKWITHMUSSAFIRR attention...',
+                hintText: 'Describe the situation for trekwithmussafirr attention...',
                 hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade200)),
               ),
@@ -109,11 +109,11 @@ class _UserComplaintsScreenState extends State<UserComplaintsScreen> {
                   if (mounted) {
                     Navigator.pop(ctx);
                     _fetchMyComplaints();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted to TREKWITHMUSSAFIRR.')));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted to trekwithmussafirr.')));
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), elevation: 0),
-                child: const Text('TRANSMIT TO TREKWITHMUSSAFIRR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
+                child: const Text('TRANSMIT TO trekwithmussafirr', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
               ),
             ),
           ],

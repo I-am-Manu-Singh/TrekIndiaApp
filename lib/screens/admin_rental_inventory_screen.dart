@@ -77,7 +77,7 @@ class _AdminRentalInventoryScreenState extends State<AdminRentalInventoryScreen>
                 }
               } catch (e) {
                 if (mounted) {
-                  debugPrint('TREKWITHMUSSAFIRR GEAR ERROR: $e');
+                  debugPrint('trekwithmussafirr GEAR ERROR: $e');
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('LOGISTICS FAILURE: $e'), backgroundColor: Colors.red));
                 }
               }

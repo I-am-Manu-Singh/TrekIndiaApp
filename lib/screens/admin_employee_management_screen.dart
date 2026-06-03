@@ -306,7 +306,7 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white, 
+        color: isDark ? const Color(0xFF18181B) : Colors.white, 
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100), 
         borderRadius: BorderRadius.circular(15)
       ),
@@ -375,7 +375,7 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200)
       ),
@@ -439,7 +439,7 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white, 
+        color: isDark ? const Color(0xFF18181B) : Colors.white, 
         borderRadius: BorderRadius.circular(15), 
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200)
       ),
@@ -768,7 +768,7 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50, 
+        color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50, 
         borderRadius: BorderRadius.circular(15), 
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100)
       ),

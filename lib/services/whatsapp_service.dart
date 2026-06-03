@@ -12,7 +12,7 @@ class WhatsAppService {
     required String date,
   }) async {
     final String message = 
-      "🌟 *TREKWITHMUSSAFIRR BOOKING RECEIPT* 🌟\n\n"
+      "🌟 *trekwithmussafirr BOOKING RECEIPT* 🌟\n\n"
       "Hello Admin,\n"
       "A new booking has been confirmed!\n\n"
       "📍 *Trip:* $tripName\n"

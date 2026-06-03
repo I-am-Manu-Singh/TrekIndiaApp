@@ -26,7 +26,7 @@ class _AdminManagementHubScreenState extends State<AdminManagementHubScreen> wit
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Management Hub TREKWITHMUSSAFIRR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+        title: const Text('Management Hub trekwithmussafirr', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         bottom: TabBar(

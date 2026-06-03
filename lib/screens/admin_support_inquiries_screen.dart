@@ -37,7 +37,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
       }
     } catch (e) {
       if (mounted) {
-        debugPrint('TREKWITHMUSSAFIRR SUPPORT ERROR: $e');
+        debugPrint('trekwithmussafirr SUPPORT ERROR: $e');
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -339,7 +339,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
          final isDark = Theme.of(context).brightness == Brightness.dark;
          return Container(
            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
-           decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+           decoration: BoxDecoration(color: isDark ? const Color(0xFF18181B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
            child: Column(
              mainAxisSize: MainAxisSize.min,
              children: [
@@ -382,7 +382,7 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
          final isDark = Theme.of(context).brightness == Brightness.dark;
          return Container(
            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
-           decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+           decoration: BoxDecoration(color: isDark ? const Color(0xFF18181B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
            child: Column(
              mainAxisSize: MainAxisSize.min,
              children: [

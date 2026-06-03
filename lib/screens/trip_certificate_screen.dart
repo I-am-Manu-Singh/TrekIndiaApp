@@ -108,7 +108,7 @@ class _TripCertificateScreenState extends State<TripCertificateScreen> {
                                     ),
                                     Column(
                                       children: [
-                                        Text('TREKWITHMUSSAFIRR EXPEDITIONS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 6, color: Colors.black)),
+                                        Text('trekwithmussafirr EXPEDITIONS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 6, color: Colors.black)),
                                         const SizedBox(height: 8),
                                         Divider(color: Colors.amber.shade800, thickness: 1.5, indent: 110, endIndent: 110),
                                         const Spacer(flex: 2),
@@ -132,7 +132,7 @@ class _TripCertificateScreenState extends State<TripCertificateScreen> {
                                                   fontSize: 42,
                                                   fontWeight: FontWeight.w900,
                                                   letterSpacing: 2,
-                                                  color: const Color(0xFF1E293B),
+                                                  color: const Color(0xFF18181B),
                                                 ),
                                               ),
                                             ),

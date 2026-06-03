@@ -38,7 +38,7 @@ class UnifiedTripCard extends StatelessWidget {
     
     // UI Tokens
     final primaryColor = Theme.of(context).primaryColor;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF18181B) : Colors.white;
     final shadowColor = Colors.black.withOpacity(isDark ? 0.3 : 0.08);
 
     return FadeInUp(
@@ -124,7 +124,7 @@ class UnifiedTripCard extends StatelessWidget {
                     children: [
                       Icon(Icons.terrain_outlined, size: 40, color: primaryColor.withOpacity(0.2)),
                       const SizedBox(height: 8),
-                      Text('TREKWITHMUSSAFIRR', style: TextStyle(
+                      Text('trekwithmussafirr', style: TextStyle(
                         color: primaryColor.withOpacity(0.3),
                         fontSize: 8,
                         fontWeight: FontWeight.w900,

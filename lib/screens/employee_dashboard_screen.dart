@@ -266,7 +266,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),

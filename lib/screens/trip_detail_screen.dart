@@ -1242,7 +1242,7 @@ pw.Widget _pdfStatBox(String title, String value) {
           padding: const EdgeInsets.all(24),
           margin: const EdgeInsets.only(bottom: 24),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
             boxShadow: [

@@ -93,7 +93,7 @@ class _AdminWalletScreenState extends State<AdminWalletScreen> {
         margin: const EdgeInsets.all(24),
         padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF1E293B)]),
+          gradient: const LinearGradient(colors: [Color(0xFF09090B), Color(0xFF18181B)]),
           borderRadius: BorderRadius.circular(25),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
         ),

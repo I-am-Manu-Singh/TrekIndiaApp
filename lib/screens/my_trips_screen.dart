@@ -148,6 +148,8 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    // Check if we are on Web to determine layout sizing
+    final bool isWeb = MediaQuery.of(context).size.width > 900;
     return Scaffold(
       appBar: AppBar(
         title: const Text('MY JOURNEYS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
@@ -169,17 +171,22 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
           ],
         ),
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : TabBarView(
-            controller: _tabController,
-            children: [
-              _buildTripsList(_upcomingBookings, true),
-              _buildTripsList(_pastBookings, false),
-              _buildTransportList(),
-              _buildWishlist(),
-            ],
-          ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isWeb ? 800 : double.infinity),
+          child: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTripsList(_upcomingBookings, true),
+                  _buildTripsList(_pastBookings, false),
+                  _buildTransportList(),
+                  _buildWishlist(),
+                ],
+              ),
+        ),
+      ),
     );
   }
 

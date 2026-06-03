@@ -105,7 +105,7 @@ class _AdminTripGroupsScreenState extends State<AdminTripGroupsScreen> {
                     return FadeInUp(
                       child: Card(
                         margin: const EdgeInsets.only(bottom: 16),
-                        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+                        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF18181B) : Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                         elevation: Theme.of(context).brightness == Brightness.dark ? 0 : 2,
                         child: InkWell(

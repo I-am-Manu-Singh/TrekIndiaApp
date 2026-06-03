@@ -201,7 +201,7 @@ class _TripTrainingHubState extends State<TripTrainingHub> {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.3 : 0.05), blurRadius: 20)],
           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
@@ -365,7 +365,7 @@ class _TripTrainingHubState extends State<TripTrainingHub> {
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
             borderRadius: BorderRadius.circular(25),
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.3 : 0.05), blurRadius: 10)],
             border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.1)),
@@ -538,7 +538,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
         context: context,
         barrierDismissible: false,
         builder: (c) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: const Color(0xFF18181B),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('TRIP ACCOMPLISHED', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1)),
           content: Column(
@@ -579,7 +579,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF0F172A), Colors.black],
+                colors: [Color(0xFF09090B), Colors.black],
               ),
             ),
           ),

@@ -115,7 +115,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
                       child: DropdownButton<String>(
                         value: selectedAssignee,
                         hint: Text('Select Employee', style: TextStyle(color: isDark ? Colors.white24 : Colors.grey, fontSize: 13)),
-                        dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        dropdownColor: isDark ? const Color(0xFF18181B) : Colors.white,
                         isExpanded: true,
                         underline: const SizedBox(),
                         items: staffList.map((s) => DropdownMenuItem<String>(
@@ -180,7 +180,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
     final double percent = total == 0 ? 0 : (done / total);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF09090B) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('TASK CONTROL CENTER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 2)),
         backgroundColor: const Color(0xFFD32F2F), 

@@ -168,6 +168,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (confirmed == true) {
       await _client.auth.signOut();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
     }
   }
 
@@ -208,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildHeader(),
             const SizedBox(height: 30),
 
-            // Operational modules have been moved to Admin Panels (Admin TREKWITHMUSSAFIRR / Dashboards)
+            // Operational modules have been moved to Admin Panels (Admin trekwithmussafirr / Dashboards)
             if (role == 'user') ...[
               _buildMedalCase(),
               const SizedBox(height: 20),
@@ -519,7 +522,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))],
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.05)),
@@ -944,7 +947,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             _settingToggle(
               'Biometric Auth',
-              'Secure access to TREKWITHMUSSAFIRR systems',
+              'Secure access to trekwithmussafirr systems',
               false,
             ),
             _settingToggle(

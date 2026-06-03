@@ -275,7 +275,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: n.isRead ? n.color.withOpacity(0.05) : n.color.withOpacity(0.2), width: n.isRead ? 1 : 2),
         boxShadow: [

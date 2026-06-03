@@ -31,7 +31,7 @@ class SafetyProtocolsScreen extends StatelessWidget {
             
             _buildSection(context, 'I. PRE-TRIP BRIEFING', 'All trips must undergo a mandatory details briefing before departure. This covers route terrain, weather expectations, and communications protocols.'),
             _buildSection(context, 'II. MEDICAL CLEARANCE', 'Participants must present valid medical certification. Our team reserves the right to deny participation if physical fitness requirements are not met.'),
-            _buildSection(context, 'III. FIELD GEAR STANDARDS', 'Only certified gear (either personal or issued by our TREKWITHMUSSAFIRR) is permitted. Our guides perform a multi-point equipment check before trip.'),
+            _buildSection(context, 'III. FIELD GEAR STANDARDS', 'Only certified gear (either personal or issued by our trekwithmussafirr) is permitted. Our guides perform a multi-point equipment check before trip.'),
             _buildSection(context, 'IV. EMERGENCY EVACUATION', 'In case of severe altitude sickness (AMS) or injury, a satellite-linked evacuation protocol is triggered. Extraction costs are covered by the specific trip insurance.'),
             _buildSection(context, 'V. WILDLIFE ENCOUNTERS', 'Strict non-interference protocols are in effect. Trips must follow guide instructions during any interaction with local fauna.'),
             

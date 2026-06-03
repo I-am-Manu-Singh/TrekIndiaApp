@@ -53,7 +53,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
         builder: (context, setModalState) => Container(
           padding: EdgeInsets.fromLTRB(30, 30, 30, MediaQuery.of(ctx).viewInsets.bottom + 30),
           decoration: const BoxDecoration(
-            color: Color(0xFF0F172A),
+            color: Color(0xFF09090B),
             borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
           ),
           child: Column(
@@ -85,7 +85,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
                       'content': contentCtrl.text.trim(),
                       'is_urgent': isUrgent,
                       'sender_id': _client.auth.currentUser?.id,
-                      'sender_name': 'TREKWITHMUSSAFIRR CONTROL',
+                      'sender_name': 'trekwithmussafirr CONTROL',
                       'created_at': DateTime.now().toIso8601String(),
                     };
 
@@ -152,7 +152,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF09090B) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
           'TRIP BROADCAST CENTER',
@@ -287,11 +287,25 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
                     children: [
                        TextButton.icon(
                          onPressed: () async {
-                           await _client.from('global_announcements').delete().eq('id', b['id']);
-                           _loadBroadcasts();
+                           try {
+                             await _client.from('global_announcements').delete().eq('id', b['id']);
+                             if (context.mounted) {
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 const SnackBar(content: Text('Broadcast deleted successfully.'), backgroundColor: Colors.green),
+                               );
+                             }
+                             _loadBroadcasts();
+                           } catch (e) {
+                             debugPrint('Error deleting broadcast: $e');
+                             if (context.mounted) {
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 SnackBar(content: Text('Could not delete broadcast: $e'), backgroundColor: Colors.red),
+                               );
+                             }
+                           }
                          },
                          icon: Icon(Icons.delete_outline, color: isDark ? Colors.white24 : Colors.black26, size: 16),
-                         label: Text('RESCIND', style: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 10, fontWeight: FontWeight.bold)),
+                         label: Text('DELETE', style: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 10, fontWeight: FontWeight.bold)),
                        ),
                     ],
                   ),

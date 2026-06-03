@@ -598,7 +598,7 @@ class _ChatBubble extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isMe ? const Color(0xFF1E293B) : (Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200),
+                        color: isMe ? const Color(0xFF18181B) : (Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200),
                         borderRadius: BorderRadius.circular(20).copyWith(
                           bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(20),
                           bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(0),

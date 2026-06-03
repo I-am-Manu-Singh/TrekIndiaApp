@@ -90,7 +90,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       child: Container(
         padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: isDark ? [const Color(0xFF1E293B), Colors.black] : [Colors.blueGrey.shade800, Colors.black]),
+          gradient: LinearGradient(colors: isDark ? [const Color(0xFF18181B), Colors.black] : [Colors.blueGrey.shade800, Colors.black]),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: Colors.white10),
         ),

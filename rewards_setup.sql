@@ -1,5 +1,5 @@
 -- rewards_setup.sql
--- SECURE DATABASE REWARDS SYSTEM FOR TREKWITHMUSSAFIRR
+-- SECURE DATABASE REWARDS SYSTEM FOR trekwithmussafirr
 
 -- 1. Add reward_points column to profiles table if it doesn't exist
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS reward_points INTEGER DEFAULT 0;
@@ -85,7 +85,7 @@ BEGIN
                     NEW.user_id, 
                     user_email,
                     'Congratulations! You earned Reward Points! 🎉',
-                    'Hello ' || NEW.hiker_name || ',\n\nWe are excited to inform you that your booking for ' || NEW.trip_name || ' has been confirmed and paid.\n\nWe have credited ' || calculated_points || ' reward points to your TrekWithMussafirr wallet for future use!\n\nAdventure awaits!\n\nBest Regards,\nTeam TrekWithMussafirr'
+                    'Hello ' || NEW.hiker_name || ',\n\nWe are excited to inform you that your booking for ' || NEW.trip_name || ' has been confirmed and paid.\n\nWe have credited ' || calculated_points || ' reward points to your trekwithmussafirr wallet for future use!\n\nAdventure awaits!\n\nBest Regards,\nTeam trekwithmussafirr'
                 );
             END IF;
         END IF;

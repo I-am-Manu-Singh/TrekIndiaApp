@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -170,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = true);
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'io.supabase.trekbooking://login-callback/',
+        redirectTo: kIsWeb ? null : 'io.supabase.trekbooking://login-callback/',
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -250,7 +251,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildTitle() {
-    String title = "TrekWithMussafirr";
+    String title = "trekwithmussafirr";
     String subtitle = "Your gateway to the Himalayas";
     
     if (_currentStatus == AuthFlowStatus.signup) {
@@ -294,11 +295,6 @@ class _LoginScreenState extends State<LoginScreen> {
         TextButton(
           onPressed: () => setState(() => _currentStatus = AuthFlowStatus.signup),
           child: Text("New User? Create Account", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-          child: const Text("Browse as Guest", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16)),
         ),
       ],
     );

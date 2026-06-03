@@ -109,7 +109,7 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        print('TREKWITHMUSSAFIRR EMPLOYEE GROUP ERROR: $e');
+        print('trekwithmussafirr EMPLOYEE GROUP ERROR: $e');
         setState(() => _isLoading = false);
       }
     }

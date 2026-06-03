@@ -58,7 +58,7 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
             children: [
               _buildBalanceCard(),
         const SizedBox(height: 32),
-        const Text('TREKWITHMUSSAFIRR FINANCIAL STANDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+        const Text('trekwithmussafirr FINANCIAL STANDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -88,7 +88,7 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
+        color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
       ),
@@ -204,7 +204,7 @@ class _EmployeeWalletScreenState extends State<EmployeeWalletScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade50),
       ),

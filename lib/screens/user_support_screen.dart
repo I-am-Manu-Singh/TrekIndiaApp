@@ -62,7 +62,7 @@ class _UserSupportScreenState extends State<UserSupportScreen> with SingleTicker
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
+      backgroundColor: isDark ? const Color(0xFF09090B) : Colors.grey[50],
       appBar: AppBar(
         title: const Text('CENTRAL SUPPORT HUB', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
         backgroundColor: const Color(0xFFD32F2F),
@@ -148,7 +148,7 @@ class _UserSupportScreenState extends State<UserSupportScreen> with SingleTicker
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         border: Border.all(color: (isResolved ? Colors.green : Colors.orange).withOpacity(0.2)),
@@ -222,7 +222,7 @@ class _UserSupportScreenState extends State<UserSupportScreen> with SingleTicker
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
       ),

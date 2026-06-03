@@ -82,10 +82,10 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
+      backgroundColor: isDark ? const Color(0xFF09090B) : Colors.grey[50],
       appBar: AppBar(
         title: const Text('TRIP INVENTORY', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)),
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Theme.of(context).primaryColor,
+        backgroundColor: isDark ? const Color(0xFF18181B) : Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -96,7 +96,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: isDark ? const Color(0xFF1E293B) : Theme.of(context).primaryColor,
+            color: isDark ? const Color(0xFF18181B) : Theme.of(context).primaryColor,
             child: TextField(
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
@@ -147,7 +147,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                color: isDark ? const Color(0xFF18181B) : Colors.white,
                                 borderRadius: BorderRadius.circular(15),
                                 border: Border.all(color: isDark ? Colors.white12 : Colors.black.withOpacity(0.05)),
                               ),

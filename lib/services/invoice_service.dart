@@ -36,7 +36,7 @@ class InvoiceService {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('TREKWITHMUSSAFIRR', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
+                        pw.Text('trekwithmussafirr', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
                         pw.Text('Official Trip Invoice', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                       ],
                     ),
@@ -88,7 +88,7 @@ class InvoiceService {
                   child: pw.Text('This is a computer-generated document. No signature required.', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
                 ),
                 pw.Center(
-                  child: pw.Text('TREKWITHMUSSAFIRR - Explore the Unexplored', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                  child: pw.Text('trekwithmussafirr - Explore the Unexplored', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                 ),
               ],
             ),
@@ -136,7 +136,7 @@ class InvoiceService {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('TREKWITHMUSSAFIRR', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
+                        pw.Text('trekwithmussafirr', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
                         pw.Text('Transport Booking Invoice', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                       ],
                     ),
@@ -187,7 +187,7 @@ class InvoiceService {
                   child: pw.Text('This is a computer-generated document. No signature required.', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
                 ),
                 pw.Center(
-                  child: pw.Text('TREKWITHMUSSAFIRR - Reliable Travel Solutions', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                  child: pw.Text('trekwithmussafirr - Reliable Travel Solutions', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                 ),
               ],
             ),
@@ -232,7 +232,7 @@ class InvoiceService {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('TREKWITHMUSSAFIRR', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
+                        pw.Text('trekwithmussafirr', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
                         pw.Text('Refund Confirmation Advice', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                       ],
                     ),
@@ -283,7 +283,7 @@ class InvoiceService {
                   child: pw.Text('Refunds are usually processed within 5-7 working days to the original payment source.', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
                 ),
                 pw.Center(
-                  child: pw.Text('TREKWITHMUSSAFIRR - We hope to see you again soon!', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                  child: pw.Text('trekwithmussafirr - We hope to see you again soon!', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                 ),
               ],
             ),

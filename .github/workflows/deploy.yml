@@ -1,34 +1,54 @@
-name: Deploy to GitHub Pages
+name: 🚀 Build & Deploy to GitHub Pages
 
 on:
   push:
     branches:
       - main
       - master
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions UI
 
 jobs:
   build-and-deploy:
+    name: Build Flutter Web & Deploy
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
-      - name: Checkout Code
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: 🐦 Setup Flutter 3.41.9
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
+          flutter-version: '3.41.9'
           channel: 'stable'
+          cache: true
 
-      - name: Install Dependencies
+      - name: 📦 Install Dependencies
         run: flutter pub get
 
-      - name: Build Web
+      - name: 🔍 Analyze Code
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true  # Warn but don't block deploy on analysis issues
+
+      - name: 🌐 Build Web (Release)
         run: flutter build web --release --base-href /TrekIndiaApp/
 
-      - name: Deploy to GitHub Pages
+      - name: 📤 Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-build
+          path: build/web/
+          retention-days: 7
+
+      - name: 🚢 Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "🚀 Deploy: ${{ github.event.head_commit.message }}"
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"

@@ -60,7 +60,7 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> with Si
     final primary = Theme.of(context).primaryColor;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
+      backgroundColor: isDark ? const Color(0xFF09090B) : Colors.grey[50],
       appBar: AppBar(
         title: Text('${_tabController.index == 0 ? 'BUS' : 'TRAIN'} BOOKINGS', 
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 2)),
@@ -97,7 +97,7 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> with Si
   return Container(
     padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+      color: isDark ? const Color(0xFF18181B) : Colors.white,
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
       boxShadow: [
         BoxShadow(
@@ -352,7 +352,7 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> with Si
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: isDark ? const Color(0xFF18181B) : Colors.white,
               borderRadius: BorderRadius.circular(25),
               boxShadow: [
                 BoxShadow(

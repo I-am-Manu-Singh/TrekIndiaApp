@@ -91,14 +91,14 @@ class TripBookingApp extends StatelessWidget {
             ),
             darkTheme: ThemeData(
               brightness: Brightness.dark,
-              scaffoldBackgroundColor: const Color(0xFF0F172A),
+              scaffoldBackgroundColor: const Color(0xFF09090B),
               primaryColor: const Color(0xFFD32F2F), // Red
               colorScheme: ColorScheme.fromSeed(
                 brightness: Brightness.dark,
                 seedColor: const Color(0xFFD32F2F), // Red
                 primary: const Color(0xFFD32F2F),
                 secondary: const Color(0xFFB71C1C),
-                surface: const Color(0xFF1E293B),
+                surface: const Color(0xFF18181B),
               ),
               appBarTheme: const AppBarTheme(
                 backgroundColor: Color(0xFFD32F2F), // Red AppBar
@@ -121,7 +121,7 @@ class TripBookingApp extends StatelessWidget {
               if (!kIsWeb) return child!;
               final isDark = Theme.of(context).brightness == Brightness.dark;
               return Container(
-                color: isDark ? const Color(0xFF0F172A) : Colors.grey[100],
+                color: isDark ? const Color(0xFF09090B) : Colors.grey[100],
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1200),
@@ -206,9 +206,16 @@ class _AuthGuardState extends State<AuthGuard> {
     
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (mounted) {
+        final previousSession = _session;
         setState(() {
           _session = data.session;
         });
+        
+        final bool loggedIn = previousSession == null && data.session != null;
+        final bool loggedOut = previousSession != null && data.session == null;
+        if (loggedIn || loggedOut) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
       }
     });
   }
@@ -222,11 +229,7 @@ class _AuthGuardState extends State<AuthGuard> {
     if (_session != null) {
       NotificationService.listenToMessages();
       NotificationService.listenToBookingChanges();
-      return const HomeScreen();
     }
-    if (kIsWeb) {
-      return const HomeScreen();
-    }
-    return const LoginScreen();
+    return const HomeScreen();
   }
 }

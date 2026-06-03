@@ -1,5 +1,5 @@
 -- ==========================================
--- TREK India: Rental Tracking Schema
+-- trekwithmussaffir: Rental Tracking Schema
 -- ==========================================
 
 -- 1. Create User Rentals table to track gear issued to hikers

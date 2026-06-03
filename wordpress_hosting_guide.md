@@ -73,7 +73,7 @@ If you prefer to embed the entire booking app directly inside a page on `https:/
      style="width:100%; height:800px; border:none; overflow:hidden;" 
      scrolling="yes"
      allow="geolocation; camera; microphone"
-     title="TrekWithMussafirr Booking App">
+     title="trekwithmussafirr Booking App">
    </iframe>
    ```
 6. Publish the page.
@@ -103,7 +103,7 @@ As part of the secure rewards system, points adjustments and credit transactions
          "Authorization": `Bearer ${Deno.env.get("RESEND_API_KEY")}`
        },
        body: JSON.stringify({
-         from: "TrekWithMussafirr <no-reply@trekwithmussafirr.com>",
+         from: "trekwithmussafirr <no-reply@trekwithmussafirr.com>",
          to: [record.recipient_email],
          subject: record.subject,
          text: record.body

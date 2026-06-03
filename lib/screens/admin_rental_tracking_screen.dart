@@ -120,7 +120,7 @@ class _AdminRentalTrackingScreenState extends State<AdminRentalTrackingScreen> w
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFFBFBFB),
+      backgroundColor: isDark ? const Color(0xFF09090B) : const Color(0xFFFBFBFB),
       appBar: AppBar(
         title: const Text('GEAR MASTER HUB', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 2)),
         backgroundColor: const Color(0xFFD32F2F),
@@ -475,7 +475,7 @@ class _AdminRentalTrackingScreenState extends State<AdminRentalTrackingScreen> w
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
           title: const Text('LOG RETURN', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,

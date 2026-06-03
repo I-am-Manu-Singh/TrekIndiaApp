@@ -216,7 +216,7 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
               await db.createNotification(
                 userId: c['user_id'],
                 title: 'Complaint Resolved',
-                body: 'TREKWITHMUSSAFIRR has addressed your report: "${c['type']}". Check details in support.',
+                body: 'trekwithmussafirr has addressed your report: "${c['type']}". Check details in support.',
                 category: 'support',
               );
 

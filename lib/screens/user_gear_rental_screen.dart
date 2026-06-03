@@ -88,7 +88,7 @@ class _UserGearRentalScreenState extends State<UserGearRentalScreen> with Single
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFFBFBFB),
+      backgroundColor: isDark ? const Color(0xFF09090B) : const Color(0xFFFBFBFB),
       appBar: AppBar(
         title: const Text('MY EQUIPMENT HUB', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 2)),
         backgroundColor: const Color(0xFFD32F2F),
