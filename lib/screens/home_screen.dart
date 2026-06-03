@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   final DatabaseService _dbService = DatabaseService();
   final TextEditingController _searchController = TextEditingController();
-  final User? _user = Supabase.instance.client.auth.currentUser;
+  User? get _user => Supabase.instance.client.auth.currentUser;
   
   List<Trip> _allTrips = [];
   List<Trip> _filteredTrips = [];
@@ -72,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isVerified = false;
 
   StreamSubscription? _connectivitySubscription;
+  StreamSubscription<AuthState>? _authSubscription;
   bool _isOffline = false;
 
   final String _dailyTip = "Pro Tip: Layering is key! Keep a moisture-wicking base layer for high-altitude trips.";
@@ -83,6 +84,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _handleInitialLoad();
     _checkConnectivity();
     _fetchActiveAlert();
+
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (mounted) {
+        _handleInitialLoad();
+      }
+    });
   }
 
   Future<void> _checkConnectivity() async {
@@ -195,12 +202,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _searchController.dispose();
     _announcementController.dispose();
     _connectivitySubscription?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 
   Future<void> _fetchUserRole() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) {
+        setState(() {
+          _userRole = 'user';
+          _userName = null;
+          _userAvatar = null;
+          _isVerified = false;
+        });
+      }
+      return;
+    }
     try {
       final res = await Supabase.instance.client.from('profiles').select('role, full_name, avatar_url, aadhar_url, medical_certificate_url').eq('id', user.id).maybeSingle();
       
@@ -1327,13 +1345,27 @@ void _showAnnouncementsScreen() {
 
     if (_selectedIndex >= pages.length) _selectedIndex = 0;
 
+    final String appBarTitle;
+    if (_user == null) {
+      appBarTitle = 'TREKWITHMUSSAFIRR';
+    } else {
+      final name = _userName ?? 'Explorer';
+      if (_userRole == 'admin') {
+        appBarTitle = '${name.toUpperCase()} (ADMIN)';
+      } else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') {
+        appBarTitle = '${name.toUpperCase()} (STAFF)';
+      } else {
+        appBarTitle = name.toUpperCase();
+      }
+    }
+
     return Scaffold(
-      appBar: _selectedIndex == 0 ? AppBar(
+      appBar: (_selectedIndex == 0 && !kIsWeb) ? AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('EXPEDITION HQ', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white70)),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+            Text(appBarTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
           ],
         ),
         backgroundColor: const Color(0xFFD32F2F),
@@ -1654,6 +1686,20 @@ void _showAnnouncementsScreen() {
     final bool isWide = MediaQuery.of(context).size.width > 900;
     if (!isWide) return const SizedBox.shrink();
     
+    final String displayTitle;
+    if (_user == null) {
+      displayTitle = 'trekwithmussafirr';
+    } else {
+      final name = _userName ?? 'Explorer';
+      if (_userRole == 'admin') {
+        displayTitle = '${name.toUpperCase()} (ADMIN)';
+      } else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') {
+        displayTitle = '${name.toUpperCase()} (STAFF)';
+      } else {
+        displayTitle = name.toUpperCase();
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
       decoration: BoxDecoration(
@@ -1667,15 +1713,25 @@ void _showAnnouncementsScreen() {
             children: [
               Image.asset('assets/images/app_logo.png', width: 40, height: 40),
               const SizedBox(width: 12),
-              const Text(
-                'trekwithmussafirr',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1, color: Color(0xFFD32F2F)),
+              Text(
+                displayTitle,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1, color: Color(0xFFD32F2F)),
               ),
             ],
           ),
           Row(
             children: [
               _webNavLink(context, 'Explore', () => setState(() => _selectedIndex = 0)),
+              if (_user != null) ...[
+                if (_userRole == 'admin') ...[
+                  _webNavLink(context, 'Admin Panel', () => Navigator.pushNamed(context, '/admin')),
+                ] else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') ...[
+                  _webNavLink(context, 'Dashboard', () => Navigator.pushNamed(context, '/employee_dashboard')),
+                ] else ...[
+                  _webNavLink(context, 'My Trips', () => Navigator.pushNamed(context, '/my_trips')),
+                ],
+                _webNavLink(context, 'Chats', () => Navigator.pushNamed(context, '/chat_rooms')),
+              ],
               _webNavLink(context, 'Privacy Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen()))),
               _webNavLink(context, 'Terms of Service', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const TermsOfServiceScreen()))),
               _webNavLink(context, 'Refund Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RefundPolicyScreen()))),
