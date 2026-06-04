@@ -150,7 +150,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   child: Center(
     child: ConstrainedBox(
       constraints: const BoxConstraints(
-        maxWidth: 1280,
+        maxWidth: 900,
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),

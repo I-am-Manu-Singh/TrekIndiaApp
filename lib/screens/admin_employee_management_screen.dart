@@ -35,17 +35,22 @@ class _AdminEmployeeManagementScreenState extends State<AdminEmployeeManagementS
             return matchesSearch && matchesRole;
           }).toList();
 
-          return Column(
-            children: [
-              _buildHeader(profiles.length),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  itemCount: profiles.length,
-                  itemBuilder: (context, index) => _buildPersonnelCard(profiles[index]),
-                ),
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                children: [
+                  _buildHeader(profiles.length),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: profiles.length,
+                      itemBuilder: (context, index) => _buildPersonnelCard(profiles[index]),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           );
         }
       ),

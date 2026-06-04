@@ -135,7 +135,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   child: Center(
     child: ConstrainedBox(
       constraints: const BoxConstraints(
-        maxWidth: 1280,
+        maxWidth: 900,
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),

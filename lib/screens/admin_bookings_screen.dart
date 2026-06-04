@@ -250,41 +250,46 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          if (_selectedDate != null) Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Row(
-              children: [
-                const Icon(Icons.filter_list, size: 14, color: Colors.blueAccent),
-                const SizedBox(width: 8),
-                Text('FILTERING DATE: ${DateFormat('MMM dd, yyyy').format(_selectedDate!)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-                const Spacer(),
-                TextButton(
-                  onPressed: () { setState(() => _selectedDate = null); _fetchGroups(); }, 
-                  child: const Text('CLEAR', style: TextStyle(fontSize: 10, color: Colors.red))
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Column(
+            children: [
+              if (_selectedDate != null) Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.filter_list, size: 14, color: Colors.blueAccent),
+                    const SizedBox(width: 8),
+                    Text('FILTERING DATE: ${DateFormat('MMM dd, yyyy').format(_selectedDate!)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () { setState(() => _selectedDate = null); _fetchGroups(); }, 
+                      child: const Text('CLEAR', style: TextStyle(fontSize: 10, color: Colors.red))
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Expanded(
+                child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: _fetchGroups,
+                      child: ListView(
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          _buildAnalyticsCards(),
+                          const SizedBox(height: 24),
+                          const Text('TRIP MANAGEMENT GRID', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
+                          const SizedBox(height: 16),
+                          ..._tripGroups.map((g) => _buildGroupCard(g)).toList(),
+                        ],
+                      ),
+                    ),
+              ),
+            ],
           ),
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _fetchGroups,
-                  child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      _buildAnalyticsCards(),
-                      const SizedBox(height: 24),
-                      const Text('TRIP MANAGEMENT GRID', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
-                      const SizedBox(height: 16),
-                      ..._tripGroups.map((g) => _buildGroupCard(g)).toList(),
-                    ],
-                  ),
-                ),
-          ),
-        ],
+        ),
       ),
     );
   }
