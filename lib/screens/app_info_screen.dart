@@ -11,10 +11,10 @@ import 'legal/safety_protocols_screen.dart';
 class AppInfoScreen extends StatelessWidget {
   const AppInfoScreen({super.key});
 
-  final String companyName = "trekwithmussafirr Expeditions";
+  final String companyName = "TREK WITH MUSSAFIRR";
   final String phoneNumber = "+91 98765 43210";
-  final String supportEmail = "support@tripindia.com";
-  final String website = "https://tripindia.com";
+  final String supportEmail = "trekwithmussafirr@gmail.com";
+  final String website = "https://trekwithmussafirr.com";
   final String version = "1.0.0+1";
 
   Future<void> _launchUrl(String url) async {

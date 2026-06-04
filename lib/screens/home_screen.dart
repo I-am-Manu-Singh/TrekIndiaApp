@@ -113,11 +113,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _handleInitialLoad() async {
     try {
+      await _loadTrips();
       await Future.wait([
         _fetchCategories(),
         _fetchUserRole(),
       ]);
-      _loadTrips();
     } catch (e) {
       debugPrint('CRITICAL LOAD ERROR: $e');
     } finally {
@@ -129,14 +129,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       final cats = await _dbService.fetchCategories();
       if (mounted) {
-        final newNames = ['All', ...cats.map((c) => c.name)];
+        // Only keep categories that have at least one trip in _allTrips
+        final activeCats = cats.where((c) {
+          final catNameLower = c.name.trim().toLowerCase();
+          return _allTrips.any((t) {
+            final tCatLower = (t.category ?? '').trim().toLowerCase();
+            return tCatLower == catNameLower || tCatLower.contains(catNameLower) || catNameLower.contains(tCatLower);
+          });
+        }).toList();
+
+        final newNames = ['All', ...activeCats.map((c) => c.name)];
         
         // Create new controller first to avoid race condition
         final newController = TabController(length: newNames.length, vsync: this);
         newController.addListener(_handleTabSelection);
         
         setState(() {
-          _availableCategories = cats;
+          _availableCategories = activeCats;
           _categoryNames = newNames;
           final oldController = _tabController;
           _tabController = newController;
@@ -867,7 +876,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return FutureBuilder<List<dynamic>>(
       future: Supabase.instance.client
           .from('blogs')
-          .select('id, title, cover_image, created_at, user_id, excerpt, content')
+          .select('*')
           .order('created_at', ascending: false)
           .limit(4),
       builder: (context, snapshot) {
@@ -1627,7 +1636,7 @@ void _showAnnouncementsScreen() {
         const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
       ];
     } else {
-      title = 'trekwithmussafirr';
+      title = 'TREK WITH MUSSAFIRR';
       pages = [
         _buildExploreScreen(context),
         const ChatRoomListScreen(),
@@ -1663,7 +1672,7 @@ void _showAnnouncementsScreen() {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('trekwithmussafirr', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
+            const Text('TREK WITH MUSSAFIRR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
             if (_user != null)
               Text(
                 appBarTitle,
@@ -1671,7 +1680,7 @@ void _showAnnouncementsScreen() {
               )
             else
               const Text(
-                'trekwithmussafirr',
+                'TREK WITH MUSSAFIRR',
                 style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white70),
               ),
           ],
@@ -2113,7 +2122,7 @@ void _showAnnouncementsScreen() {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'trekwithmussafirr',
+                    'TREK WITH MUSSAFIRR',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1, color: Color(0xFFD32F2F)),
                   ),
                   if (_user != null)
@@ -2292,7 +2301,7 @@ Container(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('trekwithmussafirr', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const Text('TREK WITH MUSSAFIRR', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
                     const SizedBox(height: 12),
                     Text(
                       'Your premier trekking companion in the Himalayas. Discover trails, book expeditions, and explore the unexplored with professional safety guidance.',
@@ -2335,7 +2344,11 @@ Container(
           const Divider(color: Colors.white10),
           const SizedBox(height: 15),
           Text(
-            '© ${DateTime.now().year} trekwithmussafirr. All rights reserved. \n Made by Manpreet Singh.',
+            '© ${DateTime.now().year} TREK WITH MUSSAFIRR. All rights reserved.',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+          ),
+          Text(
+            'Made by Manpreet Singh.',
             style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
           ),
         ],
