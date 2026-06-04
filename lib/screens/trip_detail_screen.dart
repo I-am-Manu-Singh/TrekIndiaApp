@@ -753,47 +753,76 @@ pw.Widget _pdfStatBox(String title, String value) {
   }
 
 
+  Widget _buildFallbackCover() {
+    return Container(
+      color: Colors.grey[200],
+      child: Center(
+        child: Opacity(
+          opacity: 0.25,
+          child: Image.asset(
+            'assets/images/app_logo.png',
+            fit: BoxFit.contain,
+            width: 160,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildImageGallery() {
-    final images = [currentTrip.imageUrl, ...currentTrip.images];
+    final images = [
+      if (currentTrip.imageUrl.isNotEmpty) currentTrip.imageUrl,
+      ...currentTrip.images.where((img) => img.isNotEmpty),
+    ];
+    // Show a single fallback slot if no images at all
+    final displayImages = images.isEmpty ? [''] : images;
+
     return Stack(
       children: [
         PageView.builder(
-          itemCount: images.length,
+          itemCount: displayImages.length,
           onPageChanged: (index) => setState(() => _currentImageIndex = index),
-          itemBuilder: (context, index) => Hero(
-            tag: index == 0 ? (widget.heroTag ?? 'trip_image_${currentTrip.id}') : 'trip_image_extra_${currentTrip.id}_$index',
-            child: CachedNetworkImage(
-              imageUrl: images[index],
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(color: Colors.grey[200]),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey[200],
-                padding: const EdgeInsets.all(40),
-                child: Image.asset(
-                  'assets/images/app_logo.png',
-                  fit: BoxFit.contain,
-                ),
+          itemBuilder: (context, index) {
+            final imageUrl = displayImages[index];
+            if (imageUrl.isEmpty) {
+              return _buildFallbackCover();
+            }
+            return Hero(
+              tag: index == 0
+                  ? (widget.heroTag ?? 'trip_image_${currentTrip.id}')
+                  : 'trip_image_extra_${currentTrip.id}_$index',
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: Colors.grey[200]),
+                errorWidget: (context, url, error) => _buildFallbackCover(),
               ),
+            );
+          },
+        ),
+        // Dot indicators — pill for active, circle for inactive
+        if (displayImages.length > 1)
+          Positioned(
+            bottom: 44,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(displayImages.length, (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: _currentImageIndex == index ? 20 : 7,
+                height: 7,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: _currentImageIndex == index
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.45),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              )),
             ),
           ),
-        ),
-        Positioned(
-          bottom: 40,
-          left: 0,
-          right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(images.length, (index) => Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: _currentImageIndex == index ? Colors.white : Colors.white.withOpacity(0.5),
-                shape: BoxShape.circle
-              ),
-            )),
-          ),
-        ),
+
         Positioned(
   bottom: 20,
   left: 20,
@@ -1687,16 +1716,16 @@ Widget _buildItinerary() {
         return TripBookingSheet(
           trip: currentTrip,
           isTrip: _isTrip,
-          onConfirm: (total, tripFee, pickupFee, pickupLoc, date, addons, gears, name, phone, email, pax, additional, payMethod, payProof) {
+          onConfirm: (total, tripFee, pickupFee, pickupLoc, date, addons, gears, name, phone, email, pax, additional, payMethod, payProof, redeemPoints, pointsRedeemed) {
             Navigator.pop(context);
-            _showMockPaymentFlow(total, tripFee, pickupFee, pickupLoc, date, addons, gears, name, phone, email, pax, additional, payMethod, payProof);
+            _showMockPaymentFlow(total, tripFee, pickupFee, pickupLoc, date, addons, gears, name, phone, email, pax, additional, payMethod, payProof, redeemPoints, pointsRedeemed);
           },
         );
       },
     );
   }
 
-  void _showMockPaymentFlow(double total, double tripFee, double pickupFee, String pickupLocation, DateTime date, Map<String, int> gearAddons, List<Gear> gears, String name, String phone, String email, int pax, List<Map<String, dynamic>> additionalTravelers, String payMethod, String? payProof) {
+  void _showMockPaymentFlow(double total, double tripFee, double pickupFee, String pickupLocation, DateTime date, Map<String, int> gearAddons, List<Gear> gears, String name, String phone, String email, int pax, List<Map<String, dynamic>> additionalTravelers, String payMethod, String? payProof, bool redeemPoints, int pointsRedeemed) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1708,14 +1737,14 @@ Widget _buildItinerary() {
           total: total,
           onComplete: () {
             Navigator.pop(c);
-            _confirmBooking(total, tripFee, pickupFee, pickupLocation, date, gearAddons, gears, name, phone, email, pax, additionalTravelers, payMethod, payProof);
+            _confirmBooking(total, tripFee, pickupFee, pickupLocation, date, gearAddons, gears, name, phone, email, pax, additionalTravelers, payMethod, payProof, redeemPoints, pointsRedeemed);
           },
         ),
       ),
     );
   }
 
-  Future<void> _confirmBooking(double total, double tp, double pp, String loc, DateTime date, Map<String, int> addons, List<Gear> allGears, String hikerName, String hikerPhone, String hikerEmail, int pax, List<Map<String, dynamic>> additionalTravelers, String payMethod, String? payProof) async {
+  Future<void> _confirmBooking(double total, double tp, double pp, String loc, DateTime date, Map<String, int> addons, List<Gear> allGears, String hikerName, String hikerPhone, String hikerEmail, int pax, List<Map<String, dynamic>> additionalTravelers, String payMethod, String? payProof, bool redeemPoints, int pointsRedeemed) async {
     showDialog(context: context, builder: (c) => const Center(child: CircularProgressIndicator()));
     
     final formattedAddons = addons.entries.map((e) => {
@@ -1748,6 +1777,55 @@ Widget _buildItinerary() {
     if (mounted) Navigator.pop(context);
 
     if (groupId != null && mounted) {
+      // ── Reward points ledger writes ───────────────────────────────────
+      if (currentUserId != null) {
+        try {
+          // 1. Debit redeemed points (if user chose to redeem)
+          if (redeemPoints && pointsRedeemed > 0) {
+            await Supabase.instance.client.from('reward_ledger').insert({
+              'user_id': currentUserId,
+              'points': pointsRedeemed,
+              'type': 'debit',
+              'description': 'Points redeemed for ₹${(pointsRedeemed / 10).toStringAsFixed(0)} discount on ${currentTrip.title}',
+              'reference_id': groupId,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+            // Push debit notification
+            await Supabase.instance.client.from('notifications').insert({
+              'user_id': currentUserId,
+              'title': '🏆 Reward Points Redeemed',
+              'body': 'You redeemed $pointsRedeemed points (₹${(pointsRedeemed / 10).toStringAsFixed(0)} off) on your booking for ${currentTrip.title}.',
+              'category': 'reward',
+              'is_read': false,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+          }
+          // 2. Credit earned reward points (trip-level, after booking)
+          final pointsToEarn = currentTrip.rewardPoints * pax;
+          if (pointsToEarn > 0) {
+            await Supabase.instance.client.from('reward_ledger').insert({
+              'user_id': currentUserId,
+              'points': pointsToEarn,
+              'type': 'credit',
+              'description': 'Earned $pointsToEarn points for booking ${currentTrip.title}',
+              'reference_id': groupId,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+            // Push credit notification
+            await Supabase.instance.client.from('notifications').insert({
+              'user_id': currentUserId,
+              'title': '🏆 +$pointsToEarn Reward Points Earned!',
+              'body': 'Congrats! You earned $pointsToEarn reward points for booking ${currentTrip.title}. View your balance in the Wallet.',
+              'category': 'reward',
+              'is_read': false,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+          }
+        } catch (e) {
+          debugPrint('Reward ledger write error: $e');
+        }
+      }
+
       _showBookingSuccess(groupId);
       _checkBookingAndFetchMembers();
       

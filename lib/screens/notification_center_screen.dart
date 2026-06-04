@@ -7,6 +7,7 @@ import 'admin_bookings_screen.dart';
 import 'admin_support_inquiries_screen.dart';
 import 'user_gear_rental_screen.dart';
 import 'trip_training_hub.dart';
+import 'payment_ledger_screen.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
   final String role;
@@ -70,6 +71,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       case 'admin_booking': return Icons.receipt_long;
       case 'support': return Icons.support_agent;
       case 'training': return Icons.fitness_center;
+      case 'reward': return Icons.workspace_premium_rounded;
       default: return Icons.notifications_none;
     }
   }
@@ -84,6 +86,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       case 'admin_booking': return Colors.teal;
       case 'support': return Colors.deepOrange;
       case 'training': return Colors.pink;
+      case 'reward': return const Color(0xFFE6A817); // gold
       default: return Colors.grey;
     }
   }
@@ -254,6 +257,8 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                       Navigator.push(context, MaterialPageRoute(builder: (c) => const UserGearRentalScreen()));
                   } else if (n.category == 'training') {
                       Navigator.push(context, MaterialPageRoute(builder: (c) => const TripTrainingHub()));
+                  } else if (n.category == 'reward') {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const PaymentLedgerScreen()));
                   }
                 },
                 style: ElevatedButton.styleFrom(

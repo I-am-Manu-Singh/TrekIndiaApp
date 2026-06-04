@@ -24,6 +24,11 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
   List<dynamic> _tripsAnalytics = [];
   Map<String, dynamic> _recentBookingsStats = {'weekly': 0, 'monthly': 0, 'top': []};
 
+  // Rewards
+  int _totalPointsIssued = 0;
+  int _totalPointsRedeemed = 0;
+  List<Map<String, dynamic>> _rewardsByUser = [];
+
   @override
   void initState() {
     super.initState();
@@ -194,6 +199,55 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
     }
   }
 
+  Future<void> _loadRewardsData() async {
+    try {
+      final rows = await _client
+          .from('reward_ledger')
+          .select('user_id, points, type, created_at');
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name');
+      final profileMap = {for (var p in profiles) p['id']: p['full_name']};
+
+      int issued = 0;
+      int redeemed = 0;
+      final Map<String, int> userBalances = {};
+
+      for (final row in (rows as List)) {
+        final pts = int.tryParse((row['points'] ?? 0).toString()) ?? 0;
+        final uid = row['user_id']?.toString() ?? '';
+        final type = row['type']?.toString() ?? 'credit';
+        if (type == 'credit') {
+          issued += pts;
+          userBalances[uid] = (userBalances[uid] ?? 0) + pts;
+        } else {
+          redeemed += pts;
+          userBalances[uid] = (userBalances[uid] ?? 0) - pts;
+        }
+      }
+
+      final byUser = userBalances.entries
+          .where((e) => e.value != 0)
+          .map((e) => {
+                'user_id': e.key,
+                'name': profileMap[e.key] ?? 'Unknown User',
+                'balance': e.value < 0 ? 0 : e.value,
+              })
+          .toList()
+        ..sort((a, b) => (b['balance'] as int).compareTo(a['balance'] as int));
+
+      if (mounted) {
+        setState(() {
+          _totalPointsIssued = issued;
+          _totalPointsRedeemed = redeemed;
+          _rewardsByUser = byUser;
+        });
+      }
+    } catch (e) {
+      debugPrint('Rewards load error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -251,7 +305,7 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
           crossAxisSpacing: 12,
           childAspectRatio: 1.5,
           children: [
-            _diagnosticCard('Gross Revenue', '₹${(_totalVolume / 1000).toStringAsFixed(1)}K', Icons.analytics),
+                                _diagnosticCard('Gross Revenue', '₹${(_totalVolume / 1000).toStringAsFixed(1)}K', Icons.analytics),
             _diagnosticCard('Receivables', '₹${(_receivable / 1000).toStringAsFixed(1)}K', Icons.hourglass_empty, color: Colors.orange),
             _diagnosticCard('Tax Liability', '₹${(_gstReserve / 1000).toStringAsFixed(1)}K', Icons.gavel_outlined),
             _diagnosticCard('Weekly Growth', '+${_recentBookingsStats['weekly']}', Icons.trending_up),
@@ -969,5 +1023,189 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
         ],
       ),
     );
+  }
+
+  // ─── REWARDS TAB ────────────────────────────────────────────────────────────
+  Widget _buildRewardsTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final int netBalance = _totalPointsIssued - _totalPointsRedeemed;
+    final double discountValue = netBalance / 10;
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        // ── Summary header card ──────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE6A817), Color(0xFFFF6F00)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                  color: const Color(0xFFE6A817).withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8))
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.workspace_premium_rounded,
+                    color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Text('REWARD POINTS OVERVIEW',
+                    style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5)),
+              ]),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  _rewardSummaryCol('ISSUED', '$_totalPointsIssued pts', Colors.white),
+                  Container(
+                      width: 1,
+                      height: 40,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      color: Colors.white24),
+                  _rewardSummaryCol('REDEEMED', '$_totalPointsRedeemed pts', Colors.white70),
+                  Container(
+                      width: 1,
+                      height: 40,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      color: Colors.white24),
+                  _rewardSummaryCol('NET OUTSTANDING',
+                      '$netBalance pts\n≈ ₹${discountValue.toStringAsFixed(0)}',
+                      Colors.white),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 28),
+
+        // ── Per-user breakdown ───────────────────────────────────────────────
+        Text('USER REWARD BALANCES',
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white38 : Colors.grey,
+                letterSpacing: 1.5)),
+        const SizedBox(height: 12),
+
+        if (_rewardsByUser.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(children: [
+                Icon(Icons.workspace_premium_outlined,
+                    size: 50, color: Colors.amber.withOpacity(0.3)),
+                const SizedBox(height: 12),
+                const Text('No reward data yet',
+                    style: TextStyle(color: Colors.grey)),
+              ]),
+            ),
+          )
+        else
+          ..._rewardsByUser.asMap().entries.map((entry) {
+            final u = entry.value;
+            final bal = u['balance'] as int;
+            final maxBalance = (_rewardsByUser.first['balance'] as int).toDouble();
+            final fraction = maxBalance > 0 ? bal / maxBalance : 0.0;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF18181B) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: isDark
+                        ? Colors.white10
+                        : Colors.amber.withOpacity(0.15)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.1),
+                        shape: BoxShape.circle),
+                    child: Center(
+                      child: Text(
+                        (u['name'] as String).isNotEmpty
+                            ? (u['name'] as String)[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                            color: Color(0xFFE6A817),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(u['name']?.toString() ?? 'Unknown',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isDark
+                                ? Colors.white
+                                : Colors.black87)),
+                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text('$bal pts',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            color: Color(0xFFE6A817))),
+                    Text('≈ ₹${(bal / 10).toStringAsFixed(0)}',
+                        style: const TextStyle(
+                            fontSize: 10, color: Colors.grey)),
+                  ]),
+                ]),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: fraction.toDouble(),
+                    backgroundColor:
+                        Colors.amber.withOpacity(0.1),
+                    valueColor: const AlwaysStoppedAnimation(
+                        Color(0xFFE6A817)),
+                    minHeight: 5,
+                  ),
+                ),
+              ]),
+            );
+          }),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _rewardSummaryCol(String label, String value, Color color) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label,
+          style: const TextStyle(
+              fontSize: 8,
+              color: Colors.white54,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1)),
+      const SizedBox(height: 6),
+      Text(value,
+          style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+              color: color,
+              height: 1.3)),
+    ]);
   }
 }

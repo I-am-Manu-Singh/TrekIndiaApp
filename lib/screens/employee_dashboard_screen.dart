@@ -146,26 +146,51 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
           const SizedBox(width: 20),
         ],
       ),
-      body: SingleChildScrollView(
+     body: SingleChildScrollView(
+  child: Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: 1280,
+      ),
+      child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             _buildAttendanceHero(),
             const SizedBox(height: 32),
-            _buildStaffAnalytics(), // TRIP RELOCATION: Moved from Profile
+
+            _buildStaffAnalytics(),
+
             const SizedBox(height: 32),
+
             _buildPerformanceInsights(),
+
             const SizedBox(height: 32),
+
             const Align(
               alignment: Alignment.centerLeft,
-              child: Text('DASHBOARD CONTROLS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+              child: Text(
+                'DASHBOARD CONTROLS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.grey,
+                  letterSpacing: 1.5,
+                ),
+              ),
             ),
+
             const SizedBox(height: 16),
+
             _buildDashboardGrid(),
+
             const SizedBox(height: 40),
           ],
         ),
       ),
+    ),
+  ),
+),
     );
   }
 
@@ -233,28 +258,134 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     );
   }
 
-  Widget _buildDashboardGrid() {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 0.9,
-      children: [
-        _dashboardCard('Trip\nSettlements', Icons.account_balance_wallet_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/payment_ledger')),
-        _dashboardCard('Assigned\nGroups', Icons.groups_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/employee_groups')),
-        _dashboardCard('Attendance\nRecord', Icons.event_note_outlined, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const MyAttendanceScreen()))),
-        _dashboardCard('Trip\nTasks', Icons.assignment_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/employee_tasks')),
+ Widget _buildDashboardGrid() {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      int columns;
+
+      if (constraints.maxWidth >= 1400) {
+        columns = 5;
+      } else if (constraints.maxWidth >= 1100) {
+        columns = 4;
+      } else if (constraints.maxWidth >= 700) {
+        columns = 3;
+      } else {
+        columns = 2;
+      }
+
+      final cards = <Widget>[
+        _dashboardCard(
+          'Trip\nSettlements',
+          Icons.account_balance_wallet_outlined,
+          Colors.red.shade100,
+          Colors.red,
+          () => Navigator.pushNamed(context, '/payment_ledger'),
+        ),
+
+        _dashboardCard(
+          'Assigned\nGroups',
+          Icons.groups_outlined,
+          Colors.red.shade100,
+          Colors.red,
+          () => Navigator.pushNamed(context, '/employee_groups'),
+        ),
+
+        _dashboardCard(
+          'Attendance\nRecord',
+          Icons.event_note_outlined,
+          Colors.red.shade100,
+          Colors.red,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (c) => const MyAttendanceScreen(),
+            ),
+          ),
+        ),
+
+        _dashboardCard(
+          'Trip\nTasks',
+          Icons.assignment_outlined,
+          Colors.red.shade100,
+          Colors.red,
+          () => Navigator.pushNamed(
+            context,
+            '/employee_tasks',
+          ),
+        ),
+
         if (_employeeData?['can_manage_trips'] == true)
-          _dashboardCard('Manage\nPackages', Icons.redeem, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminPackageManagementScreen()))),
+          _dashboardCard(
+            'Manage\nPackages',
+            Icons.redeem,
+            Colors.red.shade100,
+            Colors.red,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (c) =>
+                    const AdminPackageManagementScreen(),
+              ),
+            ),
+          ),
+
         if (_employeeData?['can_broadcast'] == true)
-          _dashboardCard('Broadcast\nAlerts', Icons.campaign_outlined, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminBroadcastScreen()))),
-        _dashboardCard('Official\nHandbook', Icons.menu_book_outlined, Colors.red.shade100, Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PolicyHandbookScreen()))),
-        _dashboardCard('Salary\nBreakup', Icons.payments_outlined, Colors.red.shade100, Colors.red, () => Navigator.pushNamed(context, '/salary_breakup')),
-      ],
-    );
-  }
+          _dashboardCard(
+            'Broadcast\nAlerts',
+            Icons.campaign_outlined,
+            Colors.red.shade100,
+            Colors.red,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (c) =>
+                    const AdminBroadcastScreen(),
+              ),
+            ),
+          ),
+
+        _dashboardCard(
+          'Official\nHandbook',
+          Icons.menu_book_outlined,
+          Colors.red.shade100,
+          Colors.red,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (c) =>
+                  const PolicyHandbookScreen(),
+            ),
+          ),
+        ),
+
+        _dashboardCard(
+          'Salary\nBreakup',
+          Icons.payments_outlined,
+          Colors.red.shade100,
+          Colors.red,
+          () => Navigator.pushNamed(
+            context,
+            '/salary_breakup',
+          ),
+        ),
+      ];
+
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: cards.length,
+        gridDelegate:
+            SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.1,
+        ),
+        itemBuilder: (_, index) => cards[index],
+      );
+    },
+  );
+}
 
   void _showPlaceholder(String title) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title is currently offline. trekwithmussafirr will release updates soon.')));
@@ -422,23 +553,50 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             ),
             const SizedBox(height: 32),
             // Grid Shimmer
-            GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              children: List.generate(6, (i) => Container(
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ShimmerBlock(width: 30, height: 30, shape: BoxShape.circle),
-                    SizedBox(height: 8),
-                    ShimmerBlock(width: 40, height: 8),
-                  ],
-                ),
-              )),
-            ),
+           LayoutBuilder(
+  builder: (context, constraints) {
+    int columns;
+
+    if (constraints.maxWidth >= 1400) {
+      columns = 5;
+    } else if (constraints.maxWidth >= 1100) {
+      columns = 4;
+    } else if (constraints.maxWidth >= 700) {
+      columns = 3;
+    } else {
+      columns = 2;
+    }
+
+    return GridView.count(
+      crossAxisCount: columns,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      children: List.generate(
+        6,
+        (i) => Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ShimmerBlock(
+                width: 30,
+                height: 30,
+                shape: BoxShape.circle,
+              ),
+              SizedBox(height: 8),
+              ShimmerBlock(width: 40, height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  },
+),
           ],
         ),
       ),

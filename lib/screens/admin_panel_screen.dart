@@ -130,28 +130,72 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       ),
       body: _isLoading ? _buildAdminShimmer() : RefreshIndicator(
         onRefresh: _loadData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20),
-          child: Column(
+       child: SingleChildScrollView(
+  physics: const AlwaysScrollableScrollPhysics(),
+  child: Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: 1280,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('OVERVIEW', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
               const SizedBox(height: 16),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 15,
-                crossAxisSpacing: 15,
-                childAspectRatio: 1.3,
-                children: [
-                  _overviewCard('BOOKINGS', '$_totalBookings', Icons.assignment_outlined, [const Color(0xFF1976D2), const Color(0xFF42A5F5)]),
-                  _overviewCard('REVENUE', '₹${(_totalRevenue / 1000).toStringAsFixed(1)}K', Icons.account_balance_wallet_outlined, [const Color(0xFFD32F2F), const Color(0xFFB71C1C)]),
-                  _overviewCard('STAFF', '$_staffCount', Icons.badge_outlined, [const Color(0xFF6A1B9A), const Color(0xFFAB47BC)]),
-                  _overviewCard('COMPLAINTS', '$_activeReports', Icons.warning_amber_rounded, [const Color(0xFFC62828), const Color(0xFFEF5350)]),
-                ],
-              ),
+          LayoutBuilder(
+  builder: (context, constraints) {
+    final columns = constraints.maxWidth > 1100 ? 4 : 2;
+
+    return GridView.count(
+      crossAxisCount: columns,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 15,
+      crossAxisSpacing: 15,
+      childAspectRatio: 1.4,
+      children: [
+        _overviewCard(
+          'BOOKINGS',
+          '$_totalBookings',
+          Icons.assignment_outlined,
+          [
+            const Color(0xFF1976D2),
+            const Color(0xFF42A5F5)
+          ],
+        ),
+        _overviewCard(
+          'REVENUE',
+          '₹${(_totalRevenue / 1000).toStringAsFixed(1)}K',
+          Icons.account_balance_wallet_outlined,
+          [
+            const Color(0xFFD32F2F),
+            const Color(0xFFB71C1C)
+          ],
+        ),
+        _overviewCard(
+          'STAFF',
+          '$_staffCount',
+          Icons.badge_outlined,
+          [
+            const Color(0xFF6A1B9A),
+            const Color(0xFFAB47BC)
+          ],
+        ),
+        _overviewCard(
+          'COMPLAINTS',
+          '$_activeReports',
+          Icons.warning_amber_rounded,
+          [
+            const Color(0xFFC62828),
+            const Color(0xFFEF5350)
+          ],
+        ),
+      ],
+    );
+  },
+),
               const SizedBox(height: 32),
               _buildRevenueStatus(),
               const SizedBox(height: 32),
@@ -165,6 +209,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           ),
         ),
       ),
+  ),
+       ),
+       ),
     );
   }
 
@@ -357,28 +404,168 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   }
 
   Widget _buildDashboardGrid() {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 0.9,
-      children: [
-        _dashboardCard('Bookings', Icons.groups_outlined, const Color(0xFFFFEBEE), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminBookingsScreen()))),
-        _dashboardCard('Rentals', Icons.inventory_2_outlined, const Color(0xFFFFEBEE), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminRentalTrackingScreen()))),
-        _dashboardCard('Finance\nHub', Icons.account_balance_wallet_outlined, const Color(0xFFFFEBEE), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminFinanceHubScreen()))),
-        _dashboardCard('Staff\nDirectory', Icons.badge_outlined, const Color(0xFFFFEBEE), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminEmployeeManagementScreen()))),
-        _dashboardCard('Staff\nTasks', Icons.assignment_outlined, const Color(0xFFE3F2FD), Colors.blue, () => Navigator.pushNamed(context, '/admin_tasks')),
-        _dashboardCard('Support\nHub', Icons.speed_outlined, const Color(0xFFFFF8E1), Colors.amber, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminSupportInquiriesScreen()))),
-        _dashboardCard('Blogs\nManagement', Icons.description_outlined, const Color(0xFFEFEBE9), Colors.brown, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const BlogsScreen()))),
-        _dashboardCard('Gear\nHub', Icons.warehouse_outlined, const Color(0xFFE0F7FA), Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminRentalTrackingScreen()))),
-        _dashboardCard('Manage\nPackages', Icons.redeem, const Color(0xFFE0F7FA), Colors.cyan, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminPackageManagementScreen()))),
-        _dashboardCard('Broadcast', Icons.campaign_outlined, const Color(0xFFFCE4EC), Colors.pink, () => Navigator.pushNamed(context, '/admin_broadcast')),
-        _dashboardCard('Rewards\nPoints', Icons.card_giftcard, const Color(0xFFE8F5E9), Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminRewardsScreen()))),
-      ],
-    );
+  final width = MediaQuery.of(context).size.width;
+
+  int columns;
+  if (width >= 1400) {
+    columns = 5;
+  } else if (width >= 1100) {
+    columns = 4;
+  } else if (width >= 700) {
+    columns = 3;
+  } else {
+    columns = 2;
   }
+
+  final cards = [
+    _dashboardCard(
+      'Bookings',
+      Icons.groups_outlined,
+      const Color(0xFFFFEBEE),
+      Colors.red,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) => const AdminBookingsScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Rentals',
+      Icons.inventory_2_outlined,
+      const Color(0xFFFFEBEE),
+      Colors.red,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) => const AdminRentalTrackingScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Finance\nHub',
+      Icons.account_balance_wallet_outlined,
+      const Color(0xFFFFEBEE),
+      Colors.red,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) => const AdminFinanceHubScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Staff\nDirectory',
+      Icons.badge_outlined,
+      const Color(0xFFFFEBEE),
+      Colors.red,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) =>
+              const AdminEmployeeManagementScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Staff\nTasks',
+      Icons.assignment_outlined,
+      const Color(0xFFE3F2FD),
+      Colors.blue,
+      () => Navigator.pushNamed(
+        context,
+        '/admin_tasks',
+      ),
+    ),
+    _dashboardCard(
+      'Support\nHub',
+      Icons.speed_outlined,
+      const Color(0xFFFFF8E1),
+      Colors.amber,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) =>
+              const AdminSupportInquiriesScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Blogs\nManagement',
+      Icons.description_outlined,
+      const Color(0xFFEFEBE9),
+      Colors.brown,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) => const BlogsScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Gear\nHub',
+      Icons.warehouse_outlined,
+      const Color(0xFFE0F7FA),
+      Colors.cyan,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) =>
+              const AdminRentalTrackingScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Manage\nPackages',
+      Icons.redeem,
+      const Color(0xFFE0F7FA),
+      Colors.cyan,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) =>
+              const AdminPackageManagementScreen(),
+        ),
+      ),
+    ),
+    _dashboardCard(
+      'Broadcast',
+      Icons.campaign_outlined,
+      const Color(0xFFFCE4EC),
+      Colors.pink,
+      () => Navigator.pushNamed(
+        context,
+        '/admin_broadcast',
+      ),
+    ),
+    _dashboardCard(
+      'Rewards\nPoints',
+      Icons.card_giftcard,
+      const Color(0xFFE8F5E9),
+      Colors.green,
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) =>
+              const AdminRewardsScreen(),
+        ),
+      ),
+    ),
+  ];
+
+  return GridView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: cards.length,
+    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.15,
+    ),
+    itemBuilder: (_, index) => cards[index],
+  );
+}
 
   Widget _dashboardCard(String label, IconData icon, Color bgColor, Color iconColor, VoidCallback onTap) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

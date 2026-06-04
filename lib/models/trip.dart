@@ -111,6 +111,7 @@ class Trip {
   final String? termsConditions;
   final String? cancellationPolicy;
   final String? travelerFormUrl;
+  final int rewardPoints;
 
   Trip({
     required this.id,
@@ -148,6 +149,7 @@ class Trip {
     this.termsConditions,
     this.cancellationPolicy,
     this.travelerFormUrl,
+    this.rewardPoints = 0,
   });
 
   double get discountedPrice {
@@ -216,6 +218,7 @@ class Trip {
       termsConditions: json['terms_conditions']?.toString(),
       cancellationPolicy: json['cancellation_policy']?.toString(),
       travelerFormUrl: json['traveler_form_url']?.toString(),
+      rewardPoints: int.tryParse((json['reward_points'] ?? 0).toString()) ?? 0,
     );
   }
 

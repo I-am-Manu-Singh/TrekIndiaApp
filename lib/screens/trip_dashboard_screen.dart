@@ -158,7 +158,7 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
       ) : null,
       body: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: kIsWeb ? 800 : double.infinity),
+          constraints: BoxConstraints(maxWidth: kIsWeb ? 1400 : double.infinity),
           child: _isLoading
               ? _buildDashboardShimmer()
               : RefreshIndicator(
@@ -170,90 +170,107 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
                       const SizedBox(height: 22),
                       const Text('EXPLORER HUD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
                       const SizedBox(height: 16),
-                      GridView.count(
-                        crossAxisCount: 3,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        children: [
-                          _hubItem(
-                            Icons.auto_stories_outlined,
-                            'Blogs',
-                            Colors.orange,
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (c) =>
-                                    const BlogsScreen(onlyMyBlogs: true),
-                              ),
-                            ),
-                          ),
-                          _hubItem(
-                            Icons.map_outlined,
-                            'Journeys',
-                            Colors.blue,
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (c) => const MyTripsScreen(),
-                              ),
-                            ),
-                          ),
-                          _hubItem(
-                            Icons.shopping_bag_outlined,
-                            'Rentals',
-                            Colors.deepPurple,
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (c) => const UserGearRentalScreen(),
-                              ),
-                            ),
-                          ),
-                          _hubItem(
-                            Icons.report_problem_outlined,
-                            'Support',
-                            Colors.red,
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (c) => const UserSupportScreen(),
-                              ),
-                            ),
-                          ),
-                          _hubItem(
-                            Icons.fitness_center,
-                            'Training',
-                            Colors.green,
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (c) => const TripTrainingHub(),
-                              ),
-                            ),
-                          ),
-                          if (_role != 'user')
+                     LayoutBuilder(
+  builder: (context, constraints) {
+    int columns;
+
+    if (constraints.maxWidth >= 1400) {
+      columns = 5;
+    } else if (constraints.maxWidth >= 1100) {
+      columns = 4;
+    } else if (constraints.maxWidth >= 700) {
+      columns = 3;
+    } else {
+      columns = 2;
+    }
+
+    return GridView.count(
+      crossAxisCount: columns,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+     childAspectRatio: kIsWeb ? 1.35 : 1.0,
+      children: [
                             _hubItem(
-                              Icons.account_balance_outlined,
-                              'trekwithmussafirr Payroll',
-                              Colors.indigo,
-                              () => Navigator.pushNamed(context, '/salary_breakup'),
+                              Icons.auto_stories_outlined,
+                              'Blogs',
+                              Colors.orange,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (c) =>
+                                      const BlogsScreen(onlyMyBlogs: true),
+                                ),
+                              ),
                             ),
                             _hubItem(
-                            Icons.badge_outlined,
-                            'Achievements',
-                            Colors.amber,
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (c) => const AchievementsScreen(),
+                              Icons.map_outlined,
+                              'Journeys',
+                              Colors.blue,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (c) => const MyTripsScreen(),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
+                            _hubItem(
+                              Icons.shopping_bag_outlined,
+                              'Rentals',
+                              Colors.deepPurple,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (c) => const UserGearRentalScreen(),
+                                ),
+                              ),
+                            ),
+                            _hubItem(
+                              Icons.report_problem_outlined,
+                              'Support',
+                              Colors.red,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (c) => const UserSupportScreen(),
+                                ),
+                              ),
+                            ),
+                            _hubItem(
+                              Icons.fitness_center,
+                              'Training',
+                              Colors.green,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (c) => const TripTrainingHub(),
+                                ),
+                              ),
+                            ),
+                            if (_role != 'user')
+                              _hubItem(
+                                Icons.account_balance_outlined,
+                                'trekwithmussafirr Payroll',
+                                Colors.indigo,
+                                () => Navigator.pushNamed(context, '/salary_breakup'),
+                              ),
+                              _hubItem(
+                              Icons.badge_outlined,
+                              'Achievements',
+                              Colors.amber,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (c) => const AchievementsScreen(),
+                                ),
+                              ),
+                            ),
+                          ],
+    );
+  },
+),
+const SizedBox(height: 28),
                       const Text('UPCOMING ADVENTURES', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5, color: Colors.grey)),
                       if (_activeBookings.isEmpty) _emptyTripsCard()
                       else ..._activeBookings.map((b) => _tripCard(b)).toList(),
@@ -264,6 +281,7 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
       ),
     );
   }
+
 
   Widget _buildWalletCard() {
     return Container(
@@ -578,24 +596,52 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
           const SizedBox(height: 32),
           const ShimmerBlock(width: 100, height: 12),
           const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            children: List.generate(6, (i) => Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ShimmerBlock(width: 30, height: 30, shape: BoxShape.circle),
-                  SizedBox(height: 8),
-                  ShimmerBlock(width: 40, height: 8),
-                ],
-              ),
-            )),
+          LayoutBuilder(
+  builder: (context, constraints) {
+    int columns;
+
+    if (constraints.maxWidth >= 1400) {
+      columns = 5;
+    } else if (constraints.maxWidth >= 1100) {
+      columns = 4;
+    } else if (constraints.maxWidth >= 700) {
+      columns = 3;
+    } else {
+      columns = 2;
+    }
+
+    return GridView.count(
+      crossAxisCount: columns,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+      childAspectRatio: 1.15,
+      children: List.generate(
+        6,
+        (i) => Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
           ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ShimmerBlock(
+                width: 30,
+                height: 30,
+                shape: BoxShape.circle,
+              ),
+              SizedBox(height: 8),
+              ShimmerBlock(width: 40, height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  },
+),
           const SizedBox(height: 32),
           const ShimmerBlock(width: 150, height: 12),
           const SizedBox(height: 16),
