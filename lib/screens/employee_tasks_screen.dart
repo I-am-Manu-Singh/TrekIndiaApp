@@ -190,140 +190,145 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : Column(
-            children: [
-              // Fixed Stats Section
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFD32F2F), Color(0xFFB71C1C), Color(0xFF880E4F)],
-                  ),
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))
-                  ]
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        _topStatItem('PENDING', pending, Colors.orangeAccent),
-                        _topStatItem('ACTIVE', active, Colors.blueAccent),
-                        _topStatItem('DONE', done, Colors.greenAccent),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
+        : Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                children: [
+                  // Fixed Stats Section
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFD32F2F), Color(0xFFB71C1C), Color(0xFF880E4F)],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))
+                      ]
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            _topStatItem('PENDING', pending, Colors.orangeAccent),
+                            _topStatItem('ACTIVE', active, Colors.blueAccent),
+                            _topStatItem('DONE', done, Colors.greenAccent),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('TOTAL EFFICIENCY', style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                              Text('${(percent * 100).toInt()}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('TOTAL EFFICIENCY', style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                                  Text('${(percent * 100).toInt()}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: percent,
+                                  backgroundColor: Colors.white12,
+                                  color: Colors.white,
+                                  minHeight: 4,
+                                ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: percent,
-                              backgroundColor: Colors.white12,
-                              color: Colors.white,
-                              minHeight: 4,
-                            ),
-                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Search Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    child: Container(
+                      height: 45,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                      ),
+                      child: TextField(
+                        onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Search tasks...',
+                          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                          border: InputBorder.none,
+                          icon: Icon(Icons.search, size: 18, color: Colors.grey.shade400),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Tabs
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        indicator: BoxDecoration(
+                          borderRadius: BorderRadius.circular(25),
+                          color: isDark ? Colors.blueAccent : Colors.black,
+                        ),
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.grey,
+                        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                        dividerColor: Colors.transparent,
+                        tabs: const [
+                          Tab(text: 'PENDING'),
+                          Tab(text: 'ACTIVE'),
+                          Tab(text: 'DONE'),
+                          Tab(text: 'ALL'),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                child: Container(
-                  height: 45,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                   ),
-                  child: TextField(
-                    onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Search tasks...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                      border: InputBorder.none,
-                      icon: Icon(Icons.search, size: 18, color: Colors.grey.shade400),
+
+                  const SizedBox(height: 8),
+
+                  // Task List Content
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildTaskList('Pending'),
+                        _buildTaskList('In Progress'),
+                        _buildTaskList('Completed'),
+                        _buildTaskList('All'),
+                      ],
                     ),
                   ),
-                ),
+                ],
               ),
-
-              const SizedBox(height: 8),
-
-              // Tabs
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    indicator: BoxDecoration(
-                      borderRadius: BorderRadius.circular(25),
-                      color: isDark ? Colors.blueAccent : Colors.black,
-                    ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.grey,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    dividerColor: Colors.transparent,
-                    tabs: const [
-                      Tab(text: 'PENDING'),
-                      Tab(text: 'ACTIVE'),
-                      Tab(text: 'DONE'),
-                      Tab(text: 'ALL'),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Task List Content
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildTaskList('Pending'),
-                    _buildTaskList('In Progress'),
-                    _buildTaskList('Completed'),
-                    _buildTaskList('All'),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
       floatingActionButton: _myRole == 'admin' ? FloatingActionButton(
         onPressed: _showCreateTask,

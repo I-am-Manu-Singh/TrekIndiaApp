@@ -129,19 +129,24 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
-          : Column(
-              children: [
-                _buildHeaderStats(),
-                Expanded(
-                  child: _tripGroups.isEmpty 
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(24),
-                        itemCount: _tripGroups.length,
-                        itemBuilder: (context, index) => _buildGroupCard(_tripGroups[index]),
-                      ),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Column(
+                  children: [
+                    _buildHeaderStats(),
+                    Expanded(
+                      child: _tripGroups.isEmpty 
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(24),
+                            itemCount: _tripGroups.length,
+                            itemBuilder: (context, index) => _buildGroupCard(_tripGroups[index]),
+                          ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
     );
   }
