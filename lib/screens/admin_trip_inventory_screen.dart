@@ -459,6 +459,27 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
     );
   }
 
+  Widget _actionChip({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isDark ? color.withOpacity(0.12) : color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -479,12 +500,18 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // CSV Import/Export
-          IconButton(
-            icon: const Icon(Icons.table_chart_outlined),
-            tooltip: 'Import / Export CSV',
+          // Clearly labeled Import/Export button
+          TextButton.icon(
             onPressed: _showImportExportMenu,
+            icon: const Icon(Icons.table_chart, color: Colors.white, size: 18),
+            label: const Text('Import / Export', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            ),
           ),
+          const SizedBox(width: 8),
           // Add new trip
           IconButton(
             icon: const Icon(Icons.add_box_outlined),
@@ -534,6 +561,34 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
               )).toList(),
+            ),
+          ),
+          // ── Bulk action strip (always visible) ──────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                _actionChip(
+                  icon: Icons.table_chart,
+                  label: 'Export Excel',
+                  color: Colors.green.shade700,
+                  onTap: _exportXlsx,
+                ),
+                const SizedBox(width: 8),
+                _actionChip(
+                  icon: Icons.download_outlined,
+                  label: 'Export CSV',
+                  color: Colors.teal,
+                  onTap: _exportCsv,
+                ),
+                const SizedBox(width: 8),
+                _actionChip(
+                  icon: Icons.upload_file_outlined,
+                  label: 'Import CSV',
+                  color: Colors.blue,
+                  onTap: _importCsv,
+                ),
+              ],
             ),
           ),
           // Trip list

@@ -317,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Theme.of(context).primaryColor,
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
-        title: const Text('trekwithmussafirr', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+        title: const Text('TREK WITH MUSSAFIRR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
         centerTitle: false,
         background: Stack(
           fit: StackFit.expand,
@@ -487,7 +487,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildWebHeader(context),
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1100),
@@ -1442,7 +1441,7 @@ void _showAnnouncementsScreen() {
 
     final String appBarTitle;
     if (_user == null) {
-      appBarTitle = 'trekwithmussafirr';
+      appBarTitle = 'TREK WITH MUSSAFIRR';
     } else {
       final name = _userName ?? 'Explorer';
       if (_userRole == 'admin') {
@@ -1513,6 +1512,10 @@ void _showAnnouncementsScreen() {
         : null,
       body: Column(
         children: [
+          // ── Sticky web header (always visible on web, outside scroll) ──────
+          if (kIsWeb && MediaQuery.of(context).size.width > 900)
+            _buildWebHeader(context),
+          // ── Offline banner ────────────────────────────────────────────────
           if (_isOffline)
             Container(
               color: Colors.redAccent,
@@ -1537,13 +1540,17 @@ void _showAnnouncementsScreen() {
                 ],
               ),
             ),
+          // ── Back breadcrumb bar for non-home web tabs ─────────────────────
+          if (kIsWeb && _selectedIndex != 0 && MediaQuery.of(context).size.width > 900)
+            _buildWebBreadcrumb(context, pages),
+          // ── Page content ──────────────────────────────────────────────────
           Expanded(
-            child: _isLoading 
-              ? _buildHomeShimmer()
-              : IndexedStack(
-                  index: _selectedIndex,
-                  children: pages,
-                ),
+            child: _isLoading
+                ? _buildHomeShimmer()
+                : IndexedStack(
+                    index: _selectedIndex,
+                    children: pages,
+                  ),
           ),
         ],
       ),
@@ -1563,6 +1570,71 @@ void _showAnnouncementsScreen() {
           unselectedLabelStyle: const TextStyle(fontSize: 10),
           items: navItems,
         ),
+      ),
+    );
+  }
+
+  /// Breadcrumb bar shown on web when a non-home tab is active.
+  /// Shows current tab name + a ← Back to Explore button.
+  Widget _buildWebBreadcrumb(BuildContext context, List<Widget> pages) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tabLabels = _user == null
+        ? ['Explore']
+        : (_userRole == 'admin'
+            ? ['Explore', 'Chats', 'Admin Panel', 'Account']
+            : (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide'
+                ? ['Explore', 'Chats', 'Dashboard', 'Account']
+                : ['Explore', 'Chats', 'Dashboard', 'Account']));
+    final currentLabel = (_selectedIndex < tabLabels.length)
+        ? tabLabels[_selectedIndex]
+        : 'Screen';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF09090B) : Colors.grey.shade50,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? Colors.white10 : Colors.grey.shade200,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Back button
+          InkWell(
+            onTap: () => setState(() => _selectedIndex = 0),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD32F2F).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFD32F2F).withOpacity(0.2)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_back_ios_new_rounded, size: 12, color: Color(0xFFD32F2F)),
+                  SizedBox(width: 6),
+                  Text('Explore', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD32F2F))),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(Icons.chevron_right, size: 16, color: isDark ? Colors.white38 : Colors.grey),
+          const SizedBox(width: 6),
+          Text(
+            currentLabel,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1791,7 +1863,7 @@ void _showAnnouncementsScreen() {
     
     final String displayTitle;
     if (_user == null) {
-      displayTitle = 'trekwithmussafirr';
+      displayTitle = 'TREK WITH MUSSAFIRR';
     } else {
       final name = _userName ?? 'Explorer';
       if (_userRole == 'admin') {
@@ -1855,28 +1927,62 @@ void _showAnnouncementsScreen() {
                   child: const Text('Login / Register', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 )
               else ...[
-                _notificationBadge(iconColor: const Color(0xFFD32F2F)),
-                const SizedBox(width: 10),
-                IconButton(
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Log Out?'),
-                        content: const Text('Are you sure you want to end your current session?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Log Out', style: TextStyle(color: Colors.redAccent))),
-                        ],
-                      ),
-                    );
-                    if (confirmed == true) {
-                      await Supabase.instance.client.auth.signOut();
-                    }
-                  },
-                  icon: const Icon(Icons.logout, color: Color(0xFFD32F2F)),
-                  tooltip: 'Log Out',
-                ),
+              Container(
+decoration: BoxDecoration(
+  color: const Color(0xFFD32F2F).withOpacity(0.08),
+  shape: BoxShape.circle,
+  border: Border.all(
+    color: const Color(0xFFD32F2F).withOpacity(0.15),
+  ),
+),
+  child: _notificationBadge(
+    iconColor: const Color(0xFFD32F2F),
+  ),
+),
+
+const SizedBox(width: 16),
+
+Container(
+  decoration: BoxDecoration(
+    color: const Color(0xFFD32F2F).withOpacity(0.08),
+    shape: BoxShape.circle,
+  ),
+  child: IconButton(
+    onPressed: () async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Log Out?'),
+          content: const Text(
+            'Are you sure you want to end your current session?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                'Log Out',
+                style: TextStyle(color: Colors.redAccent),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        await Supabase.instance.client.auth.signOut();
+      }
+    },
+    icon: const Icon(
+      Icons.logout_rounded,
+      color: Color(0xFFD32F2F),
+    ),
+    tooltip: 'Log Out',
+  ),
+),
               ],
             ],
           ),
@@ -1995,11 +2101,11 @@ void _showAnnouncementsScreen() {
                   children: [
                     const Text('Contact Us', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    Text('Email: info@trekwithmussafirr.com', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    Text('Email: trekwithmussafirr@gmail.com', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                     const SizedBox(height: 6),
                     Text('Phone: +91 9876543210', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                     const SizedBox(height: 6),
-                    Text('Address: Manali, Himachal Pradesh, India', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    Text('Address: Dehradun, India', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                   ],
                 ),
               ),
@@ -2009,7 +2115,7 @@ void _showAnnouncementsScreen() {
           const Divider(color: Colors.white10),
           const SizedBox(height: 15),
           Text(
-            '© ${DateTime.now().year} trekwithmussafirr. All rights reserved. Managed with pride.',
+            '© ${DateTime.now().year} trekwithmussafirr. All rights reserved. \n Made by Manpreet Singh.',
             style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
           ),
         ],
