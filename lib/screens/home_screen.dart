@@ -735,7 +735,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ─── LEFT COLUMN: Announcements slider ───────────────────────────────
+  // ─── LEFT COLUMN: Announcements slider (Horizontal PageView) ─────────
+  int _updatesPageIndex = 0;
   Widget _buildUpdatesColumn() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: Supabase.instance.client
@@ -768,7 +769,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 10),
             if (items.isEmpty)
               Container(
-                height: 200,
+                height: 110,
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(16),
@@ -777,57 +778,91 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: const Center(child: Text('No updates yet', style: TextStyle(color: Colors.grey, fontSize: 12))),
               )
             else
-              ...items.map((a) {
-                final isUrgent = a['is_urgent'] == true;
-                final color = isUrgent ? Colors.redAccent : Colors.blueAccent;
-                final timeAgo = _timeAgo(a['created_at']);
-                return GestureDetector(
-                  onTap: () => _showFullAnnouncement(a),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF18181B) : color.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: color.withOpacity(0.18)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-                          child: Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign_outlined, color: color, size: 14),
+              StatefulBuilder(
+                builder: (context, setUpdatesState) {
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: 100,
+                        child: PageView.builder(
+                          itemCount: items.length,
+                          onPageChanged: (idx) {
+                            setUpdatesState(() {
+                              _updatesPageIndex = idx;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final a = items[index];
+                            final isUrgent = a['is_urgent'] == true;
+                            final color = isUrgent ? Colors.redAccent : Colors.blueAccent;
+                            final timeAgo = _timeAgo(a['created_at']);
+                            return GestureDetector(
+                              onTap: () => _showFullAnnouncement(a),
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF18181B) : color.withOpacity(0.04),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: color.withOpacity(0.18)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                                      child: Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign_outlined, color: color, size: 14),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(children: [
+                                            Text(isUrgent ? 'URGENT' : 'UPDATE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: color, letterSpacing: 1)),
+                                            const Spacer(),
+                                            Text(timeAgo, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+                                          ]),
+                                          const SizedBox(height: 2),
+                                          Text(a['title'] ?? 'Notice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                          const SizedBox(height: 1),
+                                          Text(a['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, color: isDark ? Colors.white60 : Colors.black54, height: 1.2)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                Text(isUrgent ? 'URGENT' : 'UPDATE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: color, letterSpacing: 1)),
-                                const Spacer(),
-                                Text(timeAgo, style: const TextStyle(fontSize: 9, color: Colors.grey)),
-                              ]),
-                              const SizedBox(height: 4),
-                              Text(a['title'] ?? 'Notice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 2),
-                              Text(a['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: isDark ? Colors.white60 : Colors.black54, height: 1.3)),
-                            ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(items.length, (i) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _updatesPageIndex == i ? const Color(0xFFD32F2F) : Colors.grey.withOpacity(0.3),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+                        )),
+                      ),
+                    ],
+                  );
+                }
+              ),
           ],
         );
       },
     );
   }
 
-  // ─── RIGHT COLUMN: Latest Blog cards ───────────────────────────────
+  // ─── RIGHT COLUMN: Latest Blog cards (Horizontal PageView) ───────────
+  int _blogsPageIndex = 0;
   Widget _buildBlogsColumn() {
     return FutureBuilder<List<dynamic>>(
       future: Supabase.instance.client
@@ -858,17 +893,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 10),
             if (snapshot.connectionState == ConnectionState.waiting)
-              ...List.generate(3, (_) => Container(
-                height: 72,
-                margin: const EdgeInsets.only(bottom: 10),
+              Container(
+                height: 110,
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF18181B) : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(14),
                 ),
-              ))
+                child: const Center(child: CircularProgressIndicator(color: Colors.indigo)),
+              )
             else if (blogs.isEmpty)
               Container(
-                height: 200,
+                height: 110,
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(16),
@@ -877,59 +912,91 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: const Center(child: Text('No blogs yet', style: TextStyle(color: Colors.grey, fontSize: 12))),
               )
             else
-              ...blogs.map((b) {
-                final cover = b['cover_image']?.toString() ?? '';
-                final hasCover = cover.isNotEmpty;
-                final excerpt = b['excerpt']?.toString().isNotEmpty == true
-                    ? b['excerpt'].toString()
-                    : (b['content']?.toString() ?? '').replaceAll(RegExp(r'\s+'), ' ');
-                final timeAgo = _timeAgo(b['created_at']);
+              StatefulBuilder(
+                builder: (context, setBlogsState) {
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: 100,
+                        child: PageView.builder(
+                          itemCount: blogs.length,
+                          onPageChanged: (idx) {
+                            setBlogsState(() {
+                              _blogsPageIndex = idx;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final b = blogs[index];
+                            final cover = b['cover_image']?.toString() ?? '';
+                            final hasCover = cover.isNotEmpty;
+                            final excerpt = b['excerpt']?.toString().isNotEmpty == true
+                                ? b['excerpt'].toString()
+                                : (b['content']?.toString() ?? '').replaceAll(RegExp(r'\s+'), ' ');
+                            final timeAgo = _timeAgo(b['created_at']);
 
-                return GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogsScreen())),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF18181B) : Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
-                      boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
-                    ),
-                    child: Row(
-                      children: [
-                        // Cover thumbnail
-                        ClipRRect(
-                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), bottomLeft: Radius.circular(14)),
-                          child: hasCover
-                              ? Image.network(cover, width: 70, height: 70, fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _blogPlaceholder(isDark))
-                              : _blogPlaceholder(isDark),
+                            return GestureDetector(
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogsScreen())),
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF18181B) : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                                  boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), bottomLeft: Radius.circular(14)),
+                                      child: hasCover
+                                          ? Image.network(cover, width: 70, height: 100, fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => _blogPlaceholder(isDark))
+                                          : _blogPlaceholder(isDark),
+                                    ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(10),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(b['title'] ?? 'Untitled', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.white : Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                            const SizedBox(height: 2),
+                                            Text(excerpt, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                            const SizedBox(height: 2),
+                                            Text(timeAgo, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 8),
+                                      child: Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        // Text
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(b['title'] ?? 'Untitled', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                const SizedBox(height: 3),
-                                Text(excerpt, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                const SizedBox(height: 4),
-                                Text(timeAgo, style: const TextStyle(fontSize: 9, color: Colors.grey)),
-                              ],
-                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(blogs.length, (i) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _blogsPageIndex == i ? Colors.indigo : Colors.grey.withOpacity(0.3),
                           ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+                        )),
+                      ),
+                    ],
+                  );
+                }
+              ),
           ],
         );
       },
@@ -938,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _blogPlaceholder(bool isDark) {
     return Container(
-      width: 70, height: 70,
+      width: 70, height: 100,
       color: isDark ? const Color(0xFF27272A) : Colors.indigo.shade50,
       child: const Icon(Icons.article_outlined, color: Colors.indigo, size: 26),
     );

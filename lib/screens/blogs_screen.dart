@@ -679,8 +679,11 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
 
   Future<void> _toggleUpvote() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-    
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in to upvote stories!')));
+      return;
+    }
+
     final originalStatus = _isUpvoted;
     final originalCount = _upvoteCount;
 
@@ -721,7 +724,10 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
     final msg = _commentCtrl.text.trim();
     if (msg.isEmpty) return;
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in to join the discussion!')));
+      return;
+    }
 
     try {
       setState(() => _isPostingComment = true);

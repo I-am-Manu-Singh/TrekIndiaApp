@@ -1,8 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
 import '../models/trip.dart';
 import '../services/database_service.dart';
+import '../services/xlsx_service.dart';
 import 'edit_trip_screen.dart';
 
 class AdminPackageManagementScreen extends StatefulWidget {
@@ -82,6 +87,151 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download, color: Colors.white),
+            tooltip: 'Export Excel',
+            onPressed: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: Card(child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    CircularProgressIndicator(), SizedBox(width: 16), Text('Building Excel file...'),
+                  ]),
+                ))),
+              );
+              try {
+                final List<List<dynamic>> rows = [
+                  ['id', 'title', 'location', 'category', 'duration', 'base_price', 'discount_percent', 'reward_points', 'difficulty', 'altitude', 'best_months', 'peak_elevation', 'trail_type', 'start_point', 'package_type', 'rating', 'total_distance', 'image_url', 'description']
+                ];
+                for (final trip in _allTrips) {
+                  rows.add([
+                    trip.id,
+                    trip.title,
+                    trip.location,
+                    trip.category,
+                    trip.duration,
+                    trip.basePrice,
+                    trip.discountPercent,
+                    trip.rewardPoints,
+                    trip.difficulty,
+                    trip.altitude,
+                    trip.bestMonths,
+                    trip.peakElevation,
+                    trip.trailType,
+                    trip.startPoint,
+                    trip.packageType,
+                    trip.rating,
+                    trip.totalDistance,
+                    trip.imageUrl,
+                    trip.description.replaceAll('\n', ' '),
+                  ]);
+                }
+                final bytes = XlsxService.buildXlsx(rows);
+                final fileName = 'packages_export_${DateTime.now().millisecondsSinceEpoch}';
+                await FileSaver.instance.saveFile(
+                  name: fileName,
+                  bytes: bytes,
+                  ext: 'xlsx',
+                  mimeType: MimeType.microsoftExcel,
+                );
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('✅ Exported ${_allTrips.length} packages to $fileName.xlsx'), backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e'), backgroundColor: Colors.red));
+                }
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_upload, color: Colors.white),
+            tooltip: 'Import CSV',
+            onPressed: () async {
+              final result = await FilePicker.platform.pickFiles(
+                type: FileType.custom,
+                allowedExtensions: ['csv'],
+                withData: true,
+              );
+              if (result == null || result.files.single.bytes == null) return;
+
+              final bytes = result.files.single.bytes!;
+              final csvString = utf8.decode(bytes, allowMalformed: true);
+              List<List<dynamic>> rows;
+              try {
+                rows = const CsvToListConverter(eol: '\n').convert(csvString);
+              } catch (_) {
+                rows = const CsvToListConverter(eol: '\r\n').convert(csvString);
+              }
+
+              if (rows.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('CSV file is empty.'), backgroundColor: Colors.orange),
+                );
+                return;
+              }
+
+              final headerRow = rows.first.map((h) => h.toString().trim().toLowerCase()).toList();
+              
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: Card(child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    CircularProgressIndicator(), SizedBox(width: 16), Text('Upserting packages...'),
+                  ]),
+                ))),
+              );
+
+              try {
+                final client = Supabase.instance.client;
+                int count = 0;
+                for (int i = 1; i < rows.length; i++) {
+                  final row = rows[i];
+                  if (row.isEmpty || row[0].toString().trim().isEmpty) continue;
+                  
+                  final Map<String, dynamic> data = {};
+                  for (int j = 0; j < headerRow.length; j++) {
+                    if (j < row.length) {
+                      final val = row[j];
+                      final col = headerRow[j];
+                      if (col == 'base_price' || col == 'discount_percent' || col == 'reward_points' || col == 'rating') {
+                        data[col] = num.tryParse(val.toString()) ?? 0;
+                      } else {
+                        data[col] = val.toString();
+                      }
+                    }
+                  }
+                  
+                  if (data['id'] != null && data['id'].toString().isNotEmpty) {
+                    await client.from('trips').upsert(data);
+                  } else {
+                    data.remove('id');
+                    await client.from('trips').insert(data);
+                  }
+                  count++;
+                }
+                
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Successfully upserted $count packages!'), backgroundColor: Colors.green));
+                  _loadTrips();
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e'), backgroundColor: Colors.red));
+                }
+              }
+            },
+          ),
           IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () async {
             final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => const EditTripScreen()));
             if (r == true) _loadTrips();
