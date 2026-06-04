@@ -75,7 +75,7 @@ class ContactHikerScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text(profile['full_name']?.toUpperCase() ?? 'GUEST TRIPKER', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          Text(profile['full_name']?.toUpperCase() ?? 'GUEST TREKKERS', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1)),
           Text(profile['role'] ?? 'TRIP STAFF', style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
           const SizedBox(height: 10),
           Container(

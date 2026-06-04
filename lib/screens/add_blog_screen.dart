@@ -48,7 +48,7 @@ class _AddBlogScreenState extends State<AddBlogScreen> {
       });
       if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('STORY PUBLISHED TO THE TRIPKER DAILY.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('STORY PUBLISHED TO THE TREKKERS DAILY.')));
       }
     } catch (e) {
       if (mounted) {

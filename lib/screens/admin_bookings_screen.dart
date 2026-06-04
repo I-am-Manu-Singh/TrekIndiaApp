@@ -661,7 +661,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
     if (categoryName == null) return 'TRAVELERS';
     final cat = _availableCategories.firstWhereOrNull((c) => c.name == categoryName);
     if (cat != null && cat.badgeLabel != null) {
-      return '${cat.badgeLabel}S'; // e.g. "TRIPKERS", "RIDERS"
+      return '${cat.badgeLabel}S'; // e.g. "TREKKERS", "RIDERS"
     }
     return 'TRAVELERS';
   }

@@ -7,6 +7,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/trip.dart';
 import '../widgets/unified_trip_card.dart';
 import '../services/database_service.dart';
+import '../services/preferences_service.dart';
 import 'profile_screen.dart';
 import 'trip_detail_screen.dart';
 import 'chat_room_list_screen.dart';
@@ -79,10 +80,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   final String _dailyTip = "Pro Tip: Layering is key! Keep a moisture-wicking base layer for high-altitude trips.";
 
+  Future<List<dynamic>>? _blogsFuture;
+  Stream<List<Map<String, dynamic>>>? _announcementsStream;
+
+  void _initBlogsAndAnnouncements() {
+    _blogsFuture = Supabase.instance.client
+        .from('blogs')
+        .select('*')
+        .order('created_at', ascending: false)
+        .limit(4);
+
+    _announcementsStream = Supabase.instance.client
+        .from('global_announcements')
+        .stream(primaryKey: ['id'])
+        .order('is_urgent', ascending: false)
+        .order('created_at', ascending: false)
+        .limit(5);
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _categoryNames.length, vsync: this);
+    _initBlogsAndAnnouncements();
     _handleInitialLoad();
     _checkConnectivity();
     _fetchActiveAlert();
@@ -113,11 +133,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _handleInitialLoad() async {
     try {
+      _initBlogsAndAnnouncements();
       await _loadTrips();
       await Future.wait([
         _fetchCategories(),
         _fetchUserRole(),
       ]);
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await PreferencesService().syncLastReadFromCloud(user.id);
+      }
     } catch (e) {
       debugPrint('CRITICAL LOAD ERROR: $e');
     } finally {
@@ -130,13 +155,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final cats = await _dbService.fetchCategories();
       if (mounted) {
         // Only keep categories that have at least one trip in _allTrips
-        final activeCats = cats.where((c) {
-          final catNameLower = c.name.trim().toLowerCase();
-          return _allTrips.any((t) {
-            final tCatLower = (t.category ?? '').trim().toLowerCase();
+        final List<TripCategory> activeCats = [];
+        final Set<String> seenNames = {};
+        for (final c in cats) {
+          final catName = c.name.trim();
+          final catNameLower = catName.toLowerCase();
+          if (catNameLower.isEmpty || catNameLower == 'all') continue;
+          if (seenNames.contains(catNameLower)) continue;
+          
+          final hasTrips = _allTrips.any((t) {
+            final tCat = (t.category ?? '').trim();
+            if (tCat.isEmpty) return false;
+            final tCatLower = tCat.toLowerCase();
             return tCatLower == catNameLower || tCatLower.contains(catNameLower) || catNameLower.contains(tCatLower);
           });
-        }).toList();
+          
+          if (hasTrips) {
+            activeCats.add(c);
+            seenNames.add(catNameLower);
+          }
+        }
 
         final newNames = ['All', ...activeCats.map((c) => c.name)];
         
@@ -200,6 +238,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       } else {
         baseList = _allTrips.where((t) {
           final tripCat = (t.category ?? '').trim().toLowerCase();
+          if (tripCat.isEmpty) return false;
           final targetCat = _selectedCategory.trim().toLowerCase();
           // Precise match or loose contains
           return tripCat == targetCat || targetCat.contains(tripCat) || tripCat.contains(targetCat);
@@ -748,12 +787,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _updatesPageIndex = 0;
   Widget _buildUpdatesColumn() {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: Supabase.instance.client
-          .from('global_announcements')
-          .stream(primaryKey: ['id'])
-          .order('is_urgent', ascending: false)
-          .order('created_at', ascending: false)
-          .limit(5),
+      stream: _announcementsStream,
       builder: (context, snapshot) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final items = snapshot.data ?? [];
@@ -874,11 +908,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _blogsPageIndex = 0;
   Widget _buildBlogsColumn() {
     return FutureBuilder<List<dynamic>>(
-      future: Supabase.instance.client
-          .from('blogs')
-          .select('*')
-          .order('created_at', ascending: false)
-          .limit(4),
+      future: _blogsFuture,
       builder: (context, snapshot) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final blogs = snapshot.data ?? [];
@@ -936,7 +966,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           },
                           itemBuilder: (context, index) {
                             final b = blogs[index];
-                            final cover = b['cover_image']?.toString() ?? '';
+                            final cover = (b['image_url'] ?? b['cover_image'] ?? '').toString();
                             final hasCover = cover.isNotEmpty;
                             final excerpt = b['excerpt']?.toString().isNotEmpty == true
                                 ? b['excerpt'].toString()

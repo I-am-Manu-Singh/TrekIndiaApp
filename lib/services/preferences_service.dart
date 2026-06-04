@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PreferencesService {
   static final PreferencesService _instance = PreferencesService._internal();
@@ -78,5 +79,57 @@ class PreferencesService {
   Future<bool> getLocationSharing() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('location_sharing_enabled') ?? false;
+  }
+
+  Future<void> syncLastReadFromCloud(String userId) async {
+    try {
+      final client = Supabase.instance.client;
+      final profile = await client.from('profiles').select('last_read_at, created_at, role').eq('id', userId).maybeSingle();
+      if (profile != null) {
+        final lastReadStr = profile['last_read_at'] ?? profile['created_at'];
+        if (lastReadStr != null) {
+          final lastReadTime = DateTime.parse(lastReadStr.toString());
+          final prefs = await SharedPreferences.getInstance();
+          
+          final role = (profile['role'] ?? 'user').toString().toLowerCase();
+          List<String> roomIds = [];
+          if (role == 'admin') {
+            final groups = await client.from('trip_groups').select('id');
+            roomIds = (groups as List).map((g) => g['id'].toString()).toList();
+          } else if (role == 'staff' || role == 'employee' || role == 'guide') {
+            final staffDeployments = await client.from('trip_group_staff').select('trip_id, deployment_date').eq('user_id', userId);
+            if ((staffDeployments as List).isNotEmpty) {
+              final Set<String> tripIds = staffDeployments.map((s) => s['trip_id']?.toString() ?? '').toSet()..removeWhere((id) => id.isEmpty || id == 'null');
+              if (tripIds.isNotEmpty) {
+                final groups = await client.from('trip_groups').select('id, trip_id, departure_date').inFilter('trip_id', tripIds.toList());
+                for (var d in staffDeployments) {
+                  final dTripId = d['trip_id']?.toString();
+                  final dDate = (d['deployment_date'] ?? '').toString().split('T')[0];
+                  for (var g in groups) {
+                    final gTripId = g['trip_id']?.toString();
+                    final gDate = (g['departure_date'] ?? '').toString().split('T')[0];
+                    if (dTripId == gTripId && dDate == gDate) {
+                      roomIds.add(g['id'].toString());
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            final bookings = await client.from('bookings').select('group_id').eq('user_id', userId).not('group_id', 'is', null);
+            roomIds = (bookings as List).map((b) => b['group_id'].toString()).toSet().toList();
+          }
+
+          for (final roomId in roomIds) {
+            final key = 'last_read_$roomId';
+            if (!prefs.containsKey(key)) {
+              await prefs.setString(key, lastReadTime.toIso8601String());
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error syncing last read from cloud: $e');
+    }
   }
 }

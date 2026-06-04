@@ -698,7 +698,7 @@ class _AdminGroupAnalyticsScreenState
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'TRIPKER: ${b['profiles']?['full_name']}',
+                  'TREKKER: ${b['profiles']?['full_name']}',
                   style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87),
                 ),
                 const SizedBox(height: 12),
@@ -1165,7 +1165,7 @@ class _AdminGroupAnalyticsScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('REMOVE TRIPKER?'),
+        title: const Text('REMOVE TREKKER?'),
         content: const Text(
           'This will abort their trip and delete the booking record.',
         ),

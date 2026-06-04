@@ -130,7 +130,7 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
                 }
                 final bytes = XlsxService.buildXlsx(rows);
                 final fileName = 'packages_export_${DateTime.now().millisecondsSinceEpoch}';
-                await FileSaver.instance.saveFile(
+                final path = await FileSaver.instance.saveAs(
                   name: fileName,
                   bytes: bytes,
                   ext: 'xlsx',
@@ -138,9 +138,11 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
                 );
                 if (mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✅ Exported ${_allTrips.length} packages to $fileName.xlsx'), backgroundColor: Colors.green),
-                  );
+                  if (path != null && path.isNotEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('✅ Exported ${_allTrips.length} packages successfully.'), backgroundColor: Colors.green),
+                    );
+                  }
                 }
               } catch (e) {
                 if (mounted) {

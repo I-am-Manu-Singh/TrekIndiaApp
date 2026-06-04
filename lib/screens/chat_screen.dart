@@ -425,7 +425,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   const Icon(Icons.alternate_email, size: 14, color: Color(0xFFD32F2F)),
                   const SizedBox(width: 8),
-                  Text('MENTION TRIPKER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade500, letterSpacing: 1)),
+                  Text('MENTION TREKKER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade500, letterSpacing: 1)),
                 ],
               ),
             ),
@@ -867,7 +867,7 @@ class _MembersListState extends State<_MembersList> {
                 return ListTile(
                   leading: UserAvatar(imageUrl: p['avatar_url'], name: p['full_name'], radius: 20),
                   title: Text(p['full_name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(isGlobalAdmin ? 'trekwithmussafirr Official' : (isLeader ? 'Trip Leader' : 'Tripker'), style: TextStyle(fontSize: 10, color: isGlobalAdmin || isLeader ? Colors.blue : Colors.grey, fontWeight: isLeader ? FontWeight.bold : FontWeight.normal)),
+                  subtitle: Text(isGlobalAdmin ? 'trekwithmussafirr Official' : (isLeader ? 'Trip Leader' : 'TREKKER'), style: TextStyle(fontSize: 10, color: isGlobalAdmin || isLeader ? Colors.blue : Colors.grey, fontWeight: isLeader ? FontWeight.bold : FontWeight.normal)),
                   trailing: isGlobalAdmin ? const Icon(Icons.verified, color: Colors.blue, size: 16) : (isLeader ? const Icon(Icons.star, color: Colors.amber, size: 16) : null),
                 );
               },

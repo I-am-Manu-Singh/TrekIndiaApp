@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import 'chat_screen.dart';
 import 'admin_support_inquiries_screen.dart';
 import '../widgets/unread_badge.dart';
+import '../services/preferences_service.dart';
+import 'dart:async';
+
 class ChatRoomListScreen extends StatefulWidget {
   const ChatRoomListScreen({super.key});
 
@@ -13,19 +16,29 @@ class ChatRoomListScreen extends StatefulWidget {
   State<ChatRoomListScreen> createState() => _ChatRoomListScreenState();
 }
 
-class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
+class _ChatRoomListScreenState extends State<ChatRoomListScreen> with AutomaticKeepAliveClientMixin {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
   List<dynamic> _rooms = [];
+  List<dynamic> _activeRoomsList = [];
+  List<dynamic> _archivedRoomsList = [];
+  Map<String, int> _unreadCounts = {};
   String _role = 'user';
   int _activeTabIndex = 0; // 0 for Active, 1 for Completed (Archived)
   RealtimeChannel? _realtimeChannel;
+  StreamSubscription? _readSubscription;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _initData();
     _setupRealtime();
+    _readSubscription = PreferencesService().readStream.listen((_) {
+      _fetchUnreadCounts();
+    });
   }
 
   void _setupRealtime() {
@@ -48,6 +61,7 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
   @override
   void dispose() {
     _client.removeChannel(_realtimeChannel!);
+    _readSubscription?.cancel();
     super.dispose();
   }
 
@@ -69,9 +83,72 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
     }
   }
 
+  String _getRoomId(dynamic item) {
+    final role = _role.toLowerCase();
+    final group = (['admin', 'staff', 'employee'].contains(role)) ? item : item['trip_groups'];
+    return group?['id']?.toString() ?? '';
+  }
+
+  int get _activeUnreadCount {
+    int sum = 0;
+    for (final room in _activeRoomsList) {
+      sum += _unreadCounts[_getRoomId(room)] ?? 0;
+    }
+    return sum;
+  }
+
+  int get _archivedUnreadCount {
+    return 0; // Do not count unread from archived
+  }
+
+  Future<void> _fetchUnreadCounts() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    try {
+      final allRooms = _activeRoomsList; // Revert archived count
+      final List<String> roomIds = allRooms.map((r) => _getRoomId(r)).where((id) => id.isNotEmpty).toList();
+
+      if (roomIds.isEmpty) {
+        if (mounted) setState(() => _unreadCounts = {});
+        return;
+      }
+
+      final res = await _client
+          .from('chat_messages')
+          .select('room_id, created_at, sender_id')
+          .inFilter('room_id', roomIds)
+          .neq('sender_id', user.id)
+          .order('created_at', ascending: false)
+          .limit(300);
+
+      final messages = res as List;
+      final Map<String, int> counts = {};
+
+      for (final roomId in roomIds) {
+        final lastRead = await PreferencesService().getLastRead(roomId);
+        final roomMessages = messages.where((m) => 
+          m['room_id'].toString() == roomId &&
+          DateTime.parse(m['created_at']).isAfter(lastRead)
+        );
+        counts[roomId] = roomMessages.length;
+      }
+
+      if (mounted) {
+        setState(() {
+          _unreadCounts = counts;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error calculating unread counts: $e');
+    }
+  }
+
   Future<void> _fetchRooms() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    // Non-blocking loader: only show shimmer if list is completely empty
+    if (_activeRoomsList.isEmpty && _archivedRoomsList.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     try {
       final user = _client.auth.currentUser;
       if (user == null) {
@@ -79,14 +156,17 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
         return;
       }
       
-      // We will still fetch initial data but could also use a stream
-      final response = await _getRoomsQuery(user.id);
+      final activeResponse = await _getRoomsQuery(user.id, isActive: true);
+      final archivedResponse = await _getRoomsQuery(user.id, isActive: false);
       
       if (mounted) {
         setState(() {
-          _rooms = response as List<dynamic>;
+          _activeRoomsList = activeResponse as List<dynamic>;
+          _archivedRoomsList = archivedResponse as List<dynamic>;
+          _rooms = _activeTabIndex == 0 ? _activeRoomsList : _archivedRoomsList;
           _isLoading = false;
         });
+        _fetchUnreadCounts();
       }
     } catch (e) {
       debugPrint('Rooms fetch failed: $e');
@@ -94,13 +174,13 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
     }
   }
 
-  Future<dynamic> _getRoomsQuery(String userId) async {
+  Future<dynamic> _getRoomsQuery(String userId, {required bool isActive}) async {
     final role = _role.toLowerCase();
     if (role == 'admin') {
       // Fetch unique trip groups for admins
-      final response = await _client.from('trip_groups').select('*, trips(*)').order('departure_date', ascending: _activeTabIndex == 0);
+      final response = await _client.from('trip_groups').select('*, trips(*)').order('departure_date', ascending: isActive);
       
-      if (_activeTabIndex == 0) {
+      if (isActive) {
         return (response as List).where((g) => g['status']?.toString().toLowerCase() != 'completed').toList();
       } else {
         return (response as List).where((g) => g['status']?.toString().toLowerCase() == 'completed').toList();
@@ -141,24 +221,25 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
       allMatchingGroups.sort((a, b) {
         final dateA = (a['departure_date'] ?? '').toString();
         final dateB = (b['departure_date'] ?? '').toString();
-        return _activeTabIndex == 0 ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
+        return isActive ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
       });
       
-      if (_activeTabIndex == 0) {
+      if (isActive) {
         return allMatchingGroups.where((g) => g['status']?.toString().toLowerCase() != 'completed').toList();
       } else {
         return allMatchingGroups.where((g) => g['status']?.toString().toLowerCase() == 'completed').toList();
       }
     } else {
       final allBookings = await _client.from('bookings').select('status, group_id, trip_groups(*, trips(*))').eq('user_id', userId).not('group_id', 'is', null);
-      if (_activeTabIndex == 0) {
-        return (allBookings as List).where((b) {
+      final List validBookings = (allBookings as List).where((b) => b['trip_groups'] != null).toList();
+      if (isActive) {
+        return validBookings.where((b) {
           final gStatus = b['trip_groups']?['status']?.toString().toLowerCase();
           final bStatus = b['status']?.toString().toLowerCase();
           return gStatus != 'completed' && bStatus != 'completed';
         }).toList();
       } else {
-        return (allBookings as List).where((b) {
+        return validBookings.where((b) {
           final gStatus = b['trip_groups']?['status']?.toString().toLowerCase();
           final bStatus = b['status']?.toString().toLowerCase();
           return gStatus == 'completed' || bStatus == 'completed';
@@ -169,6 +250,7 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -197,7 +279,7 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
           ),
         ),
       ),
-      body: _isLoading 
+      body: _isLoading  
           ? _buildShimmerList()
           : RefreshIndicator(
               onRefresh: _fetchRooms,
@@ -249,6 +331,7 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
 
   Widget _tabItem(int index, String label) {
     bool selected = _activeTabIndex == index;
+    final unreadCount = index == 0 ? _activeUnreadCount : _archivedUnreadCount;
     return GestureDetector(
       onTap: () {
         setState(() => _activeTabIndex = index);
@@ -257,7 +340,26 @@ class _ChatRoomListScreenState extends State<ChatRoomListScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white60, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white60, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
+              if (unreadCount > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$unreadCount',
+                    style: const TextStyle(color: Color(0xFFD32F2F), fontSize: 8, fontWeight: FontWeight.bold, height: 1),
+                  ),
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: 4),
           if (selected) Container(width: 20, height: 2, color: Colors.white),
         ],

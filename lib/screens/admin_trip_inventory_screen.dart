@@ -114,7 +114,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
       }
       final bytes = XlsxService.buildXlsx(rows);
       final fileName = 'trips_export_${DateTime.now().millisecondsSinceEpoch}';
-      await FileSaver.instance.saveFile(
+      final path = await FileSaver.instance.saveAs(
         name: fileName,
         bytes: bytes,
         ext: 'xlsx',
@@ -122,12 +122,14 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
       );
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Exported ${_trips.length} trips to $fileName.xlsx'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (path != null && path.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Exported ${_trips.length} trips successfully.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -171,7 +173,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
       final bytes = Uint8List.fromList(utf8.encode(csvString));
 
       final fileName = 'trips_export_${DateTime.now().millisecondsSinceEpoch}';
-      await FileSaver.instance.saveFile(
+      final path = await FileSaver.instance.saveAs(
         name: fileName,
         bytes: bytes,
         ext: 'csv',
@@ -180,12 +182,14 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
 
       if (mounted) {
         Navigator.pop(context); // dismiss loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Exported ${_trips.length} trips to $fileName.csv'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (path != null && path.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Exported ${_trips.length} trips successfully.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

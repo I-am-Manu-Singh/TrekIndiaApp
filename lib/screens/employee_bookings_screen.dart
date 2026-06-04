@@ -162,7 +162,7 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _statCol('ASSIGNMENTS', '${_tripGroups.length}', Colors.blueAccent),
-          _statCol('TRIPKERS', '${_tripGroups.fold(0, (sum, g) => sum + (g['total_strength'] as int))}', Colors.greenAccent),
+          _statCol('TREKKERS', '${_tripGroups.fold(0, (sum, g) => sum + (g['total_strength'] as int))}', Colors.greenAccent),
         ],
       ),
     );
@@ -224,7 +224,7 @@ class _EmployeeBookingsScreenState extends State<EmployeeBookingsScreen> {
                 children: [
                   const Icon(Icons.groups_outlined, size: 14, color: Colors.blueAccent),
                   const SizedBox(width: 8),
-                  Text('${g['total_strength']} Tripkers Enrolled', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                  Text('${g['total_strength']} Trekkers Enrolled', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
                 ],
               ),
             ),
