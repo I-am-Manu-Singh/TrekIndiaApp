@@ -288,34 +288,39 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
   }
 
   Widget _buildOverviewTab() {
-     return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _buildLiquidityCard(),
-        const SizedBox(height: 32),
-        _buildPerformanceInsights(),
-        const SizedBox(height: 32),
-        const Text('KEY METRICS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
           children: [
-                                _diagnosticCard('Gross Revenue', '₹${(_totalVolume / 1000).toStringAsFixed(1)}K', Icons.analytics),
-            _diagnosticCard('Receivables', '₹${(_receivable / 1000).toStringAsFixed(1)}K', Icons.hourglass_empty, color: Colors.orange),
-            _diagnosticCard('Tax Liability', '₹${(_gstReserve / 1000).toStringAsFixed(1)}K', Icons.gavel_outlined),
-            _diagnosticCard('Weekly Growth', '+${_recentBookingsStats['weekly']}', Icons.trending_up),
+            _buildLiquidityCard(),
+            const SizedBox(height: 32),
+            _buildPerformanceInsights(),
+            const SizedBox(height: 32),
+            const Text('KEY METRICS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+            const SizedBox(height: 16),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.5,
+              children: [
+                _diagnosticCard('Gross Revenue', '₹${(_totalVolume / 1000).toStringAsFixed(1)}K', Icons.analytics),
+                _diagnosticCard('Receivables', '₹${(_receivable / 1000).toStringAsFixed(1)}K', Icons.hourglass_empty, color: Colors.orange),
+                _diagnosticCard('Tax Liability', '₹${(_gstReserve / 1000).toStringAsFixed(1)}K', Icons.gavel_outlined),
+                _diagnosticCard('Weekly Growth', '+${_recentBookingsStats['weekly']}', Icons.trending_up),
+              ],
+            ),
+            const SizedBox(height: 32),
+            const Text('RECENT ACTIVITY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+            const SizedBox(height: 16),
+            ..._logs.take(5).map((l) => _buildLogItem(l)).toList(),
           ],
         ),
-        const SizedBox(height: 32),
-        const Text('RECENT ACTIVITY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
-        const SizedBox(height: 16),
-        ..._logs.take(5).map((l) => _buildLogItem(l)).toList(),
-      ],
+      ),
     );
   }
 
@@ -367,37 +372,47 @@ class _AdminFinanceHubScreenState extends State<AdminFinanceHubScreen> with Sing
   }
 
   Widget _buildTripAnalyticsTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(24),
-      itemCount: _tripsAnalytics.length,
-      itemBuilder: (context, i) {
-        final t = _tripsAnalytics[i];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100)),
-          child: Row(
-            children: [
-               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                 Text(t['title'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
-                 Text('${t['count']} Travellers', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-               ])),
-               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                 Text('₹${t['rev'].toInt()}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.blueAccent)),
-                 const Text('TOTAL REVENUE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
-               ]),
-            ],
-          ),
-        );
-      },
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: _tripsAnalytics.length,
+          itemBuilder: (context, i) {
+            final t = _tripsAnalytics[i];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100)),
+              child: Row(
+                children: [
+                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                     Text(t['title'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
+                     Text('${t['count']} Travellers', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                   ])),
+                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                     Text('₹${t['rev'].toInt()}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.blueAccent)),
+                     const Text('TOTAL REVENUE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
+                   ]),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
   Widget _buildLedgerTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(24),
-      itemCount: _logs.length,
-      itemBuilder: (context, i) => _buildLogItem(_logs[i]),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: _logs.length,
+          itemBuilder: (context, i) => _buildLogItem(_logs[i]),
+        ),
+      ),
     );
   }
 

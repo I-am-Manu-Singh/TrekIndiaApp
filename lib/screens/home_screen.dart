@@ -39,6 +39,7 @@ import 'legal/refund_policy_screen.dart';
 import 'legal/safety_protocols_screen.dart';
 import 'legal/terms_of_service_screen.dart';
 import 'login_screen.dart';
+import 'blogs_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -495,7 +496,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   if (kIsWeb) _buildWebSearchBar(context),
                   _buildCombinedInsights(),
-                  _buildTransportHub(),
                   // CATEGORIES MOVED ABOVE CURATED COLLECTIONS
                   Container(
                     margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
@@ -571,6 +571,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   _buildPackagesSection(), // 👈 ADDED PACKAGES SECTION
                   _buildTripsList(),
+                  _buildTransportHub(), // 🚌 Transport moved to bottom
                 ],
               ),
             ),
@@ -707,19 +708,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildCombinedInsights() {
+    final bool isWide = MediaQuery.of(context).size.width > 700;
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Column(
         children: [
           _buildDailyInsightCard(),
-          const SizedBox(height: 16),
-          _buildAnnouncementsSlider(),
+          const SizedBox(height: 20),
+          // ── Two-column header row ───────────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ─ LEFT: Latest Updates ───────────────────────────
+              Expanded(
+                child: _buildUpdatesColumn(),
+              ),
+              const SizedBox(width: 14),
+              // ─ RIGHT: Latest Blogs ────────────────────────────
+              Expanded(
+                child: _buildBlogsColumn(),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAnnouncementsSlider() {
+  // ─── LEFT COLUMN: Announcements slider ───────────────────────────────
+  Widget _buildUpdatesColumn() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: Supabase.instance.client
           .from('global_announcements')
@@ -728,20 +745,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           .order('created_at', ascending: false)
           .limit(5),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
-        final items = snapshot.data!;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final items = snapshot.data ?? [];
 
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Column header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(width: 3, height: 12, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: const Color(0xFFD32F2F), borderRadius: BorderRadius.circular(2))),
-                    Text(('LATEST UPDATES' ?? 'ADVENTURE').toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 1.5)),
-                  ],
-                ),
+                Row(children: [
+                  Container(width: 3, height: 12, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: const Color(0xFFD32F2F), borderRadius: BorderRadius.circular(2))),
+                  const Text('LATEST UPDATES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 1.5)),
+                ]),
                 GestureDetector(
                   onTap: _showAnnouncementsScreen,
                   child: const Text('VIEW ALL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
@@ -749,73 +766,194 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              height: 100,
-              child: PageView.builder(
-                controller: _announcementController,
-                itemCount: items.length,
-                onPageChanged: (i) => setState(() => _currentAnnouncementPage = i),
-                itemBuilder: (context, index) {
-                  final a = items[index];
-                  final isUrgent = a['is_urgent'] == true;
-                  final color = isUrgent ? Colors.redAccent : Colors.blueAccent;
-
-                  return GestureDetector(
-                    onTap: () => _showFullAnnouncement(a),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: color.withOpacity(0.2)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign_outlined, color: color, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(a['title'] ?? 'IMPORTANT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: color)),
-                                const SizedBox(height: 4),
-                                Expanded(
-                                  child: Text(
-                                    a['content'] ?? '', 
-                                    maxLines: 3, 
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, height: 1.2)
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(items.length, (i) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                width: 6,
-                height: 6,
+            if (items.isEmpty)
+              Container(
+                height: 200,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _currentAnnouncementPage == i ? const Color(0xFFD32F2F) : Colors.grey.withOpacity(0.3),
+                  color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                 ),
-              )),
-            ),
+                child: const Center(child: Text('No updates yet', style: TextStyle(color: Colors.grey, fontSize: 12))),
+              )
+            else
+              ...items.map((a) {
+                final isUrgent = a['is_urgent'] == true;
+                final color = isUrgent ? Colors.redAccent : Colors.blueAccent;
+                final timeAgo = _timeAgo(a['created_at']);
+                return GestureDetector(
+                  onTap: () => _showFullAnnouncement(a),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF18181B) : color.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: color.withOpacity(0.18)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                          child: Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign_outlined, color: color, size: 14),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Text(isUrgent ? 'URGENT' : 'UPDATE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: color, letterSpacing: 1)),
+                                const Spacer(),
+                                Text(timeAgo, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                              ]),
+                              const SizedBox(height: 4),
+                              Text(a['title'] ?? 'Notice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 2),
+                              Text(a['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: isDark ? Colors.white60 : Colors.black54, height: 1.3)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
           ],
         );
       },
     );
+  }
+
+  // ─── RIGHT COLUMN: Latest Blog cards ───────────────────────────────
+  Widget _buildBlogsColumn() {
+    return FutureBuilder<List<dynamic>>(
+      future: Supabase.instance.client
+          .from('blogs')
+          .select('id, title, cover_image, created_at, user_id, excerpt, content')
+          .order('created_at', ascending: false)
+          .limit(4),
+      builder: (context, snapshot) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final blogs = snapshot.data ?? [];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Column header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(children: [
+                  Container(width: 3, height: 12, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: Colors.indigo, borderRadius: BorderRadius.circular(2))),
+                  const Text('TRIP DAILY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.indigo, letterSpacing: 1.5)),
+                ]),
+                GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogsScreen())),
+                  child: const Text('VIEW ALL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              ...List.generate(3, (_) => Container(
+                height: 72,
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF18181B) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ))
+            else if (blogs.isEmpty)
+              Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                ),
+                child: const Center(child: Text('No blogs yet', style: TextStyle(color: Colors.grey, fontSize: 12))),
+              )
+            else
+              ...blogs.map((b) {
+                final cover = b['cover_image']?.toString() ?? '';
+                final hasCover = cover.isNotEmpty;
+                final excerpt = b['excerpt']?.toString().isNotEmpty == true
+                    ? b['excerpt'].toString()
+                    : (b['content']?.toString() ?? '').replaceAll(RegExp(r'\s+'), ' ');
+                final timeAgo = _timeAgo(b['created_at']);
+
+                return GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogsScreen())),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF18181B) : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                      boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
+                    ),
+                    child: Row(
+                      children: [
+                        // Cover thumbnail
+                        ClipRRect(
+                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), bottomLeft: Radius.circular(14)),
+                          child: hasCover
+                              ? Image.network(cover, width: 70, height: 70, fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _blogPlaceholder(isDark))
+                              : _blogPlaceholder(isDark),
+                        ),
+                        // Text
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(b['title'] ?? 'Untitled', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                const SizedBox(height: 3),
+                                Text(excerpt, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                const SizedBox(height: 4),
+                                Text(timeAgo, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(right: 8),
+                          child: Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _blogPlaceholder(bool isDark) {
+    return Container(
+      width: 70, height: 70,
+      color: isDark ? const Color(0xFF27272A) : Colors.indigo.shade50,
+      child: const Icon(Icons.article_outlined, color: Colors.indigo, size: 26),
+    );
+  }
+
+  String _timeAgo(dynamic createdAt) {
+    if (createdAt == null) return '';
+    try {
+      final dt = DateTime.parse(createdAt.toString()).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return DateFormat('MMM dd').format(dt);
+    } catch (_) { return ''; }
   }
 
   Widget _sectionHeader(String title, {VoidCallback? onSeeAll}) {
@@ -1513,7 +1651,7 @@ void _showAnnouncementsScreen() {
       body: Column(
         children: [
           // ── Sticky web header (always visible on web, outside scroll) ──────
-          if (kIsWeb && MediaQuery.of(context).size.width > 900)
+          if (kIsWeb)
             _buildWebHeader(context),
           // ── Offline banner ────────────────────────────────────────────────
           if (_isOffline)
@@ -1541,12 +1679,27 @@ void _showAnnouncementsScreen() {
               ),
             ),
           // ── Back breadcrumb bar for non-home web tabs ─────────────────────
-          if (kIsWeb && _selectedIndex != 0 && MediaQuery.of(context).size.width > 900)
+          if (kIsWeb && _selectedIndex != 0)
             _buildWebBreadcrumb(context, pages),
           // ── Page content ──────────────────────────────────────────────────
           Expanded(
             child: _isLoading
-                ? _buildHomeShimmer()
+                ? Stack(
+                    children: [
+                      _buildHomeShimmer(),
+                      // ── Branded watermark while loading ────────────────
+                      Center(
+                        child: Opacity(
+                          opacity: 0.06,
+                          child: Image.asset(
+                            'assets/images/app_logo.png',
+                            width: 180,
+                            height: 180,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
                 : IndexedStack(
                     index: _selectedIndex,
                     children: pages,

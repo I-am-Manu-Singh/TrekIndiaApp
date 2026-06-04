@@ -142,13 +142,18 @@ class _AdminRentalTrackingScreenState extends State<AdminRentalTrackingScreen> w
       ),
       body: _isLoading || _tabController == null
         ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
-        : TabBarView(
-            controller: _tabController,
-            children: [
-              _buildDeploymentTab(),
-              _buildInventoryTab(),
-              _buildArchiveTab(),
-            ],
+        : Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildDeploymentTab(),
+                  _buildInventoryTab(),
+                  _buildArchiveTab(),
+                ],
+              ),
+            ),
           ),
       floatingActionButton: _buildFAB(),
     );

@@ -84,30 +84,40 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
   }
 
   Widget _buildInquiryView() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _buildEnquiryAnalytics(),
-        const SizedBox(height: 32),
-        const Text('TECHNICAL INQUIRIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
-        const SizedBox(height: 16),
-        if (_inquiries.isEmpty) _emptyState('NO ACTIVE ENQUIRIES')
-        else ..._inquiries.map((q) => _buildEnquiryCard(q)).toList(),
-      ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _buildEnquiryAnalytics(),
+            const SizedBox(height: 32),
+            const Text('TECHNICAL INQUIRIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+            const SizedBox(height: 16),
+            if (_inquiries.isEmpty) _emptyState('NO ACTIVE ENQUIRIES')
+            else ..._inquiries.map((q) => _buildEnquiryCard(q)).toList(),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildComplaintView() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _buildComplaintAnalytics(),
-        const SizedBox(height: 32),
-        const Text('FIELD COMPLAINTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
-        const SizedBox(height: 16),
-        if (_complaints.isEmpty) _emptyState('NO ACTIVE COMPLAINTS')
-        else ..._complaints.map((c) => _buildComplaintCard(c)).toList(),
-      ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _buildComplaintAnalytics(),
+            const SizedBox(height: 32),
+            const Text('FIELD COMPLAINTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+            const SizedBox(height: 16),
+            if (_complaints.isEmpty) _emptyState('NO ACTIVE COMPLAINTS')
+            else ..._complaints.map((c) => _buildComplaintCard(c)).toList(),
+          ],
+        ),
+      ),
     );
   }
 

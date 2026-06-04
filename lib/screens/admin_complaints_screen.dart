@@ -42,17 +42,22 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
         backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
-      body: _isLoading 
+      body: _isLoading
         ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _buildTopStats(),
-              const SizedBox(height: 32),
-              const Text('PRIORITY BACKLOG', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
-              const SizedBox(height: 16),
-              ..._complaints.map((c) => _buildComplaintCard(c)).toList(),
-            ],
+        : Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildTopStats(),
+                  const SizedBox(height: 32),
+                  const Text('PRIORITY BACKLOG', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+                  const SizedBox(height: 16),
+                  ..._complaints.map((c) => _buildComplaintCard(c)).toList(),
+                ],
+              ),
+            ),
           ),
     );
   }

@@ -97,42 +97,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           IconButton(icon: const Icon(Icons.add_circle, color: Colors.white, size: 20), onPressed: () => _showBroadcastModal()),
         ],
       ),
-      body: _isLoading 
+      body: _isLoading
         ? _buildDashboardShimmer()
         : RefreshIndicator(
             onRefresh: _loadDashboardData,
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                _buildAnalyticsGraph(),
-                const SizedBox(height: 32),
-                const Text('KEY METRICS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
-                const SizedBox(height: 16),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.6,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
                   children: [
-                    _statCard('TOTAL REVENUE', '₹${(_stats['revenue'] / 1000).toStringAsFixed(1)}K', Icons.payments, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_finance')),
-                    _statCard('TOTAL BOOKINGS', '${_stats['bookings']}', Icons.assignment, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_bookings')),
-                    _statCard('TOTAL STAFF', '${_stats['staff']}', Icons.people, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_employees')),
-                    _statCard('ACTIVE REPORTS', '${_stats['reports']}', Icons.analytics, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_support_inquiries')),
-                    _statCard('COMPLAINTS', '${_stats['complaints']}', Icons.report_problem, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_complaints')),
-                    _statCard('PENDING TASKS', '${_stats['tasks']}', Icons.task_alt, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_tasks')),
+                    _buildAnalyticsGraph(),
+                    const SizedBox(height: 32),
+                    const Text('KEY METRICS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.6,
+                      children: [
+                        _statCard('TOTAL REVENUE', '₹${(_stats['revenue'] / 1000).toStringAsFixed(1)}K', Icons.payments, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_finance')),
+                        _statCard('TOTAL BOOKINGS', '${_stats['bookings']}', Icons.assignment, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_bookings')),
+                        _statCard('TOTAL STAFF', '${_stats['staff']}', Icons.people, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_employees')),
+                        _statCard('ACTIVE REPORTS', '${_stats['reports']}', Icons.analytics, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_support_inquiries')),
+                        _statCard('COMPLAINTS', '${_stats['complaints']}', Icons.report_problem, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_complaints')),
+                        _statCard('PENDING TASKS', '${_stats['tasks']}', Icons.task_alt, const Color(0xFFD32F2F), onTap: () => Navigator.pushNamed(context, '/admin_tasks')),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                    const Text('NOTIFICATIONS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
+                    const SizedBox(height: 16),
+                    if (_broadcasts.isEmpty)
+                      const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('NO ACTIVE BROADCASTS', style: TextStyle(color: Colors.grey, fontSize: 12))))
+                    else
+                      ..._broadcasts.map((b) => _buildBroadcastCard(b)),
+                    const SizedBox(height: 100),
                   ],
                 ),
-                const SizedBox(height: 40),
-                const Text('NOTIFICATIONS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.blueGrey)),
-                const SizedBox(height: 16),
-                if (_broadcasts.isEmpty)
-                  const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('NO ACTIVE BROADCASTS', style: TextStyle(color: Colors.grey, fontSize: 12))))
-                else
-                  ..._broadcasts.map((b) => _buildBroadcastCard(b)),
-                const SizedBox(height: 100),
-              ],
+              ),
             ),
           ),
     );
@@ -289,26 +294,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildDashboardShimmer() {
     return GlassShimmer(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const ShimmerBlock(width: double.infinity, height: 250, borderRadius: 25),
-          const SizedBox(height: 32),
-          const ShimmerBlock(width: 100, height: 12),
-          const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.6,
-            children: List.generate(6, (i) => const ShimmerBlock(width: double.infinity, height: 80, borderRadius: 15)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const ShimmerBlock(width: double.infinity, height: 250, borderRadius: 25),
+              const SizedBox(height: 32),
+              const ShimmerBlock(width: 100, height: 12),
+              const SizedBox(height: 16),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.6,
+                children: List.generate(6, (i) => const ShimmerBlock(width: double.infinity, height: 80, borderRadius: 15)),
+              ),
+              const SizedBox(height: 40),
+              const ShimmerBlock(width: 120, height: 12),
+              const SizedBox(height: 16),
+              ...List.generate(3, (i) => const ShimmerBlock(width: double.infinity, height: 100, margin: EdgeInsets.only(bottom: 12), borderRadius: 20)),
+            ],
           ),
-          const SizedBox(height: 40),
-          const ShimmerBlock(width: 120, height: 12),
-          const SizedBox(height: 16),
-          ...List.generate(3, (i) => const ShimmerBlock(width: double.infinity, height: 100, margin: EdgeInsets.only(bottom: 12), borderRadius: 20)),
-        ],
+        ),
       ),
     );
   }

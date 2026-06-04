@@ -92,13 +92,18 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
         title: Text('${widget.userName.toUpperCase()} ATTENDANCE', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, letterSpacing: 1.5)),
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          _buildMonthHeader(),
-          Expanded(child: _isLoading ? const Center(child: CircularProgressIndicator()) : _buildCalendarGrid()),
-          _buildLegend(),
-          const SizedBox(height: 40),
-        ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Column(
+            children: [
+              _buildMonthHeader(),
+              Expanded(child: _isLoading ? const Center(child: CircularProgressIndicator()) : _buildCalendarGrid()),
+              _buildLegend(),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -10,8 +10,32 @@
 ALTER TABLE trips
   ADD COLUMN IF NOT EXISTS reward_points INT NOT NULL DEFAULT 0;
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- SECTION 1b: All missing trips columns (from edit_trip_screen writes)
+-- Safe to run multiple times — all use ADD COLUMN IF NOT EXISTS
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS cancellation_policy  TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS terms_conditions      TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS traveler_form_url     TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS google_map_link       TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS orientation           TEXT DEFAULT 'North';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS start_point           TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS package_type          TEXT DEFAULT 'Standard';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS trail_type            TEXT DEFAULT 'Mixed';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS peak_elevation        TEXT DEFAULT 'N/A';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS total_distance        TEXT DEFAULT '0 km';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS carry_list            JSONB DEFAULT '[]';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS seasonal_info         JSONB DEFAULT '{}';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS pickup_options        JSONB DEFAULT '[]';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS images                JSONB DEFAULT '[]';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS inclusions            JSONB DEFAULT '[]';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS exclusions            JSONB DEFAULT '[]';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS itinerary             JSONB DEFAULT '[]';
+
 ALTER TABLE trip_packages
   ADD COLUMN IF NOT EXISTS reward_points INT NOT NULL DEFAULT 0;
+
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 2: reward_points cache column on profiles (for fast list display)
