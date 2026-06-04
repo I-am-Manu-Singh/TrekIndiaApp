@@ -10,6 +10,7 @@ import 'edit_trip_screen.dart';
 import '../models/trip.dart';
 import 'blogs_screen.dart';
 import '../services/xlsx_service.dart';
+import '../services/database_service.dart';
 
 class AdminTripInventoryScreen extends StatefulWidget {
   const AdminTripInventoryScreen({super.key});
@@ -24,9 +25,8 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
   List<dynamic> _trips = [];
   String _searchQuery = '';
   String _selectedCategory = 'All';
-  final List<String> _categories = [
-    'All', 'Adventure Trip', 'Religious Trip', 'Yatra', 'Weekend Trip', 'International Trip'
-  ];
+  List<String> _categories = ['All'];
+  
 
   // CSV column headers — must match _rowFromTrip() order
   static const List<String> _csvHeaders = [
@@ -47,9 +47,11 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
     setState(() => _isLoading = true);
     try {
       final res = await _client.from('trips').select().order('title', ascending: true);
+      final cats = await DatabaseService().fetchCategories();
       if (mounted) {
         setState(() {
           _trips = res;
+          _categories = ['All', ...cats.map((c) => c.name)];
           _isLoading = false;
         });
       }
@@ -224,28 +226,43 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
   ];
 
   // ─────────────────────────────────────────────────────────────────────────
-  // IMPORT: CSV file → upsert trips in Supabase
+  // IMPORT: CSV or Excel file → upsert trips in Supabase
   // ─────────────────────────────────────────────────────────────────────────
   Future<void> _importCsv() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['csv'],
+      allowedExtensions: ['csv', 'xlsx'],
       withData: true,
     );
     if (result == null || result.files.single.bytes == null) return;
 
     final bytes = result.files.single.bytes!;
-    final csvString = utf8.decode(bytes, allowMalformed: true);
+    final fileName = result.files.single.name.toLowerCase();
     List<List<dynamic>> rows;
-    try {
-      rows = const CsvToListConverter(eol: '\n').convert(csvString);
-    } catch (_) {
-      rows = const CsvToListConverter(eol: '\r\n').convert(csvString);
+
+    if (fileName.endsWith('.xlsx')) {
+      try {
+        rows = XlsxService.parseXlsx(bytes);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to parse Excel file: $e'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+    } else {
+      final csvString = utf8.decode(bytes, allowMalformed: true);
+      try {
+        rows = const CsvToListConverter(eol: '\n').convert(csvString);
+      } catch (_) {
+        rows = const CsvToListConverter(eol: '\r\n').convert(csvString);
+      }
     }
 
     if (rows.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('CSV file is empty.'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Selected file is empty.'), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -295,7 +312,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
         final tripData = {
           'title': str('title').toUpperCase(),
           'location': str('location'),
-          'category': str('category').isEmpty ? 'Adventure Trip' : str('category'),
+          'category': str('category').isEmpty ? 'Yatra' : str('category'),
           'duration': str('duration'),
           'base_price': dbl('base_price'),
           'discount_percent': dbl('discount_percent'),

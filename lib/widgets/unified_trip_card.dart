@@ -114,7 +114,7 @@ class UnifiedTripCard extends StatelessWidget {
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(color: isDark ? Colors.grey[800] : Colors.grey[100]),
               errorWidget: (context, url, error) => Container(
-                color: isDark ? const Color(0xFF334155) : Colors.grey[200],
+                color: isDark ? const Color(0xFF424242) : const Color(0xFFEEEEEE),
                 padding: const EdgeInsets.all(20),
                 child: Opacity(
                   opacity: 0.25,

@@ -154,27 +154,42 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
           ),
           IconButton(
             icon: const Icon(Icons.file_upload, color: Colors.white),
-            tooltip: 'Import CSV',
+            tooltip: 'Import CSV / Excel',
             onPressed: () async {
               final result = await FilePicker.platform.pickFiles(
                 type: FileType.custom,
-                allowedExtensions: ['csv'],
+                allowedExtensions: ['csv', 'xlsx'],
                 withData: true,
               );
               if (result == null || result.files.single.bytes == null) return;
 
               final bytes = result.files.single.bytes!;
-              final csvString = utf8.decode(bytes, allowMalformed: true);
+              final fileName = result.files.single.name.toLowerCase();
               List<List<dynamic>> rows;
-              try {
-                rows = const CsvToListConverter(eol: '\n').convert(csvString);
-              } catch (_) {
-                rows = const CsvToListConverter(eol: '\r\n').convert(csvString);
+              
+              if (fileName.endsWith('.xlsx')) {
+                try {
+                  rows = XlsxService.parseXlsx(bytes);
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to parse Excel file: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                  return;
+                }
+              } else {
+                final csvString = utf8.decode(bytes, allowMalformed: true);
+                try {
+                  rows = const CsvToListConverter(eol: '\n').convert(csvString);
+                } catch (_) {
+                  rows = const CsvToListConverter(eol: '\r\n').convert(csvString);
+                }
               }
 
               if (rows.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('CSV file is empty.'), backgroundColor: Colors.orange),
+                  const SnackBar(content: Text('Selected file is empty.'), backgroundColor: Colors.orange),
                 );
                 return;
               }

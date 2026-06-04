@@ -485,24 +485,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              icon: Icon(Icons.notifications_none_rounded, color: iconColor ?? Colors.white, size: 32),
+              icon: Icon(Icons.notifications_none_rounded, color: iconColor ?? Colors.white, size: 26),
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const NotificationCenterScreen())),
             ),
             if (count > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white, 
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFFD32F2F), width: 1),
-                  ),
-                  constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                  child: Text('$count', style: const TextStyle(color: Color(0xFFD32F2F), fontSize: 8, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                ),
-              ),
+           Positioned(
+  right: 4,
+  top: 4,
+  child: Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: 3,
+      vertical: 1,
+    ),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(
+        color: const Color(0xFFD32F2F),
+        width: 1,
+      ),
+    ),
+    constraints: const BoxConstraints(
+      minWidth: 12,
+      minHeight: 12,
+    ),
+    child: Text(
+      '$count',
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: Color(0xFFD32F2F),
+        fontSize: 7,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
           ],
         );
       },
@@ -1751,7 +1768,7 @@ void _showAnnouncementsScreen() {
             onPressed: _showEnquiryForm,
             backgroundColor: const Color(0xFFD32F2F),
             icon: const Icon(Icons.assignment_outlined, color: Colors.white),
-            label: const Text('Enquire Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: const Text('', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           )
         : null,
       body: Column(
@@ -2103,14 +2120,14 @@ void _showAnnouncementsScreen() {
     );
   }
   Future<void> _launchGoogleForm() async {
-    final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSfD_K_7h8YqUqyGvq7fO2Uv0Kz3c6W9v3G7Gg4Y5Q5Q5Q5Q5Q/viewform');
+    final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw Exception('Could not launch $url');
     }
   }
 
   void _showEnquiryForm() {
-    const String formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfD_K_7h8YqUqyGvq7fO2Uv0Kz3c6W9v3G7Gg4Y5Q5Q5Q5Q5Q/viewform';
+    const String formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform';
     launchUrl(Uri.parse(formUrl), mode: LaunchMode.externalApplication);
   }
 

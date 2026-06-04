@@ -935,7 +935,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 32),
             _settingToggle(
-              'Trip Theme',
+              'Theme',
               'Switch between Light & Dark mode',
               Theme.of(context).brightness == Brightness.dark,
               isTheme: true,

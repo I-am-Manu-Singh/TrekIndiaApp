@@ -55,7 +55,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
   List<String> _extraImages = [];
 
   List<TripCategory> _availableCategories = [];
-  String _selectedCategory = 'Adventure Trip';
+  String _selectedCategory = '';
   bool _isLoading = false;
   bool _isCategoriesLoading = true;
 
@@ -96,7 +96,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
     _ratingCtrl = TextEditingController(text: (widget.trip?.rating ?? 5.0).toString());
     _seasonalInfoCtrl = TextEditingController(text: jsonEncode(widget.trip?.seasonalInfo ?? {}));
     _rewardPointsCtrl = TextEditingController(text: (widget.trip?.rewardPoints ?? 0).toString());
-    _selectedCategory = widget.trip?.category ?? 'Adventure Trip';
+    _selectedCategory = widget.trip?.category ?? '';
 
     _pickups = List.from(widget.trip?.pickupOptions ?? []);
     _itinerary = List.from(widget.trip?.itinerary ?? [TripItinerary(day: 1, title: 'Arrival', description: 'Base camp arrival')]);

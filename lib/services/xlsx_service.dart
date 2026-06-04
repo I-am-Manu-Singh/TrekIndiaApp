@@ -153,4 +153,122 @@ class XlsxService {
     }
     return result;
   }
+
+  static List<List<dynamic>> parseXlsx(Uint8List bytes) {
+    final archive = ZipDecoder().decodeBytes(bytes);
+    
+    ArchiveFile? sharedStringsFile;
+    ArchiveFile? sheetFile;
+    
+    for (final file in archive) {
+      if (file.name == 'xl/sharedStrings.xml') {
+        sharedStringsFile = file;
+      } else if (file.name == 'xl/worksheets/sheet1.xml') {
+        sheetFile = file;
+      }
+    }
+    
+    List<String> sharedStrings = [];
+    if (sharedStringsFile != null) {
+      final content = utf8.decode(sharedStringsFile.content as List<int>, allowMalformed: true);
+      final siRegExp = RegExp(r'<si>(.*?)</si>', dotAll: true);
+      final tRegExp = RegExp(r'<t\b[^>]*>(.*?)</t>', dotAll: true);
+      for (final siMatch in siRegExp.allMatches(content)) {
+        final siContent = siMatch.group(1) ?? '';
+        final tMatches = tRegExp.allMatches(siContent);
+        final buffer = StringBuffer();
+        for (final tMatch in tMatches) {
+          buffer.write(tMatch.group(1) ?? '');
+        }
+        sharedStrings.add(_decodeXmlEntities(buffer.toString()));
+      }
+    }
+    
+    List<List<dynamic>> rows = [];
+    if (sheetFile != null) {
+      final content = utf8.decode(sheetFile.content as List<int>, allowMalformed: true);
+      
+      final rowRegExp = RegExp(r'<row\b[^>]*>(.*?)</row>', dotAll: true);
+      final cellRegExp = RegExp(r'<c\b[^>]*>(.*?)</c>', dotAll: true);
+      final rAttrRegExp = RegExp(r'\br="([A-Z]+[0-9]+)"');
+      final tAttrRegExp = RegExp(r'\bt="([^"]+)"');
+      final vRegExp = RegExp(r'<v>(.*?)</v>', dotAll: true);
+      final rowRAttrRegExp = RegExp(r'\br="([0-9]+)"');
+      
+      for (final rowMatch in rowRegExp.allMatches(content)) {
+        final rowContent = rowMatch.group(1) ?? '';
+        final rowTag = rowMatch.group(0) ?? '';
+        
+        int rowIndex = rows.length + 1;
+        final rowRMatch = rowRAttrRegExp.firstMatch(rowTag);
+        if (rowRMatch != null) {
+          rowIndex = int.tryParse(rowRMatch.group(1) ?? '') ?? rowIndex;
+        }
+        
+        while (rows.length < rowIndex) {
+          rows.add([]);
+        }
+        
+        final currentRow = rows[rowIndex - 1];
+        
+        for (final cellMatch in cellRegExp.allMatches(rowContent)) {
+          final cellContent = cellMatch.group(1) ?? '';
+          final cellTag = cellMatch.group(0) ?? '';
+          
+          final rMatch = rAttrRegExp.firstMatch(cellTag);
+          if (rMatch == null) continue;
+          
+          final cellRef = rMatch.group(1)!;
+          final refMatch = RegExp(r'^([A-Z]+)([0-9]+)$').firstMatch(cellRef);
+          if (refMatch == null) continue;
+          
+          final colLetters = refMatch.group(1)!;
+          final colIndex = _columnRefToIndex(colLetters);
+          
+          final tMatch = tAttrRegExp.firstMatch(cellTag);
+          final isSharedString = tMatch != null && tMatch.group(1) == 's';
+          
+          final vMatch = vRegExp.firstMatch(cellContent);
+          String value = '';
+          if (vMatch != null) {
+            final rawVal = vMatch.group(1) ?? '';
+            if (isSharedString) {
+              final idx = int.tryParse(rawVal) ?? -1;
+              if (idx >= 0 && idx < sharedStrings.length) {
+                value = sharedStrings[idx];
+              } else {
+                value = rawVal;
+              }
+            } else {
+              value = _decodeXmlEntities(rawVal);
+            }
+          }
+          
+          while (currentRow.length <= colIndex) {
+            currentRow.add('');
+          }
+          currentRow[colIndex] = value;
+        }
+      }
+    }
+    
+    return rows.where((row) => row.any((cell) => cell.toString().trim().isNotEmpty)).toList();
+  }
+  
+  static int _columnRefToIndex(String ref) {
+    int col = 0;
+    for (int i = 0; i < ref.length; i++) {
+      col = col * 26 + (ref.codeUnitAt(i) - 65 + 1);
+    }
+    return col - 1;
+  }
+  
+  static String _decodeXmlEntities(String input) {
+    return input
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'");
+  }
 }

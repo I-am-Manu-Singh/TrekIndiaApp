@@ -22,25 +22,15 @@ class DatabaseService {
     try {
       final response = await _client.from('trip_categories').select().order('display_order', ascending: true);
       final List<TripCategory> cats = (response as List).map((e) => TripCategory.fromJson(e)).toList();
-      
-      if (cats.isEmpty) {
-        return [
-          TripCategory(id: '1', name: 'Adventure Trip', displayOrder: 1),
-          TripCategory(id: '2', name: 'Religious Trip', displayOrder: 2),
-          TripCategory(id: '3', name: 'Weekend Trip', displayOrder: 3),
-          TripCategory(id: '4', name: 'Package', displayOrder: 4, isSpecial: true, badgeLabel: 'VACATION', iconName: 'beach_access', colorHex: '#00BCD4'),
-        ];
-      }
-      
+
       _cachedCategories = cats;
       return _cachedCategories;
     } catch (e) {
       debugPrint('Error fetching categories: $e');
       return [
-        TripCategory(id: '1', name: 'Adventure Trip', displayOrder: 1),
-        TripCategory(id: '2', name: 'Religious Trip', displayOrder: 2),
-        TripCategory(id: '3', name: 'Weekend Trip', displayOrder: 3),
-        TripCategory(id: '4', name: 'Package', displayOrder: 4, isSpecial: true, badgeLabel: 'VACATION', iconName: 'beach_access', colorHex: '#00BCD4'),
+        TripCategory(id: '1', name: 'Yatra', displayOrder: 1),
+        TripCategory(id: '2', name: 'Weekend Trip', displayOrder: 2),
+        TripCategory(id: '3', name: 'Package', displayOrder: 3, isSpecial: true, badgeLabel: 'VACATION', iconName: 'beach_access', colorHex: '#00BCD4'),
       ];
     }
   }
