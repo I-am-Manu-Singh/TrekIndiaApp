@@ -2,32 +2,34 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/launcher_icon');
-    
+
     const DarwinInitializationSettings initializationSettingsDarwin =
         DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
 
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-      macOS: initializationSettingsDarwin,
-    );
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsDarwin,
+          macOS: initializationSettingsDarwin,
+        );
 
-    await _notificationsPlugin.initialize(
-      initializationSettings,
-    );
+    await _notificationsPlugin.initialize(initializationSettings);
 
     // Request permissions for Android 13+
     await _notificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
   }
 
@@ -36,13 +38,14 @@ class NotificationService {
     required String message,
     required String roomId,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'trip_chats',
-      'Trip Group Chats',
-      channelDescription: 'Notifications for trip group messages',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'trip_chats',
+          'Trip Group Chats',
+          channelDescription: 'Notifications for trip group messages',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
 
     const DarwinNotificationDetails darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -71,22 +74,26 @@ class NotificationService {
     int? progress,
     int? maxProgress,
   }) async {
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'trip_workouts',
-      'Trip Conditioning',
-      channelDescription: 'Active workout progress and instructions',
-      importance: Importance.low,
-      priority: Priority.low,
-      showProgress: progress != null,
-      maxProgress: maxProgress ?? 100,
-      progress: progress ?? 0,
-      ongoing: true,
-      onlyAlertOnce: true,
-    );
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'trip_workouts',
+          'Trip Conditioning',
+          channelDescription: 'Active workout progress and instructions',
+          importance: Importance.low,
+          priority: Priority.low,
+          showProgress: progress != null,
+          maxProgress: maxProgress ?? 100,
+          progress: progress ?? 0,
+          ongoing: true,
+          onlyAlertOnce: true,
+        );
 
     final NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
-      iOS: const DarwinNotificationDetails(presentAlert: false, presentSound: false),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: false,
+        presentSound: false,
+      ),
     );
 
     await _notificationsPlugin.show(
@@ -105,17 +112,23 @@ class NotificationService {
     required String tripName,
     required String bookingId,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'trip_refunds',
-      'Trip Refunds',
-      channelDescription: 'Notifications for trip refunds and cancellations',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'trip_refunds',
+          'Trip Refunds',
+          channelDescription:
+              'Notifications for trip refunds and cancellations',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
 
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
-      iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
 
     await _notificationsPlugin.show(
@@ -128,10 +141,17 @@ class NotificationService {
   }
 
   static RealtimeChannel? _bookingChannel;
+  static String? _bookingUserId;
 
   static void listenToBookingChanges() {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null || _bookingChannel != null) return;
+    if (user == null) return;
+    if (_bookingChannel != null && _bookingUserId == user.id) return;
+    if (_bookingChannel != null) {
+      _bookingChannel?.unsubscribe();
+      _bookingChannel = null;
+    }
+    _bookingUserId = user.id;
 
     _bookingChannel = Supabase.instance.client.channel('public:bookings')
       ..onPostgresChanges(
@@ -146,13 +166,17 @@ class NotificationService {
         callback: (payload) async {
           final oldStatus = payload.oldRecord['status'];
           final newStatus = payload.newRecord['status'];
-          
+
           if (oldStatus != 'cancelled' && newStatus == 'cancelled') {
             // Fetch trip title
             try {
               final tripId = payload.newRecord['trip_id'];
-              final tripRes = await Supabase.instance.client.from('trips').select('title').eq('id', tripId).single();
-              
+              final tripRes = await Supabase.instance.client
+                  .from('trips')
+                  .select('title')
+                  .eq('id', tripId)
+                  .single();
+
               showRefundNotification(
                 tripName: tripRes['title'] ?? 'Trip',
                 bookingId: payload.newRecord['id'],
@@ -166,10 +190,17 @@ class NotificationService {
 
   static String? activeRoomId;
   static RealtimeChannel? _messageChannel;
+  static String? _messageUserId;
 
   static void listenToMessages() {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null || _messageChannel != null) return;
+    if (user == null) return;
+    if (_messageChannel != null && _messageUserId == user.id) return;
+    if (_messageChannel != null) {
+      _messageChannel?.unsubscribe();
+      _messageChannel = null;
+    }
+    _messageUserId = user.id;
 
     _messageChannel = Supabase.instance.client.channel('public:chat_messages')
       ..onPostgresChanges(
@@ -188,7 +219,7 @@ class NotificationService {
                 .select('full_name, role')
                 .eq('id', senderId)
                 .single();
-                
+
             String senderName = profileResponse['full_name'] ?? 'User';
             if (profileResponse['role'] == 'admin') {
               senderName = 'Admin ($senderName)';
@@ -205,5 +236,20 @@ class NotificationService {
         },
       )
       ..subscribe();
+  }
+
+  static void startRealtimeListeners() {
+    listenToMessages();
+    listenToBookingChanges();
+  }
+
+  static void stopRealtimeListeners() {
+    _bookingChannel?.unsubscribe();
+    _messageChannel?.unsubscribe();
+    _bookingChannel = null;
+    _messageChannel = null;
+    _bookingUserId = null;
+    _messageUserId = null;
+    activeRoomId = null;
   }
 }

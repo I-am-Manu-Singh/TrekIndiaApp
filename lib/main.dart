@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -41,10 +43,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService.initialize();
   await NotificationService.initialize();
-  
+
   final isDark = await PreferencesService().getTheme();
   themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
-  
+
   runApp(const TripBookingApp());
 }
 
@@ -86,7 +88,9 @@ class TripBookingApp extends StatelessWidget {
                   letterSpacing: 1.5,
                 ),
               ),
-              textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme),
+              textTheme: GoogleFonts.outfitTextTheme(
+                ThemeData.light().textTheme,
+              ),
               useMaterial3: true,
             ),
             darkTheme: ThemeData(
@@ -113,7 +117,9 @@ class TripBookingApp extends StatelessWidget {
                   letterSpacing: 1.5,
                 ),
               ),
-              textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
+              textTheme: GoogleFonts.outfitTextTheme(
+                ThemeData.dark().textTheme,
+              ),
               useMaterial3: true,
             ),
             home: const AuthGuard(),
@@ -132,7 +138,7 @@ class TripBookingApp extends StatelessWidget {
                             color: Colors.black.withOpacity(0.05),
                             blurRadius: 20,
                             spreadRadius: 2,
-                          )
+                          ),
                         ],
                       ),
                       child: child!,
@@ -147,11 +153,13 @@ class TripBookingApp extends StatelessWidget {
               '/admin_panel': (context) => const AdminPanelScreen(),
               '/admin_trip_groups': (context) => const AdminTripGroupsScreen(),
               '/admin_broadcast': (context) => const AdminBroadcastScreen(),
-              '/admin_enquiries': (context) => const AdminSupportInquiriesScreen(),
+              '/admin_enquiries': (context) =>
+                  const AdminSupportInquiriesScreen(),
               '/admin_bookings': (context) => const AdminBookingsScreen(),
               '/admin_dashboard': (context) => const AdminDashboardScreen(),
               '/admin_rentals': (context) => const AdminRentalTrackingScreen(),
-              '/employee_dashboard': (context) => const EmployeeDashboardScreen(),
+              '/employee_dashboard': (context) =>
+                  const EmployeeDashboardScreen(),
               '/employee_wallet': (context) => const EmployeeWalletScreen(),
               '/chat_rooms': (context) => const ChatRoomListScreen(),
               '/my_trips': (context) => const MyTripsScreen(),
@@ -163,10 +171,12 @@ class TripBookingApp extends StatelessWidget {
               '/travel_documents': (context) => const EditProfileScreen(),
               '/notifications': (context) => const NotificationCenterScreen(),
               '/training_hub': (context) => const TripTrainingHub(),
-              '/admin_management': (context) => const AdminManagementHubScreen(),
+              '/admin_management': (context) =>
+                  const AdminManagementHubScreen(),
               '/admin_finance': (context) => const AdminWalletScreen(),
               '/admin_employees': (context) => const AdminManagementHubScreen(),
-              '/admin_support_inquiries': (context) => const AdminSupportInquiriesScreen(),
+              '/admin_support_inquiries': (context) =>
+                  const AdminSupportInquiriesScreen(),
               '/admin_complaints': (context) => const AdminComplaintsScreen(),
               '/settings': (context) => const SettingsScreen(),
               '/app_info': (context) => const AppInfoScreen(),
@@ -177,7 +187,8 @@ class TripBookingApp extends StatelessWidget {
                 return EmployeeSalaryBreakupScreen(profileOverride: args);
               },
               '/admin_tasks': (context) {
-                final args = ModalRoute.of(context)?.settings.arguments as String?;
+                final args =
+                    ModalRoute.of(context)?.settings.arguments as String?;
                 return AdminTasksScreen(initialStaffId: args);
               },
             },
@@ -197,22 +208,37 @@ class AuthGuard extends StatefulWidget {
 class _AuthGuardState extends State<AuthGuard> {
   Session? _session;
   bool _initialized = false;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _session = Supabase.instance.client.auth.currentSession;
     _initialized = true;
-    
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    if (_session != null) {
+      NotificationService.startRealtimeListeners();
+    }
+
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
       if (mounted) {
         final previousSession = _session;
         setState(() {
           _session = data.session;
         });
-        
+
         final bool loggedIn = previousSession == null && data.session != null;
         final bool loggedOut = previousSession != null && data.session == null;
+        final bool switchedUser =
+            previousSession?.user.id != null &&
+            data.session?.user.id != null &&
+            previousSession!.user.id != data.session!.user.id;
+        if (loggedIn || switchedUser) {
+          NotificationService.startRealtimeListeners();
+        } else if (loggedOut) {
+          NotificationService.stopRealtimeListeners();
+        }
         if (loggedIn || loggedOut) {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         }
@@ -221,15 +247,17 @@ class _AuthGuardState extends State<AuthGuard> {
   }
 
   @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (!_initialized) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_session != null) {
-      NotificationService.listenToMessages();
-      NotificationService.listenToBookingChanges();
-    }
     return const HomeScreen();
   }
 }

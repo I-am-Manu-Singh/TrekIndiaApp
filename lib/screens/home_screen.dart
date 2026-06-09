@@ -42,7 +42,6 @@ import 'legal/terms_of_service_screen.dart';
 import 'login_screen.dart';
 import 'blogs_screen.dart';
 
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -56,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final DatabaseService _dbService = DatabaseService();
   final TextEditingController _searchController = TextEditingController();
   User? get _user => Supabase.instance.client.auth.currentUser;
-  
+
   List<Trip> _allTrips = [];
   List<Trip> _filteredTrips = [];
   bool _isLoading = true;
@@ -73,12 +72,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<TripCategory> _availableCategories = [];
   List<String> _categoryNames = ['All'];
   bool _isVerified = false;
+  bool _isInitialLoadRunning = false;
 
   StreamSubscription? _connectivitySubscription;
   StreamSubscription<AuthState>? _authSubscription;
   bool _isOffline = false;
 
-  final String _dailyTip = "Pro Tip: Layering is key! Keep a moisture-wicking base layer for high-altitude trips.";
+  final String _dailyTip =
+      "Pro Tip: Layering is key! Keep a moisture-wicking base layer for high-altitude trips.";
 
   Future<List<dynamic>>? _blogsFuture;
   Stream<List<Map<String, dynamic>>>? _announcementsStream;
@@ -107,7 +108,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _checkConnectivity();
     _fetchActiveAlert();
 
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
       if (mounted) {
         if (data.session == null) {
           setState(() {
@@ -126,19 +129,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _checkConnectivity() async {
     final result = await Connectivity().checkConnectivity();
     if (mounted) setState(() => _isOffline = result == ConnectivityResult.none);
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
-      if (mounted) setState(() => _isOffline = result == ConnectivityResult.none);
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      result,
+    ) {
+      if (mounted)
+        setState(() => _isOffline = result == ConnectivityResult.none);
     });
   }
 
   Future<void> _handleInitialLoad() async {
+    if (_isInitialLoadRunning) return;
+    _isInitialLoadRunning = true;
     try {
       _initBlogsAndAnnouncements();
       await _loadTrips();
-      await Future.wait([
-        _fetchCategories(),
-        _fetchUserRole(),
-      ]);
+      await Future.wait([_fetchCategories(), _fetchUserRole()]);
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         await PreferencesService().syncLastReadFromCloud(user.id);
@@ -146,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } catch (e) {
       debugPrint('CRITICAL LOAD ERROR: $e');
     } finally {
+      _isInitialLoadRunning = false;
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -162,14 +168,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           final catNameLower = catName.toLowerCase();
           if (catNameLower.isEmpty || catNameLower == 'all') continue;
           if (seenNames.contains(catNameLower)) continue;
-          
+
           final hasTrips = _allTrips.any((t) {
             final tCat = (t.category ?? '').trim();
             if (tCat.isEmpty) return false;
             final tCatLower = tCat.toLowerCase();
-            return tCatLower == catNameLower || tCatLower.contains(catNameLower) || catNameLower.contains(tCatLower);
+            return tCatLower == catNameLower ||
+                tCatLower.contains(catNameLower) ||
+                catNameLower.contains(tCatLower);
           });
-          
+
           if (hasTrips) {
             activeCats.add(c);
             seenNames.add(catNameLower);
@@ -177,11 +185,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
 
         final newNames = ['All', ...activeCats.map((c) => c.name)];
-        
+
         // Create new controller first to avoid race condition
-        final newController = TabController(length: newNames.length, vsync: this);
+        final newController = TabController(
+          length: newNames.length,
+          vsync: this,
+        );
         newController.addListener(_handleTabSelection);
-        
+
         setState(() {
           _availableCategories = activeCats;
           _categoryNames = newNames;
@@ -191,9 +202,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           oldController.dispose();
           _lastSelectedIndex = 0;
           _selectedCategory = 'All';
+          _filteredTrips = _filteredTripList(_allTrips);
         });
-        
-        _filterTrips();
       }
     } catch (e) {
       debugPrint('Error fetching categories: $e');
@@ -206,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() {
         _lastSelectedIndex = _tabController.index;
         _selectedCategory = _categoryNames[_tabController.index];
-        _filterTrips();
+        _filteredTrips = _filteredTripList(_allTrips);
       });
     }
   }
@@ -214,13 +224,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadTrips() async {
     if (mounted) setState(() => _isTripsLoading = true);
     try {
-      final trips = await _dbService.fetchTrips().timeout(const Duration(seconds: 15));
+      final trips = await _dbService.fetchTrips().timeout(
+        const Duration(seconds: 15),
+      );
       if (mounted) {
         setState(() {
           _allTrips = trips;
-          _filteredTrips = trips;
+          _filteredTrips = _filteredTripList(trips);
           _isTripsLoading = false;
-          _filterTrips();
         });
       }
     } catch (e) {
@@ -230,28 +241,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _filterTrips() {
     setState(() {
-      String query = _searchController.text.toLowerCase().trim();
-      List<Trip> baseList;
-      
-      if (_selectedCategory == 'All') {
-        baseList = _allTrips;
-      } else {
-        baseList = _allTrips.where((t) {
-          final tripCat = (t.category ?? '').trim().toLowerCase();
-          if (tripCat.isEmpty) return false;
-          final targetCat = _selectedCategory.trim().toLowerCase();
-          // Precise match or loose contains
-          return tripCat == targetCat || targetCat.contains(tripCat) || tripCat.contains(targetCat);
-        }).toList();
-        debugPrint('FILTERING: Selected=$_selectedCategory, ResultCount=${baseList.length}');
-      }
-
-      _filteredTrips = baseList.where((trip) {
-        return query.isEmpty || 
-               trip.title.toLowerCase().contains(query) || 
-               trip.location.toLowerCase().contains(query);
-      }).toList();
+      _filteredTrips = _filteredTripList(_allTrips);
     });
+  }
+
+  List<Trip> _filteredTripList(List<Trip> trips) {
+    final query = _searchController.text.toLowerCase().trim();
+    final targetCat = _selectedCategory.trim().toLowerCase();
+    final baseList = _selectedCategory == 'All'
+        ? trips
+        : trips.where((t) {
+            final tripCat = (t.category ?? '').trim().toLowerCase();
+            if (tripCat.isEmpty) return false;
+            return tripCat == targetCat ||
+                targetCat.contains(tripCat) ||
+                tripCat.contains(targetCat);
+          });
+
+    return baseList.where((trip) {
+      final title = (trip.title ?? '').toLowerCase();
+      final location = (trip.location ?? '').toLowerCase();
+      return query.isEmpty || title.contains(query) || location.contains(query);
+    }).toList();
   }
 
   @override
@@ -279,16 +290,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
     try {
-      final res = await Supabase.instance.client.from('profiles').select('role, full_name, avatar_url, aadhar_url, medical_certificate_url').eq('id', user.id).maybeSingle();
-      
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .select(
+            'role, full_name, avatar_url, aadhar_url, medical_certificate_url',
+          )
+          .eq('id', user.id)
+          .maybeSingle();
+
       if (mounted) {
         String? finalName = res?['full_name'];
-        if (finalName == null || finalName.trim().isEmpty || finalName == 'Explorer') {
-          finalName = user.userMetadata?['full_name'] ?? user.userMetadata?['name'];
+        if (finalName == null ||
+            finalName.trim().isEmpty ||
+            finalName == 'Explorer') {
+          finalName =
+              user.userMetadata?['full_name'] ?? user.userMetadata?['name'];
           if (finalName == null || finalName.trim().isEmpty) {
-             finalName = user.email?.split('@')[0] ?? 'Explorer';
-             // Silent Repair: Save email prefix as name to DB
-             Supabase.instance.client.from('profiles').update({'full_name': finalName}).eq('id', user.id).then((_) {});
+            finalName = user.email?.split('@')[0] ?? 'Explorer';
+            // Silent Repair: Save email prefix as name to DB
+            Supabase.instance.client
+                .from('profiles')
+                .update({'full_name': finalName})
+                .eq('id', user.id)
+                .then((_) {});
           }
         }
 
@@ -298,9 +322,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _userAvatar = res?['avatar_url'];
 
           if (_userAvatar == null || _userAvatar!.isEmpty) {
-            _userAvatar = user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'] ?? '';
+            _userAvatar =
+                user.userMetadata?['avatar_url'] ??
+                user.userMetadata?['picture'] ??
+                '';
           }
-          _isVerified = res?['aadhar_url'] != null || res?['medical_certificate_url'] != null;
+          _isVerified =
+              res?['aadhar_url'] != null ||
+              res?['medical_certificate_url'] != null;
         });
       }
     } catch (e) {
@@ -310,7 +339,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _fetchActiveAlert() async {
     try {
-      final res = await Supabase.instance.client.from('app_alerts').select().eq('is_active', true).maybeSingle();
+      final res = await Supabase.instance.client
+          .from('app_alerts')
+          .select()
+          .eq('is_active', true)
+          .maybeSingle();
       if (mounted && res != null) {
         setState(() => _activeAlert = res);
       }
@@ -323,37 +356,72 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         physics: const NeverScrollableScrollPhysics(),
         child: Column(
           children: [
-            const ShimmerBlock(width: double.infinity, height: 180, margin: EdgeInsets.all(20), borderRadius: 24),
+            const ShimmerBlock(
+              width: double.infinity,
+              height: 180,
+              margin: EdgeInsets.all(20),
+              borderRadius: 24,
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(4, (i) => const ShimmerBlock(width: 70, height: 70, borderRadius: 15)),
+                children: List.generate(
+                  4,
+                  (i) => const ShimmerBlock(
+                    width: 70,
+                    height: 70,
+                    borderRadius: 15,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 30),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
-                children: List.generate(4, (i) => const ShimmerBlock(width: 80, height: 35, margin: EdgeInsets.only(right: 12), borderRadius: 10)),
+                children: List.generate(
+                  4,
+                  (i) => const ShimmerBlock(
+                    width: 80,
+                    height: 35,
+                    margin: EdgeInsets.only(right: 12),
+                    borderRadius: 10,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 30),
-            ...List.generate(2, (i) => const ShimmerBlock(width: double.infinity, height: 280, margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10), borderRadius: 24)),
+            ...List.generate(
+              2,
+              (i) => const ShimmerBlock(
+                width: double.infinity,
+                height: 280,
+                margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                borderRadius: 24,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _shimmerBox({required EdgeInsets margin, required double height, required double radius}) {
+  Widget _shimmerBox({
+    required EdgeInsets margin,
+    required double height,
+    required double radius,
+  }) {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
       highlightColor: Colors.grey[100]!,
       child: Container(
         margin: margin,
         height: height,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(radius)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+        ),
       ),
     );
   }
@@ -366,7 +434,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Theme.of(context).primaryColor,
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
-        title: const Text('TREK WITH MUSSAFIRR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+        title: const Text(
+          'TREK WITH MUSSAFIRR',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
+            fontSize: 16,
+          ),
+        ),
         centerTitle: false,
         background: Stack(
           fit: StackFit.expand,
@@ -397,12 +472,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         Padding(
           padding: const EdgeInsets.only(right: 16),
           child: TextButton.icon(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const LoginScreen())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (c) => const LoginScreen()),
+            ),
             icon: const Icon(Icons.login, color: Colors.white, size: 18),
-            label: const Text('LOGIN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            label: const Text(
+              'LOGIN',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
             style: TextButton.styleFrom(
               backgroundColor: Colors.white.withOpacity(0.15),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
           ),
@@ -414,22 +501,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       Padding(
         padding: const EdgeInsets.only(right: 16, left: 8),
         child: GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProfileScreen())),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (c) => ProfileScreen()),
+          ),
           child: Stack(
             alignment: Alignment.bottomRight,
             children: [
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6)],
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 6,
+                    ),
+                  ],
                 ),
                 child: UserAvatar(
-                  imageUrl: _userAvatar, 
-                  name: _userName, 
-                  width: 44, 
-                  height: 44, 
-                  borderRadius: BorderRadius.circular(14)
+                  imageUrl: _userAvatar,
+                  name: _userName,
+                  width: 44,
+                  height: 44,
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               if (_isVerified)
@@ -439,11 +537,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Container(
                     padding: const EdgeInsets.all(1),
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent, 
+                      color: Colors.blueAccent,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1),
                     ),
-                    child: const Icon(Icons.verified, color: Colors.white, size: 6),
+                    child: const Icon(
+                      Icons.verified,
+                      color: Colors.white,
+                      size: 6,
+                    ),
                   ),
                 ),
             ],
@@ -453,7 +555,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     ];
   }
 
-  Widget _glassHeaderAction(Widget child, {EdgeInsets padding = const EdgeInsets.only(right: 12)}) {
+  Widget _glassHeaderAction(
+    Widget child, {
+    EdgeInsets padding = const EdgeInsets.only(right: 12),
+  }) {
     return Padding(
       padding: padding,
       child: Container(
@@ -474,7 +579,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return StreamBuilder<int>(
       initialData: 0,
       stream: Stream.periodic(const Duration(seconds: 15)).asyncMap((_) async {
-        final res = await Supabase.instance.client.from('notifications').select('id').eq('user_id', _user?.id ?? '').eq('is_read', false);
+        final res = await Supabase.instance.client
+            .from('notifications')
+            .select('id')
+            .eq('user_id', _user?.id ?? '')
+            .eq('is_read', false);
         return (res as List).length;
       }),
       builder: (context, snapshot) {
@@ -485,41 +594,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              icon: Icon(Icons.notifications_none_rounded, color: iconColor ?? Colors.white, size: 26),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const NotificationCenterScreen())),
+              icon: Icon(
+                Icons.notifications_none_rounded,
+                color: iconColor ?? Colors.white,
+                size: 26,
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => const NotificationCenterScreen(),
+                ),
+              ),
             ),
             if (count > 0)
-           Positioned(
-  right: 4,
-  top: 4,
-  child: Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 3,
-      vertical: 1,
-    ),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(
-        color: const Color(0xFFD32F2F),
-        width: 1,
-      ),
-    ),
-    constraints: const BoxConstraints(
-      minWidth: 12,
-      minHeight: 12,
-    ),
-    child: Text(
-      '$count',
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: Color(0xFFD32F2F),
-        fontSize: 7,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  ),
-),
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 3,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFFD32F2F),
+                      width: 1,
+                    ),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 12,
+                    minHeight: 12,
+                  ),
+                  child: Text(
+                    '$count',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFD32F2F),
+                      fontSize: 7,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -545,11 +663,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     };
 
     if (_tabController == null || _categoryNames.isEmpty) {
-       return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
 
     return SingleChildScrollView(
-      physics: kIsWeb ? const ClampingScrollPhysics() : const BouncingScrollPhysics(),
+      physics: kIsWeb
+          ? const ClampingScrollPhysics()
+          : const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -563,7 +683,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   _buildCombinedInsights(),
                   // CATEGORIES MOVED ABOVE CURATED COLLECTIONS
                   Container(
-                    margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                    margin: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 6,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -572,19 +695,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       controller: _tabController,
                       isScrollable: true,
                       labelColor: Colors.white,
-                      unselectedLabelColor: isDark ? Colors.white38 : Colors.grey,
-                      labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
-                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
+                      unselectedLabelColor: isDark
+                          ? Colors.white38
+                          : Colors.grey,
+                      labelStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                        letterSpacing: 1,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 1,
+                      ),
                       indicator: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
                         color: const Color(0xFFD32F2F),
-                        boxShadow: [BoxShadow(color: const Color(0xFFD32F2F).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFD32F2F).withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
                       indicatorSize: TabBarIndicatorSize.tab,
                       dividerColor: Colors.transparent,
                       labelPadding: const EdgeInsets.symmetric(horizontal: 12),
                       padding: const EdgeInsets.all(4),
-                      tabs: _categoryNames.map((c) => Tab(text: (c ?? 'TRIP').toUpperCase())).toList(),
+                      tabs: _categoryNames
+                          .map((c) => Tab(text: (c ?? 'TRIP').toUpperCase()))
+                          .toList(),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -594,39 +736,59 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         () {
-                          final query = _searchController.text.toLowerCase().trim();
+                          final query = _searchController.text
+                              .toLowerCase()
+                              .trim();
                           final specialTrips = _allTrips.where((t) {
                             final cat = _availableCategories.firstWhere(
-                              (c) => c.name == t.category, 
-                              orElse: () => TripCategory(id: 'default', name: '', isSpecial: false)
+                              (c) => c.name == t.category,
+                              orElse: () => TripCategory(
+                                id: 'default',
+                                name: '',
+                                isSpecial: false,
+                              ),
                             );
-                            bool matchesCat = _selectedCategory == 'All' || 
-                                             t.category?.toLowerCase() == _selectedCategory.toLowerCase() ||
-                                             _selectedCategory.toLowerCase().contains(t.category?.toLowerCase() ?? '');
-                            bool matchesQuery = query.isEmpty ||
-                                                t.title.toLowerCase().contains(query) ||
-                                                (t.location ?? '').toLowerCase().contains(query);
+                            bool matchesCat =
+                                _selectedCategory == 'All' ||
+                                t.category?.toLowerCase() ==
+                                    _selectedCategory.toLowerCase() ||
+                                _selectedCategory.toLowerCase().contains(
+                                  t.category?.toLowerCase() ?? '',
+                                );
+                            bool matchesQuery =
+                                query.isEmpty ||
+                                t.title.toLowerCase().contains(query) ||
+                                (t.location ?? '').toLowerCase().contains(
+                                  query,
+                                );
                             return cat.isSpecial && matchesCat && matchesQuery;
                           }).toList();
 
-                          if (specialTrips.isEmpty) return const SizedBox.shrink();
+                          if (specialTrips.isEmpty)
+                            return const SizedBox.shrink();
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _sectionHeader('Curated Collections', onSeeAll: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AllTripsScreen(
-                                      initialCategory: 'Special',
-                                      allTrips: _allTrips,
+                              _sectionHeader(
+                                'Curated Collections',
+                                onSeeAll: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => AllTripsScreen(
+                                        initialCategory: 'Special',
+                                        allTrips: _allTrips,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }),
+                                  );
+                                },
+                              ),
                               const SizedBox(height: 8),
-                              _buildHorizontalTripList(specialTrips, heroPrefix: 'special'),
+                              _buildHorizontalTripList(
+                                specialTrips,
+                                heroPrefix: 'special',
+                              ),
                               const SizedBox(height: 8),
                             ],
                           );
@@ -653,12 +815,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final packages = _allTrips.where((t) {
       final cat = t.category?.toLowerCase() ?? '';
       bool isPkg = cat == 'vacation' || cat == 'package' || cat == 'packages';
-      bool matchesCat = _selectedCategory == 'All' || 
-                       cat == _selectedCategory.toLowerCase() ||
-                       _selectedCategory.toLowerCase().contains(cat);
-      bool matchesQuery = query.isEmpty ||
-                          t.title.toLowerCase().contains(query) ||
-                          (t.location ?? '').toLowerCase().contains(query);
+      bool matchesCat =
+          _selectedCategory == 'All' ||
+          cat == _selectedCategory.toLowerCase() ||
+          _selectedCategory.toLowerCase().contains(cat);
+      bool matchesQuery =
+          query.isEmpty ||
+          t.title.toLowerCase().contains(query) ||
+          (t.location ?? '').toLowerCase().contains(query);
       return isPkg && matchesCat && matchesQuery;
     }).toList();
 
@@ -667,17 +831,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader('Exclusive Packages', onSeeAll: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AllTripsScreen(
-                initialCategory: 'Packages',
-                allTrips: _allTrips,
+        _sectionHeader(
+          'Exclusive Packages',
+          onSeeAll: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AllTripsScreen(
+                  initialCategory: 'Packages',
+                  allTrips: _allTrips,
+                ),
               ),
-            ),
-          );
-        }),
+            );
+          },
+        ),
         const SizedBox(height: 12),
         _buildHorizontalTripList(packages, heroPrefix: 'pkg'),
         const SizedBox(height: 24),
@@ -750,11 +917,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey.shade100,
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.lightbulb_outline, size: 18, color: Theme.of(context).primaryColor),
+          Icon(
+            Icons.lightbulb_outline,
+            size: 18,
+            color: Theme.of(context).primaryColor,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -785,14 +958,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ─ LEFT: Latest Updates ───────────────────────────
-              Expanded(
-                child: _buildUpdatesColumn(),
-              ),
+              Expanded(child: _buildUpdatesColumn()),
               const SizedBox(width: 14),
               // ─ RIGHT: Latest Blogs ────────────────────────────
-              Expanded(
-                child: _buildBlogsColumn(),
-              ),
+              Expanded(child: _buildBlogsColumn()),
             ],
           ),
         ],
@@ -816,13 +985,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(children: [
-                  Container(width: 3, height: 12, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: const Color(0xFFD32F2F), borderRadius: BorderRadius.circular(2))),
-                  const Text('LATEST UPDATES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 1.5)),
-                ]),
+                Row(
+                  children: [
+                    Container(
+                      width: 3,
+                      height: 12,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD32F2F),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const Text(
+                      'LATEST UPDATES',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFD32F2F),
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
                 GestureDetector(
                   onTap: _showAnnouncementsScreen,
-                  child: const Text('VIEW ALL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  child: const Text(
+                    'VIEW ALL',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -833,9 +1027,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
+                  ),
                 ),
-                child: const Center(child: Text('No updates yet', style: TextStyle(color: Colors.grey, fontSize: 12))),
+                child: const Center(
+                  child: Text(
+                    'No updates yet',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ),
               )
             else
               StatefulBuilder(
@@ -854,40 +1055,96 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           itemBuilder: (context, index) {
                             final a = items[index];
                             final isUrgent = a['is_urgent'] == true;
-                            final color = isUrgent ? Colors.redAccent : Colors.blueAccent;
+                            final color = isUrgent
+                                ? Colors.redAccent
+                                : Colors.blueAccent;
                             final timeAgo = _timeAgo(a['created_at']);
                             return GestureDetector(
                               onTap: () => _showFullAnnouncement(a),
                               child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF18181B) : color.withOpacity(0.04),
+                                  color: isDark
+                                      ? const Color(0xFF18181B)
+                                      : color.withOpacity(0.04),
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: color.withOpacity(0.18)),
+                                  border: Border.all(
+                                    color: color.withOpacity(0.18),
+                                  ),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-                                      child: Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign_outlined, color: color, size: 14),
+                                      decoration: BoxDecoration(
+                                        color: color.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        isUrgent
+                                            ? Icons.warning_amber_rounded
+                                            : Icons.campaign_outlined,
+                                        color: color,
+                                        size: 14,
+                                      ),
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Row(children: [
-                                            Text(isUrgent ? 'URGENT' : 'UPDATE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: color, letterSpacing: 1)),
-                                            const Spacer(),
-                                            Text(timeAgo, style: const TextStyle(fontSize: 8, color: Colors.grey)),
-                                          ]),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                isUrgent ? 'URGENT' : 'UPDATE',
+                                                style: TextStyle(
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: color,
+                                                  letterSpacing: 1,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              Text(
+                                                timeAgo,
+                                                style: const TextStyle(
+                                                  fontSize: 8,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                           const SizedBox(height: 2),
-                                          Text(a['title'] ?? 'Notice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                          Text(
+                                            a['title'] ?? 'Notice',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : Colors.black87,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                           const SizedBox(height: 1),
-                                          Text(a['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, color: isDark ? Colors.white60 : Colors.black54, height: 1.2)),
+                                          Text(
+                                            a['content'] ?? '',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              color: isDark
+                                                  ? Colors.white60
+                                                  : Colors.black54,
+                                              height: 1.2,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -901,19 +1158,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(items.length, (i) => Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _updatesPageIndex == i ? const Color(0xFFD32F2F) : Colors.grey.withOpacity(0.3),
+                        children: List.generate(
+                          items.length,
+                          (i) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _updatesPageIndex == i
+                                  ? const Color(0xFFD32F2F)
+                                  : Colors.grey.withOpacity(0.3),
+                            ),
                           ),
-                        )),
+                        ),
                       ),
                     ],
                   );
-                }
+                },
               ),
           ],
         );
@@ -937,13 +1199,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(children: [
-                  Container(width: 3, height: 12, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: Colors.indigo, borderRadius: BorderRadius.circular(2))),
-                  const Text('TRIP DAILY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.indigo, letterSpacing: 1.5)),
-                ]),
+                Row(
+                  children: [
+                    Container(
+                      width: 3,
+                      height: 12,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const Text(
+                      'TRIP DAILY',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.indigo,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
                 GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogsScreen())),
-                  child: const Text('VIEW ALL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BlogsScreen()),
+                  ),
+                  child: const Text(
+                    'VIEW ALL',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -952,10 +1242,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Container(
                 height: 110,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF18181B) : Colors.grey.shade100,
+                  color: isDark
+                      ? const Color(0xFF18181B)
+                      : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Center(child: CircularProgressIndicator(color: Colors.indigo)),
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.indigo),
+                ),
               )
             else if (blogs.isEmpty)
               Container(
@@ -963,9 +1257,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF18181B) : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
+                  ),
                 ),
-                child: const Center(child: Text('No blogs yet', style: TextStyle(color: Colors.grey, fontSize: 12))),
+                child: const Center(
+                  child: Text(
+                    'No blogs yet',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ),
               )
             else
               StatefulBuilder(
@@ -983,51 +1284,120 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           },
                           itemBuilder: (context, index) {
                             final b = blogs[index];
-                            final cover = (b['image_url'] ?? b['cover_image'] ?? '').toString();
+                            final cover =
+                                (b['image_url'] ?? b['cover_image'] ?? '')
+                                    .toString();
                             final hasCover = cover.isNotEmpty;
-                            final excerpt = b['excerpt']?.toString().isNotEmpty == true
+                            final excerpt =
+                                b['excerpt']?.toString().isNotEmpty == true
                                 ? b['excerpt'].toString()
-                                : (b['content']?.toString() ?? '').replaceAll(RegExp(r'\s+'), ' ');
+                                : (b['content']?.toString() ?? '').replaceAll(
+                                    RegExp(r'\s+'),
+                                    ' ',
+                                  );
                             final timeAgo = _timeAgo(b['created_at']);
 
                             return GestureDetector(
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogsScreen())),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const BlogsScreen(),
+                                ),
+                              ),
                               child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF18181B) : Colors.white,
+                                  color: isDark
+                                      ? const Color(0xFF18181B)
+                                      : Colors.white,
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
-                                  boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white10
+                                        : Colors.grey.shade200,
+                                  ),
+                                  boxShadow: isDark
+                                      ? []
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.03,
+                                            ),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                 ),
                                 child: Row(
                                   children: [
                                     ClipRRect(
-                                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), bottomLeft: Radius.circular(14)),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(14),
+                                        bottomLeft: Radius.circular(14),
+                                      ),
                                       child: hasCover
-                                          ? Image.network(cover, width: 70, height: 100, fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) => _blogPlaceholder(isDark))
+                                          ? Image.network(
+                                              cover,
+                                              width: 70,
+                                              height: 100,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  _blogPlaceholder(isDark),
+                                            )
                                           : _blogPlaceholder(isDark),
                                     ),
                                     Expanded(
                                       child: Padding(
                                         padding: const EdgeInsets.all(10),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
-                                            Text(b['title'] ?? 'Untitled', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.white : Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                            Text(
+                                              b['title'] ?? 'Untitled',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                                color: isDark
+                                                    ? Colors.white
+                                                    : Colors.black87,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                             const SizedBox(height: 2),
-                                            Text(excerpt, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                            Text(
+                                              excerpt,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 9,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
                                             const SizedBox(height: 2),
-                                            Text(timeAgo, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+                                            Text(
+                                              timeAgo,
+                                              style: const TextStyle(
+                                                fontSize: 8,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
                                     ),
                                     const Padding(
                                       padding: EdgeInsets.only(right: 8),
-                                      child: Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.grey),
+                                      child: Icon(
+                                        Icons.arrow_forward_ios_rounded,
+                                        size: 10,
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1039,19 +1409,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(blogs.length, (i) => Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _blogsPageIndex == i ? Colors.indigo : Colors.grey.withOpacity(0.3),
+                        children: List.generate(
+                          blogs.length,
+                          (i) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _blogsPageIndex == i
+                                  ? Colors.indigo
+                                  : Colors.grey.withOpacity(0.3),
+                            ),
                           ),
-                        )),
+                        ),
                       ),
                     ],
                   );
-                }
+                },
               ),
           ],
         );
@@ -1061,7 +1436,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _blogPlaceholder(bool isDark) {
     return Container(
-      width: 70, height: 100,
+      width: 70,
+      height: 100,
       color: isDark ? const Color(0xFF27272A) : Colors.indigo.shade50,
       child: const Icon(Icons.article_outlined, color: Colors.indigo, size: 26),
     );
@@ -1076,7 +1452,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (diff.inHours < 24) return '${diff.inHours}h ago';
       if (diff.inDays < 7) return '${diff.inDays}d ago';
       return DateFormat('MMM dd').format(dt);
-    } catch (_) { return ''; }
+    } catch (_) {
+      return '';
+    }
   }
 
   Widget _sectionHeader(String title, {VoidCallback? onSeeAll}) {
@@ -1085,22 +1463,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
           TextButton(
             onPressed: onSeeAll ?? () {},
-            child: const Text('VIEW ALL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+            child: const Text(
+              'VIEW ALL',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.blueAccent,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHorizontalTripList(List<Trip> trips, {String heroPrefix = 'horiz'}) {
+  Widget _buildHorizontalTripList(
+    List<Trip> trips, {
+    String heroPrefix = 'horiz',
+  }) {
     final bool isSpecialRow = trips.any((t) {
-      final cat = _availableCategories.firstWhereOrNull((c) => c.name == t.category);
+      final cat = _availableCategories.firstWhereOrNull(
+        (c) => c.name == t.category,
+      );
       return cat?.isSpecial ?? false;
     });
-    
+
     return SizedBox(
       height: 280,
       child: ListView.builder(
@@ -1109,12 +1506,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         itemCount: trips.length,
         itemBuilder: (context, index) {
           final t = trips[index];
-          final catMeta = _availableCategories.where((c) => c.name == t.category).firstOrNull;
+          final catMeta = _availableCategories
+              .where((c) => c.name == t.category)
+              .firstOrNull;
           final isSpecial = catMeta?.isSpecial ?? false;
-          
+
           return UnifiedTripCard(
-            trip: t, 
-            categoryMeta: catMeta, 
+            trip: t,
+            categoryMeta: catMeta,
             margin: const EdgeInsets.only(right: 16),
             heroTag: '${heroPrefix}_${t.id}',
             onRefresh: _loadTrips,
@@ -1124,130 +1523,127 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-Widget _buildTransportHub() {
-  final isSmallScreen = MediaQuery.of(context).size.width < 400;
+  Widget _buildTransportHub() {
+    final isSmallScreen = MediaQuery.of(context).size.width < 400;
 
-  return Padding(
-    padding: const EdgeInsets.all(20),
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 700),
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Transportation',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+
+              isSmallScreen
+                  ? Column(
+                      children: [
+                        _busCard(),
+                        const SizedBox(height: 16),
+                        _trainCard(),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: _busCard()),
+                        const SizedBox(width: 16),
+                        Expanded(child: _trainCard()),
+                      ],
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _busCard() {
+    return _transportCard(
+      'Book Bus Services',
+      Icons.directions_bus_filled,
+      const Color(0xFFD32F2F),
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              const TransportBookingScreen(initialMode: 'bus'),
+        ),
+      ),
+    );
+  }
+
+  Widget _trainCard() {
+    return _transportCard(
+      'Book Train Services',
+      Icons.train,
+      const Color(0xFF1565C0),
+      () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              const TransportBookingScreen(initialMode: 'train'),
+        ),
+      ),
+    );
+  }
+
+  Widget _transportCard(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Transportation',
+            Icon(icon, color: color, size: 36),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 22,
                 fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 14,
               ),
             ),
-            const SizedBox(height: 16),
-
-            isSmallScreen
-                ? Column(
-                    children: [
-                      _busCard(),
-                      const SizedBox(height: 16),
-                      _trainCard(),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(child: _busCard()),
-                      const SizedBox(width: 16),
-                      Expanded(child: _trainCard()),
-                    ],
-                  ),
           ],
         ),
       ),
-    ),
-  );
-}
-Widget _busCard() {
-  return _transportCard(
-    'Book Bus Services',
-    Icons.directions_bus_filled,
-    const Color(0xFFD32F2F),
-    () => Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            const TransportBookingScreen(initialMode: 'bus'),
-      ),
-    ),
-  );
-}
+    );
+  }
 
-Widget _trainCard() {
-  return _transportCard(
-    'Book Train Services',
-    Icons.train,
-    const Color(0xFF1565C0),
-    () => Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            const TransportBookingScreen(initialMode: 'train'),
-      ),
-    ),
-  );
-}
-
-Widget _transportCard(
-  String title,
-  IconData icon,
-  Color color,
-  VoidCallback onTap,
-) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 16,
-      ),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 36,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
   Widget _buildTripsList() {
     if (_isTripsLoading) {
       return Column(
-        children: List.generate(3, (i) => Column(
-          children: [
-            _shimmerBox(margin: const EdgeInsets.symmetric(horizontal: 20), height: 400, radius: 24),
-            const SizedBox(height: 16),
-          ],
-        )),
+        children: List.generate(
+          3,
+          (i) => Column(
+            children: [
+              _shimmerBox(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                height: 400,
+                radius: 24,
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
       );
     }
 
@@ -1259,7 +1655,10 @@ Widget _transportCard(
             children: [
               Icon(Icons.search_off, size: 80, color: Colors.grey.shade300),
               const SizedBox(height: 16),
-              Text('No results for "$_selectedCategory"', style: const TextStyle(color: Colors.grey, fontSize: 18)),
+              Text(
+                'No results for "$_selectedCategory"',
+                style: const TextStyle(color: Colors.grey, fontSize: 18),
+              ),
             ],
           ),
         ),
@@ -1268,63 +1667,86 @@ Widget _transportCard(
 
     Map<String, List<Trip>> grouped = {};
     Set<String> processedIds = {};
-    
+
     for (var t in _filteredTrips) {
       if (processedIds.contains(t.id)) continue;
       processedIds.add(t.id);
-      
+
       String location = t.location ?? 'Global';
-      String region = location.isEmpty ? 'Global' : location.split(',').first.trim();
+      String region = location.isEmpty
+          ? 'Global'
+          : location.split(',').first.trim();
       if (region.isEmpty) region = 'Global';
-      
+
       grouped.putIfAbsent(region, () => []).add(t);
     }
 
     return Column(
-      children: grouped.entries.map((entry) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: grouped.entries
+          .map(
+            (entry) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.key, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context, 
-                      MaterialPageRoute(
-                        builder: (c) => AllTripsScreen(
-                          allTrips: entry.value, 
-                          initialCategory: entry.key,
-                        )
-                      )
-                    );
-                  }, 
-                  child: const Text('View All', style: TextStyle(fontWeight: FontWeight.bold))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (c) => AllTripsScreen(
+                                allTrips: entry.value,
+                                initialCategory: entry.key,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'View All',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                _buildHorizontalTripList(
+                  entry.value,
+                  heroPrefix: 'group_${entry.key}',
+                ),
+                const SizedBox(height: 10),
               ],
             ),
-          ),
-          _buildHorizontalTripList(entry.value, heroPrefix: 'group_${entry.key}'),
-          const SizedBox(height: 10),
-        ],
-      )).toList(),
+          )
+          .toList(),
     );
   }
 
-
   Widget _announcementTile(Map<String, dynamic> a, int index, int total) {
-    final String createdAt = a['created_at']?.toString() ?? DateTime.now().toIso8601String();
+    final String createdAt =
+        a['created_at']?.toString() ?? DateTime.now().toIso8601String();
     final date = DateTime.parse(createdAt).toLocal();
     final timeStr = DateFormat('MMM dd | HH:mm').format(date);
-    final senderName = a['sender_name']?.toString() ?? 'trekwithmussafirr OFFICE';
+    final senderName =
+        a['sender_name']?.toString() ?? 'trekwithmussafirr OFFICE';
     final bool isUrgent = a['is_urgent'] == true;
     final String content = a['content']?.toString() ?? 'No details provided.';
 
-    final accentColor = isUrgent ? const Color(0xFFEF4444) : const Color(0xFF3B82F6);
-    final lightBg = isUrgent ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF);
+    final accentColor = isUrgent
+        ? const Color(0xFFEF4444)
+        : const Color(0xFF3B82F6);
+    final lightBg = isUrgent
+        ? const Color(0xFFFEF2F2)
+        : const Color(0xFFEFF6FF);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1338,14 +1760,25 @@ Widget _transportCard(
           decoration: BoxDecoration(
             color: lightBg,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: accentColor.withOpacity(0.25), width: 1.2),
+            border: Border.all(
+              color: accentColor.withOpacity(0.25),
+              width: 1.2,
+            ),
             boxShadow: [
-              BoxShadow(color: accentColor.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(
+                color: accentColor.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: Row(
             children: [
-              Icon(isUrgent ? Icons.warning_amber_rounded : Icons.campaign, color: accentColor, size: 26),
+              Icon(
+                isUrgent ? Icons.warning_amber_rounded : Icons.campaign,
+                color: accentColor,
+                size: 26,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1354,13 +1787,47 @@ Widget _transportCard(
                   children: [
                     Row(
                       children: [
-                        Container(width: 3, height: 16, margin: const EdgeInsets.only(right: 6), decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(2))),
-                        Expanded(child: Text(senderName.toUpperCase(), style: TextStyle(color: accentColor, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.5))),
-                        Text(timeStr, style: const TextStyle(color: Colors.black45, fontSize: 9)),
+                        Container(
+                          width: 3,
+                          height: 16,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            color: accentColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            senderName.toUpperCase(),
+                            style: TextStyle(
+                              color: accentColor,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          timeStr,
+                          style: const TextStyle(
+                            color: Colors.black45,
+                            fontSize: 9,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 13, height: 1.3)),
+                    Text(
+                      content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1372,14 +1839,17 @@ Widget _transportCard(
   }
 
   void _showFullAnnouncement(Map<String, dynamic> a) {
-  final date = DateTime.parse(a['created_at']).toLocal();
- showModalBottomSheet(
+    final date = DateTime.parse(a['created_at']).toLocal();
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.6,
-        decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
         padding: const EdgeInsets.all(30),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1388,21 +1858,46 @@ Widget _transportCard(
               children: [
                 const Icon(Icons.campaign, color: Color(0xFFD32F2F)),
                 const SizedBox(width: 12),
-                const Text('LATEST UPDATES', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 12)),
+                const Text(
+                  'LATEST UPDATES',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                    fontSize: 12,
+                  ),
+                ),
                 const Spacer(),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ],
             ),
             const SizedBox(height: 30),
-            Text(a['title'] ?? 'IMPORTANT NOTICE', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(
+              a['title'] ?? 'IMPORTANT NOTICE',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            Text(DateFormat('MMMM dd, yyyy | HH:mm').format(DateTime.parse(a['created_at']).toLocal()), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(
+              DateFormat(
+                'MMMM dd, yyyy | HH:mm',
+              ).format(DateTime.parse(a['created_at']).toLocal()),
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 24),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(a['content'], style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.blueGrey)),
+                child: Text(
+                  a['content'],
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 1.6,
+                    color: Colors.blueGrey,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1411,224 +1906,213 @@ Widget _transportCard(
     );
   }
 
-Widget _legacyAlertWidget() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-    child: FadeInDown(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.info_outline,
-              size: 16,
-              color: Colors.grey,
-            ),
+  Widget _legacyAlertWidget() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: FadeInDown(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.info_outline, size: 16, color: Colors.grey),
 
-            const SizedBox(width: 8),
+              const SizedBox(width: 8),
 
-            Expanded(
-              child: Text(
-                _activeAlert?['message'] ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.black87,
-                  height: 1.3,
+              Expanded(
+                child: Text(
+                  _activeAlert?['message'] ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.black87,
+                    height: 1.3,
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(width: 6),
+              const SizedBox(width: 6),
 
-            GestureDetector(
-              onTap: () => setState(() => _activeAlert = null),
-              child: const Icon(
-                Icons.close,
-                size: 16,
-                color: Colors.grey,
+              GestureDetector(
+                onTap: () => setState(() => _activeAlert = null),
+                child: const Icon(Icons.close, size: 16, color: Colors.grey),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
-  
+    );
+  }
 
-
-void _showAnnouncementsScreen() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => Scaffold(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF09090B)
-            : const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          title: const Text(
-            'TRIP BROADCASTS',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-              fontSize: 13,
-              color: Colors.white,
+  void _showAnnouncementsScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF09090B)
+              : const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: const Text(
+              'TRIP BROADCASTS',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                fontSize: 13,
+                color: Colors.white,
+              ),
             ),
+            backgroundColor: const Color(0xFFD32F2F),
+            elevation: 0,
           ),
-          backgroundColor: const Color(0xFFD32F2F),
-          elevation: 0,
-        ),
-        body: StreamBuilder<List<Map<String, dynamic>>>(
-          stream: Supabase.instance.client
-              .from('global_announcements')
-              .stream(primaryKey: ['id'])
-              .order('created_at', ascending: false),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
+          body: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client
+                .from('global_announcements')
+                .stream(primaryKey: ['id'])
+                .order('created_at', ascending: false),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            final items = snapshot.data!;
-            if (items.isEmpty) return _buildEmptyState();
+              final items = snapshot.data!;
+              if (items.isEmpty) return _buildEmptyState();
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: items.length,
-              itemBuilder: (context, i) {
-                final a = items[i];
-                final date =
-                    DateTime.parse(a['created_at']).toLocal();
-                final bool isUrgent = a['is_urgent'] ?? false;
-                final isDark =
-                    Theme.of(context).brightness == Brightness.dark;
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: items.length,
+                itemBuilder: (context, i) {
+                  final a = items[i];
+                  final date = DateTime.parse(a['created_at']).toLocal();
+                  final bool isUrgent = a['is_urgent'] ?? false;
+                  final isDark =
+                      Theme.of(context).brightness == Brightness.dark;
 
-                return GestureDetector(
-                  onTap: () => _showFullAnnouncement(a),
-                  child: FadeInUp(
-                    delay: Duration(milliseconds: i * 40),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF18181B)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isUrgent
-                              ? Colors.redAccent.withOpacity(0.25)
-                              : (isDark
-                                  ? Colors.white10
-                                  : Colors.grey.shade200),
-                        ),
-                        boxShadow: [
-                          if (!isDark)
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 6),
-                            ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              isUrgent
-                                  ? Icons.warning_amber_rounded
-                                  : Icons.info_outline,
-                              size: 18,
-                              color: isUrgent
-                                  ? Colors.redAccent
-                                  : Colors.blueAccent,
-                            ),
-
-                            const SizedBox(width: 10),
-
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        isUrgent
-                                            ? 'URGENT'
-                                            : 'UPDATE',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          color: isUrgent
-                                              ? Colors.redAccent
-                                              : Colors.blueAccent,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        DateFormat('MMM dd, HH:mm')
-                                            .format(date),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color:
-                                              Colors.grey.shade500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 6),
-
-                                  Text(
-                                    a['title'] ?? 'Announcement',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black87,
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 4),
-
-                                  Text(
-                                    a['content'],
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.white70 : Colors.black54,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
+                  return GestureDetector(
+                    onTap: () => _showFullAnnouncement(a),
+                    child: FadeInUp(
+                      delay: Duration(milliseconds: i * 40),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF18181B)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isUrgent
+                                ? Colors.redAccent.withOpacity(0.25)
+                                : (isDark
+                                      ? Colors.white10
+                                      : Colors.grey.shade200),
+                          ),
+                          boxShadow: [
+                            if (!isDark)
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 6),
                               ),
-                            ),
                           ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                isUrgent
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.info_outline,
+                                size: 18,
+                                color: isUrgent
+                                    ? Colors.redAccent
+                                    : Colors.blueAccent,
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          isUrgent ? 'URGENT' : 'UPDATE',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            color: isUrgent
+                                                ? Colors.redAccent
+                                                : Colors.blueAccent,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          DateFormat(
+                                            'MMM dd, HH:mm',
+                                          ).format(date),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 6),
+
+                                    Text(
+                                      a['title'] ?? 'Announcement',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87,
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 4),
+
+                                    Text(
+                                      a['content'],
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -1636,7 +2120,10 @@ void _showAnnouncementsScreen() {
         children: [
           const Icon(Icons.campaign_outlined, size: 60, color: Colors.grey),
           const SizedBox(height: 16),
-          const Text('No broadcasts in theoretical airwaves.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          const Text(
+            'No broadcasts in theoretical airwaves.',
+            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -1647,7 +2134,12 @@ void _showAnnouncementsScreen() {
     // Error Logger
     ErrorWidget.builder = (details) {
       debugPrint('HOME_UI_ERROR: ${details.exception}');
-      return Center(child: Text('Error: ${details.exception}', style: TextStyle(color: Colors.red)));
+      return Center(
+        child: Text(
+          'Error: ${details.exception}',
+          style: TextStyle(color: Colors.red),
+        ),
+      );
     };
 
     final List<Widget> pages;
@@ -1663,12 +2155,23 @@ void _showAnnouncementsScreen() {
         ProfileScreen(),
       ];
       navItems = [
-        const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.explore),
+          label: 'Explore',
+        ),
         BottomNavigationBarItem(icon: _buildChatIcon(true), label: 'Chats'),
-        const BottomNavigationBarItem(icon: Icon(Icons.shield_outlined), label: 'Admin'),
-        const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.shield_outlined),
+          label: 'Admin',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          label: 'Account',
+        ),
       ];
-    } else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') {
+    } else if (_userRole == 'staff' ||
+        _userRole == 'employee' ||
+        _userRole == 'guide') {
       title = 'STAFF PORTAL';
       pages = [
         _buildExploreScreen(context),
@@ -1677,10 +2180,19 @@ void _showAnnouncementsScreen() {
         ProfileScreen(),
       ];
       navItems = [
-        const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.explore),
+          label: 'Explore',
+        ),
         BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
-        const BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-        const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard_outlined),
+          label: 'Dashboard',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          label: 'Account',
+        ),
       ];
     } else {
       title = 'TREK WITH MUSSAFIRR';
@@ -1691,10 +2203,19 @@ void _showAnnouncementsScreen() {
         ProfileScreen(),
       ];
       navItems = [
-        const BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.explore),
+          label: 'Explore',
+        ),
         BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
-        const BottomNavigationBarItem(icon: Icon(Icons.hub_outlined), label: 'Dashboard'),
-        const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.hub_outlined),
+          label: 'Dashboard',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          label: 'Account',
+        ),
       ];
     }
 
@@ -1707,7 +2228,9 @@ void _showAnnouncementsScreen() {
       final name = _userName ?? 'Explorer';
       if (_userRole == 'admin') {
         appBarTitle = '${name.toUpperCase()} (ADMIN)';
-      } else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') {
+      } else if (_userRole == 'staff' ||
+          _userRole == 'employee' ||
+          _userRole == 'guide') {
         appBarTitle = '${name.toUpperCase()} (STAFF)';
       } else {
         appBarTitle = name.toUpperCase();
@@ -1715,67 +2238,104 @@ void _showAnnouncementsScreen() {
     }
 
     return Scaffold(
-      appBar: (_selectedIndex == 0 && !kIsWeb) ? AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('TREK WITH MUSSAFIRR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
-            if (_user != null)
-              Text(
-                appBarTitle,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
-              )
-            else
-              const Text(
-                'TREK WITH MUSSAFIRR',
-                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white70),
+      appBar: (_selectedIndex == 0 && !kIsWeb)
+          ? AppBar(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'TREK WITH MUSSAFIRR',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (_user != null)
+                    Text(
+                      appBarTitle,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white70,
+                      ),
+                    )
+                  else
+                    const Text(
+                      'TREK WITH MUSSAFIRR',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        color: Colors.white70,
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
-        backgroundColor: const Color(0xFFD32F2F),
-        centerTitle: false,
-        actions: _buildAppBarActions(context),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-            child: Container(
-              height: 45,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) => _filterTrips(),
-                style: const TextStyle(color: Colors.black87, fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Search your next peak...',
-                  hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
-                  border: InputBorder.none,
-                  icon: Icon(Icons.search, size: 18, color: Color(0xFFD32F2F)),
+              backgroundColor: const Color(0xFFD32F2F),
+              centerTitle: false,
+              actions: _buildAppBarActions(context),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(60),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Container(
+                    height: 45,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (v) => _filterTrips(),
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 14,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Search your next peak...',
+                        hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                        border: InputBorder.none,
+                        icon: Icon(
+                          Icons.search,
+                          size: 18,
+                          color: Color(0xFFD32F2F),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ) : null,
+            )
+          : null,
       floatingActionButton: _selectedIndex == 0
-        ? FloatingActionButton.extended(
-            heroTag: 'support_fab',
-            onPressed: _showEnquiryForm,
-            backgroundColor: const Color(0xFFD32F2F),
-            icon: const Icon(Icons.assignment_outlined, color: Colors.white),
-            label: const Text('', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          )
-        : null,
+          ? FloatingActionButton.extended(
+              heroTag: 'support_fab',
+              onPressed: _showEnquiryForm,
+              backgroundColor: const Color(0xFFD32F2F),
+              icon: const Icon(Icons.assignment_outlined, color: Colors.white),
+              label: const Text(
+                '',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          : null,
       body: Column(
         children: [
           // ── Sticky web header (always visible on web, outside scroll) ──────
-          if (kIsWeb)
-            _buildWebHeader(context),
+          if (kIsWeb) _buildWebHeader(context),
           // ── Offline banner ────────────────────────────────────────────────
           if (_isOffline)
             Container(
@@ -1784,19 +2344,43 @@ void _showAnnouncementsScreen() {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 14),
+                  const Icon(
+                    Icons.wifi_off_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
                   const SizedBox(width: 8),
-                  const Text('OFFLINE MODE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const Text(
+                    'OFFLINE MODE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => _handleInitialLoad(),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 0,
+                      ),
                       minimumSize: Size.zero,
                       backgroundColor: Colors.white.withOpacity(0.2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
-                    child: const Text('RECONNECT', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                    child: const Text(
+                      'RECONNECT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1823,30 +2407,34 @@ void _showAnnouncementsScreen() {
                       ),
                     ],
                   )
-                : IndexedStack(
-                    index: _selectedIndex,
-                    children: pages,
-                  ),
+                : IndexedStack(index: _selectedIndex, children: pages),
           ),
         ],
       ),
-      bottomNavigationBar: (_user == null || kIsWeb) ? null : Theme(
-        data: Theme.of(context).copyWith(
-          canvasColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF18181B) : Colors.white,
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() => _selectedIndex = index);
-          },
-          selectedItemColor: const Color(0xFFD32F2F),
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
-          unselectedLabelStyle: const TextStyle(fontSize: 10),
-          items: navItems,
-        ),
-      ),
+      bottomNavigationBar: (_user == null || kIsWeb)
+          ? null
+          : Theme(
+              data: Theme.of(context).copyWith(
+                canvasColor: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF18181B)
+                    : Colors.white,
+              ),
+              child: BottomNavigationBar(
+                currentIndex: _selectedIndex,
+                onTap: (index) {
+                  setState(() => _selectedIndex = index);
+                },
+                selectedItemColor: const Color(0xFFD32F2F),
+                unselectedItemColor: Colors.grey,
+                type: BottomNavigationBarType.fixed,
+                selectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+                unselectedLabelStyle: const TextStyle(fontSize: 10),
+                items: navItems,
+              ),
+            ),
     );
   }
 
@@ -1857,10 +2445,12 @@ void _showAnnouncementsScreen() {
     final tabLabels = _user == null
         ? ['Explore']
         : (_userRole == 'admin'
-            ? ['Explore', 'Chats', 'Admin Panel', 'Account']
-            : (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide'
-                ? ['Explore', 'Chats', 'Dashboard', 'Account']
-                : ['Explore', 'Chats', 'Dashboard', 'Account']));
+              ? ['Explore', 'Chats', 'Admin Panel', 'Account']
+              : (_userRole == 'staff' ||
+                        _userRole == 'employee' ||
+                        _userRole == 'guide'
+                    ? ['Explore', 'Chats', 'Dashboard', 'Account']
+                    : ['Explore', 'Chats', 'Dashboard', 'Account']));
     final currentLabel = (_selectedIndex < tabLabels.length)
         ? tabLabels[_selectedIndex]
         : 'Screen';
@@ -1887,20 +2477,37 @@ void _showAnnouncementsScreen() {
               decoration: BoxDecoration(
                 color: const Color(0xFFD32F2F).withOpacity(0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFD32F2F).withOpacity(0.2)),
+                border: Border.all(
+                  color: const Color(0xFFD32F2F).withOpacity(0.2),
+                ),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.arrow_back_ios_new_rounded, size: 12, color: Color(0xFFD32F2F)),
+                  Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 12,
+                    color: Color(0xFFD32F2F),
+                  ),
                   SizedBox(width: 6),
-                  Text('Explore', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD32F2F))),
+                  Text(
+                    'Explore',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFD32F2F),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(width: 10),
-          Icon(Icons.chevron_right, size: 16, color: isDark ? Colors.white38 : Colors.grey),
+          Icon(
+            Icons.chevron_right,
+            size: 16,
+            color: isDark ? Colors.white38 : Colors.grey,
+          ),
           const SizedBox(width: 6),
           Text(
             currentLabel,
@@ -1919,8 +2526,12 @@ void _showAnnouncementsScreen() {
     return const GlobalUnreadBadge(icon: Icon(Icons.chat_bubble_outline));
   }
 
-
-  Widget _hubCard(String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _hubCard(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return FadeInRight(
       child: GestureDetector(
@@ -1933,7 +2544,13 @@ void _showAnnouncementsScreen() {
             color: isDark ? const Color(0xFF18181B) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: color.withOpacity(0.2)),
-            boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1941,16 +2558,19 @@ void _showAnnouncementsScreen() {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(icon, color: color, size: 20),
               ),
               Text(
-                title, 
+                title,
                 style: TextStyle(
-                  fontWeight: FontWeight.bold, 
+                  fontWeight: FontWeight.bold,
                   fontSize: 13,
-                  color: isDark ? Colors.white : Colors.black87
-                )
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
             ],
           ),
@@ -1959,7 +2579,13 @@ void _showAnnouncementsScreen() {
     );
   }
 
-  Widget _buildLargeMenuCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildLargeMenuCard(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return FadeInRight(
       child: GestureDetector(
@@ -1972,7 +2598,13 @@ void _showAnnouncementsScreen() {
             color: isDark ? const Color(0xFF18181B) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: color.withOpacity(0.2)),
-            boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1980,25 +2612,28 @@ void _showAnnouncementsScreen() {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(icon, color: color, size: 20),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title, 
+                    title,
                     style: TextStyle(
-                      fontWeight: FontWeight.bold, 
+                      fontWeight: FontWeight.bold,
                       fontSize: 15,
-                      color: isDark ? Colors.white : Colors.black87
-                    )
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
                   ),
                   Text(
-                    subtitle, 
+                    subtitle,
                     style: TextStyle(
                       fontSize: 10,
-                      color: isDark ? Colors.white70 : Colors.black54
+                      color: isDark ? Colors.white70 : Colors.black54,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -2022,7 +2657,13 @@ void _showAnnouncementsScreen() {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2048,7 +2689,9 @@ void _showAnnouncementsScreen() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
       builder: (context) {
         return DraggableScrollableSheet(
           initialChildSize: 0.7,
@@ -2062,17 +2705,29 @@ void _showAnnouncementsScreen() {
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Text('USER MANAGEMENT', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'USER MANAGEMENT',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
                     ),
                     Expanded(
                       child: FutureBuilder<List<Map<String, dynamic>>>(
-                        future: Supabase.instance.client.from('profiles').select().order('full_name', ascending: true),
+                        future: Supabase.instance.client
+                            .from('profiles')
+                            .select()
+                            .order('full_name', ascending: true),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
                           }
                           if (snapshot.hasError) {
-                            return Center(child: Text('Error: ${snapshot.error}'));
+                            return Center(
+                              child: Text('Error: ${snapshot.error}'),
+                            );
                           }
                           if (!snapshot.hasData || snapshot.data!.isEmpty) {
                             return const Center(child: Text('No users found.'));
@@ -2085,23 +2740,45 @@ void _showAnnouncementsScreen() {
                             itemBuilder: (context, index) {
                               final u = users[index];
                               return ListTile(
-                                leading: UserAvatar(imageUrl: u['avatar_url'], name: u['full_name'], width: 36, height: 36, borderRadius: BorderRadius.circular(8)),
+                                leading: UserAvatar(
+                                  imageUrl: u['avatar_url'],
+                                  name: u['full_name'],
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                                 title: Text(u['full_name'] ?? 'Tracker'),
                                 subtitle: Text(u['role'] ?? 'user'),
                                 trailing: PopupMenuButton<String>(
                                   initialValue: u['role'],
                                   onSelected: (newRole) async {
                                     try {
-                                      await Supabase.instance.client.from('profiles').update({'role': newRole}).eq('id', u['id']);
+                                      await Supabase.instance.client
+                                          .from('profiles')
+                                          .update({'role': newRole})
+                                          .eq('id', u['id']);
                                       setSheetState(() => u['role'] = newRole);
                                     } catch (e) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(content: Text('Error: $e')),
+                                      );
                                     }
                                   },
                                   itemBuilder: (context) => [
-                                    const PopupMenuItem(value: 'user', child: Text('User')),
-                                    const PopupMenuItem(value: 'staff', child: Text('Staff / Guide')),
-                                    const PopupMenuItem(value: 'admin', child: Text('Administrator')),
+                                    const PopupMenuItem(
+                                      value: 'user',
+                                      child: Text('User'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'staff',
+                                      child: Text('Staff / Guide'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'admin',
+                                      child: Text('Administrator'),
+                                    ),
                                   ],
                                 ),
                               );
@@ -2119,24 +2796,27 @@ void _showAnnouncementsScreen() {
       },
     );
   }
+
   Future<void> _launchGoogleForm() async {
-    final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform');
+    final Uri url = Uri.parse(
+      'https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform',
+    );
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw Exception('Could not launch $url');
     }
   }
 
   void _showEnquiryForm() {
-    const String formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform';
+    const String formUrl =
+        'https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform';
     launchUrl(Uri.parse(formUrl), mode: LaunchMode.externalApplication);
   }
-
 
   Widget _buildWebHeader(BuildContext context) {
     if (!kIsWeb) return const SizedBox.shrink();
     final bool isWide = MediaQuery.of(context).size.width > 900;
     if (!isWide) return const SizedBox.shrink();
-    
+
     final String displayTitle;
     if (_user == null) {
       displayTitle = 'TREK WITH MUSSAFIRR';
@@ -2144,7 +2824,9 @@ void _showAnnouncementsScreen() {
       final name = _userName ?? 'Explorer';
       if (_userRole == 'admin') {
         displayTitle = '${name.toUpperCase()} (ADMIN)';
-      } else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide') {
+      } else if (_userRole == 'staff' ||
+          _userRole == 'employee' ||
+          _userRole == 'guide') {
         displayTitle = '${name.toUpperCase()} (STAFF)';
       } else {
         displayTitle = name.toUpperCase();
@@ -2154,8 +2836,12 @@ void _showAnnouncementsScreen() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF18181B) : Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF18181B)
+            : Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2170,12 +2856,23 @@ void _showAnnouncementsScreen() {
                 children: [
                   const Text(
                     'TREK WITH MUSSAFIRR',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1, color: Color(0xFFD32F2F)),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                      color: Color(0xFFD32F2F),
+                    ),
                   ),
                   if (_user != null)
                     Text(
                       displayTitle,
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white60 : Colors.black54),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white60
+                            : Colors.black54,
+                      ),
                     ),
                 ],
               ),
@@ -2183,82 +2880,123 @@ void _showAnnouncementsScreen() {
           ),
           Row(
             children: [
-              _webNavLink(context, 'Explore', () => setState(() => _selectedIndex = 0), isActive: _selectedIndex == 0),
+              _webNavLink(
+                context,
+                'Explore',
+                () => setState(() => _selectedIndex = 0),
+                isActive: _selectedIndex == 0,
+              ),
               if (_user != null) ...[
-                _webNavLink(context, 'Chats', () => setState(() => _selectedIndex = 1), isActive: _selectedIndex == 1),
+                _webNavLink(
+                  context,
+                  'Chats',
+                  () => setState(() => _selectedIndex = 1),
+                  isActive: _selectedIndex == 1,
+                ),
                 if (_userRole == 'admin')
-                  _webNavLink(context, 'Admin Panel', () => setState(() => _selectedIndex = 2), isActive: _selectedIndex == 2)
-                else if (_userRole == 'staff' || _userRole == 'employee' || _userRole == 'guide')
-                  _webNavLink(context, 'Dashboard', () => setState(() => _selectedIndex = 2), isActive: _selectedIndex == 2)
+                  _webNavLink(
+                    context,
+                    'Admin Panel',
+                    () => setState(() => _selectedIndex = 2),
+                    isActive: _selectedIndex == 2,
+                  )
+                else if (_userRole == 'staff' ||
+                    _userRole == 'employee' ||
+                    _userRole == 'guide')
+                  _webNavLink(
+                    context,
+                    'Dashboard',
+                    () => setState(() => _selectedIndex = 2),
+                    isActive: _selectedIndex == 2,
+                  )
                 else
-                  _webNavLink(context, 'Dashboard', () => setState(() => _selectedIndex = 2), isActive: _selectedIndex == 2),
-                
-                _webNavLink(context, 'Account', () => setState(() => _selectedIndex = 3), isActive: _selectedIndex == 3),
+                  _webNavLink(
+                    context,
+                    'Dashboard',
+                    () => setState(() => _selectedIndex = 2),
+                    isActive: _selectedIndex == 2,
+                  ),
+
+                _webNavLink(
+                  context,
+                  'Account',
+                  () => setState(() => _selectedIndex = 3),
+                  isActive: _selectedIndex == 3,
+                ),
               ],
               const SizedBox(width: 20),
               if (_user == null)
                 ElevatedButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const LoginScreen())),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
-                  child: const Text('Login / Register', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (c) => const LoginScreen()),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD32F2F),
+                  ),
+                  child: const Text(
+                    'Login / Register',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 )
               else ...[
-              Container(
-decoration: BoxDecoration(
-  color: const Color(0xFFD32F2F).withOpacity(0.08),
-  shape: BoxShape.circle,
-  border: Border.all(
-    color: const Color(0xFFD32F2F).withOpacity(0.15),
-  ),
-),
-  child: _notificationBadge(
-    iconColor: const Color(0xFFD32F2F),
-  ),
-),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD32F2F).withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFD32F2F).withOpacity(0.15),
+                    ),
+                  ),
+                  child: _notificationBadge(iconColor: const Color(0xFFD32F2F)),
+                ),
 
-const SizedBox(width: 16),
+                const SizedBox(width: 16),
 
-Container(
-  decoration: BoxDecoration(
-    color: const Color(0xFFD32F2F).withOpacity(0.08),
-    shape: BoxShape.circle,
-  ),
-  child: IconButton(
-    onPressed: () async {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Log Out?'),
-          content: const Text(
-            'Are you sure you want to end your current session?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text(
-                'Log Out',
-                style: TextStyle(color: Colors.redAccent),
-              ),
-            ),
-          ],
-        ),
-      );
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD32F2F).withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Log Out?'),
+                          content: const Text(
+                            'Are you sure you want to end your current session?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text(
+                                'Log Out',
+                                style: TextStyle(color: Colors.redAccent),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
 
-      if (confirmed == true) {
-        await Supabase.instance.client.auth.signOut();
-      }
-    },
-    icon: const Icon(
-      Icons.logout_rounded,
-      color: Color(0xFFD32F2F),
-    ),
-    tooltip: 'Log Out',
-  ),
-),
+                      if (confirmed == true) {
+                        await Supabase.instance.client.auth.signOut();
+                      }
+                    },
+                    icon: const Icon(
+                      Icons.logout_rounded,
+                      color: Color(0xFFD32F2F),
+                    ),
+                    tooltip: 'Log Out',
+                  ),
+                ),
               ],
             ],
           ),
@@ -2278,7 +3016,9 @@ Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF18181B) : Colors.grey[100],
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
+          border: Border.all(
+            color: isDark ? Colors.white10 : Colors.grey[300]!,
+          ),
         ),
         child: Row(
           children: [
@@ -2303,7 +3043,12 @@ Container(
     );
   }
 
-  Widget _webNavLink(BuildContext context, String title, VoidCallback onTap, {bool isActive = false}) {
+  Widget _webNavLink(
+    BuildContext context,
+    String title,
+    VoidCallback onTap, {
+    bool isActive = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: InkWell(
@@ -2311,7 +3056,9 @@ Container(
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFD32F2F).withOpacity(0.1) : Colors.transparent,
+            color: isActive
+                ? const Color(0xFFD32F2F).withOpacity(0.1)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
@@ -2321,7 +3068,9 @@ Container(
               fontSize: 14,
               color: isActive
                   ? const Color(0xFFD32F2F)
-                  : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
+                  : (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : Colors.black87),
             ),
           ),
         ),
@@ -2332,7 +3081,7 @@ Container(
   Widget _buildWebFooter(BuildContext context) {
     if (!kIsWeb) return const SizedBox.shrink();
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       width: double.infinity,
       color: isDark ? const Color(0xFF09090B) : const Color(0xFF18181B),
@@ -2348,11 +3097,23 @@ Container(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('TREK WITH MUSSAFIRR', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const Text(
+                      'TREK WITH MUSSAFIRR',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Your premier trekking companion in the Himalayas. Discover trails, book expeditions, and explore the unexplored with professional safety guidance.',
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.5),
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
                     ),
                   ],
                 ),
@@ -2362,12 +3123,55 @@ Container(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Policies', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Policies',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 12),
-                    _footerLink(context, 'Privacy Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen()))),
-                    _footerLink(context, 'Terms of Service', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const TermsOfServiceScreen()))),
-                    _footerLink(context, 'Refund Policy', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RefundPolicyScreen()))),
-                    _footerLink(context, 'Safety Protocols', () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SafetyProtocolsScreen()))),
+                    _footerLink(
+                      context,
+                      'Privacy Policy',
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (c) => const PrivacyPolicyScreen(),
+                        ),
+                      ),
+                    ),
+                    _footerLink(
+                      context,
+                      'Terms of Service',
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (c) => const TermsOfServiceScreen(),
+                        ),
+                      ),
+                    ),
+                    _footerLink(
+                      context,
+                      'Refund Policy',
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (c) => const RefundPolicyScreen(),
+                        ),
+                      ),
+                    ),
+                    _footerLink(
+                      context,
+                      'Safety Protocols',
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (c) => const SafetyProtocolsScreen(),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2375,13 +3179,38 @@ Container(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Contact Us', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Contact Us',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 12),
-                    Text('Email: trekwithmussafirr@gmail.com', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    Text(
+                      'Email: trekwithmussafirr@gmail.com',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(height: 6),
-                    Text('Phone: +91 9876543210', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    Text(
+                      'Phone: +91 9876543210',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(height: 6),
-                    Text('Address: Dehradun, India', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    Text(
+                      'Address: Dehradun, India',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2408,7 +3237,10 @@ Container(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: onTap,
-        child: Text(label, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+        child: Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+        ),
       ),
     );
   }
@@ -2433,7 +3265,11 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => 70;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2446,8 +3282,14 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
           isScrollable: true,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.grey,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 12,
+          ),
           indicator: BoxDecoration(
             borderRadius: BorderRadius.circular(25),
             color: Colors.white, // 👈 WHITE TEXT ON DARK BG
@@ -2456,7 +3298,9 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
           dividerColor: Colors.transparent,
           labelPadding: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          tabs: categoryNames.map((c) => Tab(text: (c ?? 'Adventure').toUpperCase())).toList(),
+          tabs: categoryNames
+              .map((c) => Tab(text: (c ?? 'Adventure').toUpperCase()))
+              .toList(),
         ),
       ),
     );
@@ -2464,8 +3308,9 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) {
-    return oldDelegate.categoryNames.join(',') != categoryNames.join(',') || 
-           oldDelegate.tabController != tabController;
+    return oldDelegate.categoryNames.join(',') != categoryNames.join(',') ||
+        oldDelegate.tabController != tabController;
   }
 }
+
 // END OF HOME SCREEN
