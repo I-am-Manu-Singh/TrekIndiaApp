@@ -32,6 +32,8 @@ ALTER TABLE trips ADD COLUMN IF NOT EXISTS images                JSONB DEFAULT '
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS inclusions            JSONB DEFAULT '[]';
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS exclusions            JSONB DEFAULT '[]';
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS itinerary             JSONB DEFAULT '[]';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS available_dates       JSONB DEFAULT '[]';
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS slot_capacity         INT NOT NULL DEFAULT 15;
 
 ALTER TABLE trip_packages
   ADD COLUMN IF NOT EXISTS reward_points INT NOT NULL DEFAULT 0;

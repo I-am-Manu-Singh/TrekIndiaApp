@@ -40,7 +40,9 @@ class TripPackage {
       name: (json['name'] ?? 'Standard Package').toString(),
       price: double.tryParse((json['price'] ?? 0.0).toString()) ?? 0.0,
       description: (json['description'] ?? '').toString(),
-      inclusions: (json['inclusions'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      inclusions:
+          (json['inclusions'] as List?)?.map((e) => e.toString()).toList() ??
+          [],
       isActive: json['is_active'] ?? true,
     );
   }
@@ -107,6 +109,7 @@ class Trip {
   final String? startPoint;
   final String? packageType;
   final List<DateTime>? availableDates;
+  final int slotCapacity;
   final String? googleMapLink;
   final String? termsConditions;
   final String? cancellationPolicy;
@@ -145,6 +148,7 @@ class Trip {
     this.startPoint,
     this.packageType,
     this.availableDates,
+    this.slotCapacity = 15,
     this.googleMapLink,
     this.termsConditions,
     this.cancellationPolicy,
@@ -153,7 +157,9 @@ class Trip {
   });
 
   double get discountedPrice {
-    if (discountedPriceFromDb != null && discountedPriceFromDb! > 0 && discountedPriceFromDb! < basePrice) {
+    if (discountedPriceFromDb != null &&
+        discountedPriceFromDb! > 0 &&
+        discountedPriceFromDb! < basePrice) {
       return discountedPriceFromDb!;
     }
     return basePrice * (1 - (discountPercent / 100));
@@ -161,26 +167,62 @@ class Trip {
 
   factory Trip.fromJson(Map<String, dynamic>? json) {
     if (json == null) return Trip.empty();
-    
-    var itineraryList = (json['itinerary'] as List?)?.map((i) {
-      if (i is String) return TripItinerary(day: 0, title: i, description: '');
-      return TripItinerary.fromJson(i);
-    }).toList() ?? [];
 
-    var pickupList = (json['pickup_options'] as List?)?.map((i) => PickupOption.fromJson(i)).toList() ?? [];
-    var pkgsList = (json['trip_packages'] as List?)?.map((i) => TripPackage.fromJson(i)).toList() ?? [];
-    
+    var itineraryList =
+        (json['itinerary'] as List?)?.map((i) {
+          if (i is String)
+            return TripItinerary(day: 0, title: i, description: '');
+          return TripItinerary.fromJson(i);
+        }).toList() ??
+        [];
+
+    var pickupList =
+        (json['pickup_options'] as List?)
+            ?.map((i) => PickupOption.fromJson(i))
+            .toList() ??
+        [];
+    var pkgsList =
+        (json['trip_packages'] as List?)
+            ?.map((i) => TripPackage.fromJson(i))
+            .toList() ??
+        [];
+
     List<DateTime> batches = [];
     DateTime cursor = DateTime.now().add(const Duration(days: 1));
     while (batches.length < 7) {
       batches.add(cursor);
       cursor = cursor.add(const Duration(days: 1));
     }
-    
+
     List<String> parseList(dynamic data) {
       if (data == null) return [];
       if (data is List) return data.map((e) => e.toString()).toList();
       return [];
+    }
+
+    List<DateTime>? parseDates(dynamic data) {
+      if (data == null || data is! List) return null;
+      final dates = data
+          .map((e) => DateTime.tryParse(e.toString()))
+          .whereType<DateTime>()
+          .toList();
+      return dates.isEmpty ? null : dates;
+    }
+
+    int parseCapacity(Map<String, dynamic> data) {
+      const keys = [
+        'slot_capacity',
+        'capacity',
+        'max_slots',
+        'total_slots',
+        'seats',
+        'seats_available',
+      ];
+      for (final key in keys) {
+        final parsed = int.tryParse((data[key] ?? '').toString());
+        if (parsed != null && parsed > 0) return parsed;
+      }
+      return 15;
     }
 
     return Trip(
@@ -190,9 +232,16 @@ class Trip {
       duration: (json['duration'] ?? 'N/A').toString(),
       difficulty: (json['difficulty'] ?? 'Moderate').toString(),
       altitude: (json['altitude'] ?? 'N/A').toString(),
-      basePrice: double.tryParse((json['base_price'] ?? json['price'] ?? 0.0).toString()) ?? 0.0,
-      discountedPriceFromDb: double.tryParse((json['discounted_price'] ?? 0.0).toString()),
-      discountPercent: double.tryParse((json['discount_percent'] ?? 0.0).toString()) ?? 0.0,
+      basePrice:
+          double.tryParse(
+            (json['base_price'] ?? json['price'] ?? 0.0).toString(),
+          ) ??
+          0.0,
+      discountedPriceFromDb: double.tryParse(
+        (json['discounted_price'] ?? 0.0).toString(),
+      ),
+      discountPercent:
+          double.tryParse((json['discount_percent'] ?? 0.0).toString()) ?? 0.0,
       rating: double.tryParse((json['rating'] ?? 5.0).toString()) ?? 5.0,
       imageUrl: (json['image_url'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
@@ -204,14 +253,23 @@ class Trip {
       carryList: parseList(json['carry_list']),
       category: (json['category'] ?? 'Adventure').toString(),
       bestMonths: (json['best_months'] ?? 'All Year').toString(),
-      seasonalInfo: json['seasonal_info'] is Map ? Map<String, dynamic>.from(json['seasonal_info']) : {},
+      seasonalInfo: json['seasonal_info'] is Map
+          ? Map<String, dynamic>.from(json['seasonal_info'])
+          : {},
       totalDistance: (json['total_distance'] ?? '0 km').toString(),
-      latitude: double.tryParse((json['latitude'] ?? '30.7333').toString()) ?? 30.7333,
-      longitude: double.tryParse((json['longitude'] ?? '76.7794').toString()) ?? 76.7794,
-      peakElevation: (json['peak_elevation'] ?? json['altitude'] ?? 'N/A').toString(),
+      latitude:
+          double.tryParse((json['latitude'] ?? '30.7333').toString()) ??
+          30.7333,
+      longitude:
+          double.tryParse((json['longitude'] ?? '76.7794').toString()) ??
+          76.7794,
+      peakElevation: (json['peak_elevation'] ?? json['altitude'] ?? 'N/A')
+          .toString(),
       trailType: (json['trail_type'] ?? 'Mixed').toString(),
       orientation: (json['orientation'] ?? 'North').toString(),
       packages: pkgsList,
+      availableDates: parseDates(json['available_dates']),
+      slotCapacity: parseCapacity(json),
       startPoint: json['start_point']?.toString(),
       packageType: json['package_type']?.toString(),
       googleMapLink: json['google_map_link']?.toString(),
@@ -223,8 +281,17 @@ class Trip {
   }
 
   static Trip empty() => Trip(
-    id: '', title: 'Loading...', location: '', duration: '', difficulty: '', altitude: '', 
-    basePrice: 0, discountPercent: 0, rating: 5, imageUrl: '', description: '',
+    id: '',
+    title: 'Loading...',
+    location: '',
+    duration: '',
+    difficulty: '',
+    altitude: '',
+    basePrice: 0,
+    discountPercent: 0,
+    rating: 5,
+    imageUrl: '',
+    description: '',
     discountedPriceFromDb: 0,
   );
 }
@@ -256,7 +323,9 @@ class Gear {
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       pricePerDay: double.tryParse(json['price_per_day'].toString()) ?? 0.0,
-      securityDeposit: double.tryParse((json['security_deposit'] ?? 500.0).toString()) ?? 500.0,
+      securityDeposit:
+          double.tryParse((json['security_deposit'] ?? 500.0).toString()) ??
+          500.0,
       category: json['category'] ?? '',
       imageUrl: json['image_url'] ?? '',
       stockCount: int.tryParse((json['stock_count'] ?? 10).toString()) ?? 10,

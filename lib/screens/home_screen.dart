@@ -574,75 +574,77 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
+Widget _notificationBadge({Color? iconColor}) {
+  return StreamBuilder<int>(
+    initialData: 0,
+    stream: Stream.periodic(const Duration(seconds: 15)).asyncMap((_) async {
+      final res = await Supabase.instance.client
+          .from('notifications')
+          .select('id')
+          .eq('user_id', _user?.id ?? '')
+          .eq('is_read', false);
 
-  Widget _notificationBadge({Color? iconColor}) {
-    return StreamBuilder<int>(
-      initialData: 0,
-      stream: Stream.periodic(const Duration(seconds: 15)).asyncMap((_) async {
-        final res = await Supabase.instance.client
-            .from('notifications')
-            .select('id')
-            .eq('user_id', _user?.id ?? '')
-            .eq('is_read', false);
-        return (res as List).length;
-      }),
-      builder: (context, snapshot) {
-        int count = snapshot.data ?? 0;
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: Icon(
-                Icons.notifications_none_rounded,
-                color: iconColor ?? Colors.white,
-                size: 26,
+      return (res as List).length;
+    }),
+    builder: (context, snapshot) {
+      final count = snapshot.data ?? 0;
+
+      return Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            icon: Icon(
+              Icons.notifications_none_rounded,
+              color: iconColor ?? Colors.white,
+              size: 24, // same as logout
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (c) => const NotificationCenterScreen(),
               ),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => const NotificationCenterScreen(),
+            ),
+            tooltip: 'Notifications',
+          ),
+
+          if (count > 0)
+            Positioned(
+              right: 6,
+              top: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 1,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFD32F2F),
+                    width: 1,
+                  ),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 14,
+                  minHeight: 14,
+                ),
+                child: Text(
+                  '$count',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFD32F2F),
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
-            if (count > 0)
-              Positioned(
-                right: 4,
-                top: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 3,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: const Color(0xFFD32F2F),
-                      width: 1,
-                    ),
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 12,
-                    minHeight: 12,
-                  ),
-                  child: Text(
-                    '$count',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFD32F2F),
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
+        ],
+      );
+    },
+  );
+}
 
   Widget _buildExploreScreen(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2942,62 +2944,70 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                 )
-              else ...[
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD32F2F).withOpacity(0.08),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFD32F2F).withOpacity(0.15),
-                    ),
-                  ),
-                  child: _notificationBadge(iconColor: const Color(0xFFD32F2F)),
+             else ...[
+  // Notifications
+  Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFFD32F2F).withOpacity(0.08),
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: const Color(0xFFD32F2F).withOpacity(0.15),
+      ),
+    ),
+    child: _notificationBadge(
+      iconColor: const Color(0xFFD32F2F),
+    ),
+  ),
+
+  const SizedBox(width: 16),
+
+  // Logout
+  Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFFD32F2F).withOpacity(0.08),
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: const Color(0xFFD32F2F).withOpacity(0.15),
+      ),
+    ),
+    child: IconButton(
+      icon: const Icon(
+        Icons.logout_rounded,
+        color: Color(0xFFD32F2F),
+        size: 24,
+      ),
+      tooltip: 'Log Out',
+      onPressed: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Log Out?'),
+            content: const Text(
+              'Are you sure you want to end your current session?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text(
+                  'Log Out',
+                  style: TextStyle(color: Colors.redAccent),
                 ),
+              ),
+            ],
+          ),
+        );
 
-                const SizedBox(width: 16),
-
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD32F2F).withOpacity(0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Log Out?'),
-                          content: const Text(
-                            'Are you sure you want to end your current session?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text(
-                                'Log Out',
-                                style: TextStyle(color: Colors.redAccent),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirmed == true) {
-                        await Supabase.instance.client.auth.signOut();
-                      }
-                    },
-                    icon: const Icon(
-                      Icons.logout_rounded,
-                      color: Color(0xFFD32F2F),
-                    ),
-                    tooltip: 'Log Out',
-                  ),
-                ),
-              ],
+        if (confirmed == true) {
+          await Supabase.instance.client.auth.signOut();
+        }
+      },
+    ),
+  ),
+],
             ],
           ),
         ],
