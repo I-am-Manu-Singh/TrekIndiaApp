@@ -6,6 +6,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:file_picker/file_picker.dart';
 import '../widgets/user_avatar.dart';
 import 'media_preview_screen.dart';
+import 'declaration_form_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -326,7 +327,7 @@ Widget _buildDocumentsSection(bool isDark) {
 
         const Divider(height: 20),
 
-        _docRow(Icons.assignment_turned_in_outlined, 'CONSENT / RISK FORM', _userData?['declaration_url'], 'declaration_url', isDark),
+        _docRow(Icons.assignment_turned_in_outlined, 'USER DECLARATION FORM', _userData?['declaration_url'], 'declaration_url', isDark),
       ],
     ),
   );
@@ -441,10 +442,28 @@ Widget _buildDocumentsSection(bool isDark) {
               const SizedBox(height: 8),
               const Text('Select a file from your device (PDF or Image format):', style: TextStyle(color: Colors.grey, fontSize: 12)),
               const SizedBox(height: 16),
+              if (field == 'declaration_url') ...[
+                ListTile(
+                  leading: const CircleAvatar(backgroundColor: Color(0xFFFFF3E0), child: Icon(Icons.draw_outlined, color: Colors.deepOrange)),
+                  title: const Text('Fill & Sign Declaration Digitally', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Touchscreen signature pad with medical consent', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  onTap: () async {
+                    Navigator.pop(sheetCtx);
+                    final signed = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (c) => const DeclarationFormScreen(tripTitle: 'General Expedition & Safety Clearance'),
+                      ),
+                    );
+                    if (signed == true) _fetchData();
+                  },
+                ),
+                const Divider(),
+              ],
               ListTile(
                 leading: const CircleAvatar(backgroundColor: Color(0xFFE8F5E9), child: Icon(Icons.picture_as_pdf, color: Colors.red)),
                 title: const Text('Upload PDF Document', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Select a PDF certificate from your files', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                subtitle: const Text('Select a PDF document from your files', style: TextStyle(fontSize: 11, color: Colors.grey)),
                 onTap: () async {
                   Navigator.pop(sheetCtx);
                   final result = await FilePicker.platform.pickFiles(
