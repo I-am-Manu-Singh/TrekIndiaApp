@@ -12,6 +12,17 @@ class PickupOption {
       price: double.tryParse((json['price'] ?? 0.0).toString()) ?? 0.0,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PickupOption &&
+          runtimeType == other.runtimeType &&
+          location.trim().toLowerCase() == other.location.trim().toLowerCase() &&
+          price == other.price;
+
+  @override
+  int get hashCode => location.trim().toLowerCase().hashCode ^ price.hashCode;
 }
 
 class TripPackage {
@@ -106,7 +117,19 @@ class Trip {
   final String orientation;
   final List<TripPackage> packages;
   final double? discountedPriceFromDb;
+  final String? tripStory;
   final String? startPoint;
+  final String? endPoint;
+  final String? airport;
+  final String? railway;
+  final String? busesCabs;
+  final String? state;
+  final String? district;
+  final String? minHeight;
+  final String? maxHeight;
+  final String? minTemp;
+  final String? maxTemp;
+  final String? weather;
   final String? packageType;
   final List<DateTime>? availableDates;
   final int slotCapacity;
@@ -130,6 +153,7 @@ class Trip {
     required this.imageUrl,
     this.images = const [],
     required this.description,
+    this.tripStory,
     this.itinerary = const [],
     this.pickupOptions = const [],
     this.inclusions = const [],
@@ -147,6 +171,17 @@ class Trip {
     this.packages = const [],
     this.discountedPriceFromDb,
     this.startPoint,
+    this.endPoint,
+    this.airport,
+    this.railway,
+    this.busesCabs,
+    this.state,
+    this.district,
+    this.minHeight,
+    this.maxHeight,
+    this.minTemp,
+    this.maxTemp,
+    this.weather,
     this.packageType,
     this.availableDates,
     this.slotCapacity = 15,
@@ -247,6 +282,7 @@ class Trip {
       rating: double.tryParse((json['rating'] ?? 5.0).toString()) ?? 5.0,
       imageUrl: (json['image_url'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
+      tripStory: json['trip_story']?.toString(),
       images: parseList(json['images']),
       itinerary: itineraryList,
       pickupOptions: pickupList,
@@ -273,6 +309,17 @@ class Trip {
       availableDates: parseDates(json['available_dates']),
       slotCapacity: parseCapacity(json),
       startPoint: json['start_point']?.toString(),
+      endPoint: json['end_point']?.toString(),
+      airport: json['airport']?.toString(),
+      railway: json['railway']?.toString(),
+      busesCabs: json['buses_cabs']?.toString(),
+      state: json['state']?.toString(),
+      district: json['district']?.toString(),
+      minHeight: json['min_height']?.toString(),
+      maxHeight: json['max_height']?.toString(),
+      minTemp: json['min_temp']?.toString(),
+      maxTemp: json['max_temp']?.toString(),
+      weather: json['weather']?.toString(),
       packageType: json['package_type']?.toString(),
       googleMapLink: json['google_map_link']?.toString(),
       termsConditions: json['terms_conditions']?.toString(),

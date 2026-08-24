@@ -78,8 +78,59 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
   List<Map<String, TextEditingController>> _additionalTravelers = [];
 
   Trip get _trip => _freshTrip ?? widget.trip;
-  List<PickupOption> get _pickupOptions =>
-      _trip.pickupOptions.isEmpty ? [_baseCampPickup] : _trip.pickupOptions;
+
+  List<PickupOption> get _pickupOptions {
+    final list = <PickupOption>[];
+    
+    // Add existing pickupOptions from DB if any
+    if (_trip.pickupOptions.isNotEmpty) {
+      list.addAll(_trip.pickupOptions);
+    }
+
+    // Ensure Starting Point is present
+    final start = _trip.startPoint?.trim();
+    if (start != null && start.isNotEmpty) {
+      final startLoc = 'Start Hub: $start';
+      if (!list.any((p) => p.location.toLowerCase() == startLoc.toLowerCase() || p.location.toLowerCase() == start.toLowerCase())) {
+        list.add(PickupOption(location: startLoc, price: 0));
+      }
+    }
+
+    // Ensure Airport / Railway are present if defined
+    final apt = _trip.airport?.trim();
+    if (apt != null && apt.isNotEmpty) {
+      final aptLoc = 'Airport: $apt';
+      if (!list.any((p) => p.location.toLowerCase().contains(apt.toLowerCase()))) {
+        list.add(PickupOption(location: aptLoc, price: 0));
+      }
+    }
+
+    final rly = _trip.railway?.trim();
+    if (rly != null && rly.isNotEmpty) {
+      final rlyLoc = 'Railway: $rly';
+      if (!list.any((p) => p.location.toLowerCase().contains(rly.toLowerCase()))) {
+        list.add(PickupOption(location: rlyLoc, price: 0));
+      }
+    }
+
+    if (list.isEmpty) {
+      final fallbackLoc = start != null && start.isNotEmpty ? start : 'Base Camp';
+      list.add(PickupOption(location: fallbackLoc, price: 0));
+    }
+
+    return list;
+  }
+
+  String get _dropPointDisplay {
+    if (_trip.endPoint != null && _trip.endPoint!.trim().isNotEmpty) {
+      return _trip.endPoint!.trim();
+    }
+    if (_trip.startPoint != null && _trip.startPoint!.trim().isNotEmpty) {
+      return _trip.startPoint!.trim();
+    }
+    return _selectedPickup?.location ?? 'Base Camp';
+  }
+
   int get _slotCapacity => _trip.slotCapacity > 0 ? _trip.slotCapacity : 15;
 
   @override
@@ -666,32 +717,154 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
             },
           ),
           const SizedBox(height: 32),
-          const Text(
-            'PICKUP POINT',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-              color: Colors.blueGrey,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'PICKUP & BOARDING HUB',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  color: Colors.blueGrey,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              if (_trip.startPoint != null && _trip.startPoint!.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Default: ${_trip.startPoint}',
+                    style: const TextStyle(fontSize: 10, color: Colors.blueAccent, fontWeight: FontWeight.bold),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           ..._pickupOptions.map(
-            (opt) => RadioListTile<PickupOption>(
-              value: opt,
-              groupValue: _selectedPickup,
-              title: Text(
-                opt.location,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+            (opt) {
+              final isSelected = _selectedPickup?.location.toLowerCase().trim() == opt.location.toLowerCase().trim();
+              final isDefault = (_trip.startPoint != null && opt.location.toLowerCase().contains(_trip.startPoint!.toLowerCase())) ||
+                  opt.location.toLowerCase().contains('start hub') ||
+                  opt.location.toLowerCase().contains('base camp');
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedPickup = opt;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Theme.of(context).primaryColor.withOpacity(isDark ? 0.2 : 0.08)
+                          : (isDark ? Colors.white.withOpacity(0.04) : Colors.grey.shade50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : (isDark ? Colors.white12 : Colors.grey.shade300),
+                        width: isSelected ? 1.8 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                          color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      opt.location,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        fontSize: 13,
+                                        color: isSelected ? Theme.of(context).primaryColor : null,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isDefault) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                      ),
+                                      child: const Text(
+                                        'DEFAULT',
+                                        style: TextStyle(
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.green,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                opt.price > 0 ? '+₹${opt.price.toInt()}' : 'Free / Included in Package',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: opt.price > 0 ? Colors.orange : Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              subtitle: Text(
-                '+₹${opt.price.toInt()}',
-                style: const TextStyle(fontSize: 12),
-              ),
-              onChanged: (val) => setState(() => _selectedPickup = val),
-              contentPadding: EdgeInsets.zero,
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blueGrey.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.blueGrey.withOpacity(0.15)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on, size: 16, color: Colors.redAccent),
+                const SizedBox(width: 8),
+                const Text(
+                  'Drop / Return Hub: ',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                Expanded(
+                  child: Text(
+                    _dropPointDisplay,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueGrey),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -888,7 +1061,8 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
           _summaryRow('Trip', _trip.title),
           _summaryRow('Date', DateFormat('dd MMM yyyy').format(_selectedDate)),
           _summaryRow('Travelers', '$_pax Person(s)'),
-          _summaryRow('Pickup', _selectedPickup?.location ?? 'Base Camp'),
+          _summaryRow('Pickup Hub', _selectedPickup?.location ?? (_trip.startPoint ?? 'Base Camp')),
+          _summaryRow('Drop Hub', _dropPointDisplay),
           const Divider(height: 32),
           _costRow('Trip Fee', tripFee),
           if (pickupFee > 0) _costRow('Pickup Fee (${_selectedPickup?.location ?? ""})', pickupFee),

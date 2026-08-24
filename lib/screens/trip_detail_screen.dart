@@ -688,7 +688,9 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             ),
             pw.SizedBox(height: 4),
             pw.Text(
-              _getCleanDescription(currentTrip.description),
+              (currentTrip.tripStory != null && currentTrip.tripStory!.isNotEmpty)
+                  ? currentTrip.tripStory!
+                  : currentTrip.description,
               style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.5, color: PdfColors.grey800),
             ),
 
@@ -733,63 +735,131 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             pw.SizedBox(height: 8),
             ...currentTrip.itinerary
                 .map(
-                  (it) => pw.Container(
-                    margin: const pw.EdgeInsets.only(bottom: 10),
-                    padding: const pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
-                      border: const pw.Border(
-                        left: pw.BorderSide(color: PdfColors.red900, width: 2.5),
+                  (it) {
+                    // Extract parameters for PDF chips
+                    String? distChip = it.distance.isNotEmpty ? it.distance : null;
+                    if (distChip == null || distChip.isEmpty) {
+                      final kmMatch = RegExp(r'(\d+(?:\.\d+)?(?:\s*[-–to]+\s*\d+(?:\.\d+)?)?)\s*km', caseSensitive: false).firstMatch(it.description);
+                      if (kmMatch != null) distChip = '${kmMatch.group(1)} km';
+                    }
+
+                    String? timeChip = it.time.isNotEmpty ? it.time : null;
+                    if (timeChip == null || timeChip.isEmpty) {
+                      final hrsMatch = RegExp(r'(\d+(?:\.\d+)?(?:\s*[-–to]+\s*\d+(?:\.\d+)?)?)\s*(?:hrs|hours|hour|hr)\b', caseSensitive: false).firstMatch(it.description);
+                      if (hrsMatch != null) timeChip = '${hrsMatch.group(1)} hrs';
+                    }
+
+                    String? altChip;
+                    final altMatch = RegExp(r'(\d+(?:,\d+)?(?:\s*[-–to]+\s*\d+(?:,\d+)?)?)\s*(ft|feet|m|meters|meter)\b', caseSensitive: false).firstMatch(it.description);
+                    if (altMatch != null) {
+                      altChip = '${altMatch.group(1)} ${altMatch.group(2)}';
+                    }
+
+                    return pw.Container(
+                      margin: const pw.EdgeInsets.only(bottom: 8),
+                      padding: const pw.EdgeInsets.all(8),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.grey50,
+                        border: pw.Border.all(color: PdfColors.grey300),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                       ),
-                      color: PdfColors.grey50,
-                    ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text(
-                              'DAY ${it.day}: ${it.title}',
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 9.5,
-                              ),
-                            ),
-                            if (it.time.isNotEmpty)
-                              pw.Text(
-                                it.time,
-                                style: pw.TextStyle(
-                                  color: PdfColors.orange900,
-                                  fontSize: 8,
-                                  fontWeight: pw.FontWeight.bold,
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Row(
+                            children: [
+                              pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: const pw.BoxDecoration(
+                                  color: PdfColors.red900,
+                                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(3)),
+                                ),
+                                child: pw.Text(
+                                  'DAY ${it.day}',
+                                  style: pw.TextStyle(
+                                    color: PdfColors.white,
+                                    fontSize: 7.5,
+                                    fontWeight: pw.FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                          ],
-                        ),
-                        pw.SizedBox(height: 3),
-                        pw.Text(
-                          it.description,
-                          style: const pw.TextStyle(
-                            fontSize: 8,
-                            color: PdfColors.grey800,
-                            lineSpacing: 1.3,
-                          ),
-                        ),
-                        if (it.distance.isNotEmpty)
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.only(top: 3),
-                            child: pw.Text(
-                              'Trail Distance: ${it.distance}',
-                              style: pw.TextStyle(
-                                color: PdfColors.blue800,
-                                fontSize: 7.5,
-                                fontWeight: pw.FontWeight.bold,
+                              pw.SizedBox(width: 6),
+                              pw.Expanded(
+                                child: pw.Text(
+                                  it.title.isNotEmpty ? it.title : 'Stage ${it.day}',
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: 9,
+                                    color: PdfColors.black,
+                                  ),
+                                ),
                               ),
+                            ],
+                          ),
+                          if (distChip != null || timeChip != null || altChip != null) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Row(
+                              children: [
+                                if (distChip != null) ...[
+                                  pw.Container(
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                    decoration: pw.BoxDecoration(
+                                      color: PdfColors.blue50,
+                                      border: pw.Border.all(color: PdfColors.blue200),
+                                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+                                    ),
+                                    child: pw.Text(
+                                      'Dist: $distChip',
+                                      style: const pw.TextStyle(color: PdfColors.blue800, fontSize: 6.5),
+                                    ),
+                                  ),
+                                  pw.SizedBox(width: 4),
+                                ],
+                                if (timeChip != null) ...[
+                                  pw.Container(
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                    decoration: pw.BoxDecoration(
+                                      color: PdfColors.orange50,
+                                      border: pw.Border.all(color: PdfColors.orange200),
+                                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+                                    ),
+                                    child: pw.Text(
+                                      'Time: $timeChip',
+                                      style: const pw.TextStyle(color: PdfColors.orange900, fontSize: 6.5),
+                                    ),
+                                  ),
+                                  pw.SizedBox(width: 4),
+                                ],
+                                if (altChip != null) ...[
+                                  pw.Container(
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                    decoration: pw.BoxDecoration(
+                                      color: PdfColors.purple50,
+                                      border: pw.Border.all(color: PdfColors.purple200),
+                                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+                                    ),
+                                    child: pw.Text(
+                                      'Alt: $altChip',
+                                      style: const pw.TextStyle(color: PdfColors.purple900, fontSize: 6.5),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                          pw.SizedBox(height: 3),
+                          pw.Text(
+                            it.description,
+                            style: const pw.TextStyle(
+                              fontSize: 7.5,
+                              color: PdfColors.grey800,
+                              lineSpacing: 1.2,
                             ),
                           ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  },
                 )
                 .toList(),
 
@@ -899,12 +969,20 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 currentTrip.altitude,
                 itemWidth,
               ),
-              _techItem(
-                Icons.height,
-                'Peak',
-                currentTrip.peakElevation ?? 'N/A',
-                itemWidth,
-              ),
+              if (currentTrip.minHeight != null && currentTrip.minHeight!.isNotEmpty)
+                _techItem(
+                  Icons.arrow_downward,
+                  'Min Height',
+                  currentTrip.minHeight!,
+                  itemWidth,
+                ),
+              if (currentTrip.maxHeight != null && currentTrip.maxHeight!.isNotEmpty)
+                _techItem(
+                  Icons.arrow_upward,
+                  'Max Height',
+                  currentTrip.maxHeight!,
+                  itemWidth,
+                ),
               _techItem(
                 Icons.speed,
                 'Difficulty',
@@ -923,15 +1001,30 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 currentTrip.startPoint ?? 'N/A',
                 itemWidth,
               ),
-              _techItem(
-                Icons.explore_outlined,
-                'Facing',
-                currentTrip.orientation ?? 'North',
-                itemWidth,
-              ),
+              if (currentTrip.endPoint != null && currentTrip.endPoint!.isNotEmpty)
+                _techItem(
+                  Icons.sports_score_outlined,
+                  'End',
+                  currentTrip.endPoint!,
+                  itemWidth,
+                ),
+              if (currentTrip.district != null && currentTrip.district!.isNotEmpty)
+                _techItem(
+                  Icons.location_city,
+                  'District',
+                  currentTrip.district!,
+                  itemWidth,
+                ),
+              if (currentTrip.state != null && currentTrip.state!.isNotEmpty)
+                _techItem(
+                  Icons.map,
+                  'State',
+                  currentTrip.state!,
+                  itemWidth,
+                ),
               _techItem(
                 Icons.directions_walk,
-                'Dist',
+                'Distance',
                 currentTrip.totalDistance ?? '0km',
                 itemWidth,
               ),
@@ -943,8 +1036,8 @@ class _TripDetailScreenState extends State<TripDetailScreen>
               ),
               _techItem(
                 Icons.inventory_2_outlined,
-                'Type',
-                currentTrip.packageType ?? 'Standard',
+                'Category',
+                currentTrip.packageType ?? currentTrip.category,
                 itemWidth,
               ),
             ],
@@ -1092,7 +1185,9 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _getCleanDescription(currentTrip.description),
+                    (currentTrip.tripStory != null && currentTrip.tripStory!.isNotEmpty)
+                        ? currentTrip.tripStory!
+                        : currentTrip.description,
                     style: const TextStyle(fontSize: 10.5, color: Colors.black87, height: 1.4),
                   ),
                 ],
@@ -1104,85 +1199,130 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 const SizedBox(height: 12),
                 ...currentTrip.itinerary
                     .map(
-                      (it) => Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 30,
-                              height: 30,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFD32F2F),
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '${it.day}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                      (it) {
+                        final isDark = Theme.of(context).brightness == Brightness.dark;
+                        String? distChip = it.distance.isNotEmpty ? it.distance : null;
+                        if (distChip == null || distChip.isEmpty) {
+                          final kmMatch = RegExp(r'(\d+(?:\.\d+)?(?:\s*[-–to]+\s*\d+(?:\.\d+)?)?)\s*km', caseSensitive: false).firstMatch(it.description);
+                          if (kmMatch != null) distChip = '${kmMatch.group(1)} km';
+                        }
+
+                        String? timeChip = it.time.isNotEmpty ? it.time : null;
+                        if (timeChip == null || timeChip.isEmpty) {
+                          final hrsMatch = RegExp(r'(\d+(?:\.\d+)?(?:\s*[-–to]+\s*\d+(?:\.\d+)?)?)\s*(?:hrs|hours|hour|hr)\b', caseSensitive: false).firstMatch(it.description);
+                          if (hrsMatch != null) timeChip = '${hrsMatch.group(1)} hrs';
+                        }
+
+                        String? altChip;
+                        final altMatch = RegExp(r'(\d+(?:,\d+)?(?:\s*[-–to]+\s*\d+(?:,\d+)?)?)\s*(ft|feet|m|meters|meter)\b', caseSensitive: false).firstMatch(it.description);
+                        if (altMatch != null) {
+                          altChip = '${altMatch.group(1)} ${altMatch.group(2)}';
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade200),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Day ${it.day}: ${it.title}',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
-                                          ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFD32F2F),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'DAY ${it.day}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w900,
                                         ),
                                       ),
-                                      if (it.time.isNotEmpty)
-                                        Text(
-                                          it.time,
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.orange,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        it.title.isNotEmpty ? it.title : 'Stage ${it.day}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (distChip != null || timeChip != null || altChip != null) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (distChip != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                                          ),
+                                          child: Text(
+                                            distChip,
+                                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                          ),
+                                        ),
+                                      if (timeChip != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                                          ),
+                                          child: Text(
+                                            timeChip,
+                                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.orange),
+                                          ),
+                                        ),
+                                      if (altChip != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.purple.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.purple.withOpacity(0.2)),
+                                          ),
+                                          child: Text(
+                                            altChip,
+                                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.purple),
                                           ),
                                         ),
                                     ],
                                   ),
-                                  const SizedBox(height: 2),
+                                ],
+                                if (it.description.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
                                   Text(
                                     it.description,
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      color: Colors.black87,
-                                    ),
+                                    style: const TextStyle(fontSize: 10, color: Colors.black87, height: 1.3),
                                   ),
-                                  if (it.distance.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Text(
-                                        'Trail Distance: ${it.distance}',
-                                        style: const TextStyle(
-                                          fontSize: 9.5,
-                                          color: Color(0xFF0D47A1),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
                                 ],
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
+                          ),
+                        );
+                      },
+                    )
+                    .toList(),
                 if (currentTrip.inclusions.isNotEmpty || currentTrip.carryList.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   const Divider(),
@@ -2029,7 +2169,9 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            _getCleanDescription(currentTrip.description),
+            (currentTrip.tripStory != null && currentTrip.tripStory!.isNotEmpty)
+                ? currentTrip.tripStory!
+                : currentTrip.description,
             style: const TextStyle(color: Colors.blueGrey, height: 1.6),
           ),
           const SizedBox(height: 32),
@@ -2037,29 +2179,36 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       ),
     );
   }
-
   Widget _buildTransitConnectivitySection() {
-    String? airport;
-    String? railway;
-    String? route;
+    String? airport = currentTrip.airport;
+    String? railway = currentTrip.railway;
+    String? route = (currentTrip.startPoint != null && currentTrip.endPoint != null && currentTrip.startPoint!.isNotEmpty && currentTrip.endPoint!.isNotEmpty)
+        ? '${currentTrip.startPoint} to ${currentTrip.endPoint}'
+        : currentTrip.startPoint;
 
-    // Check description tags
-    if (currentTrip.description.contains('Nearest Airport:')) {
-      final parts = currentTrip.description.split('Nearest Airport:');
-      if (parts.length > 1) {
-        airport = parts[1].split('.').first.trim();
+    // Check description tags if not found
+    if (airport == null || airport.isEmpty) {
+      if (currentTrip.description.contains('Nearest Airport:')) {
+        final parts = currentTrip.description.split('Nearest Airport:');
+        if (parts.length > 1) {
+          airport = parts[1].split('.').first.trim();
+        }
       }
     }
-    if (currentTrip.description.contains('Nearest Railway Station:')) {
-      final parts = currentTrip.description.split('Nearest Railway Station:');
-      if (parts.length > 1) {
-        railway = parts[1].split('.').first.trim();
+    if (railway == null || railway.isEmpty) {
+      if (currentTrip.description.contains('Nearest Railway Station:')) {
+        final parts = currentTrip.description.split('Nearest Railway Station:');
+        if (parts.length > 1) {
+          railway = parts[1].split('.').first.trim();
+        }
       }
     }
-    if (currentTrip.description.contains('Route:')) {
-      final parts = currentTrip.description.split('Route:');
-      if (parts.length > 1) {
-        route = parts[1].split('.').first.trim();
+    if (route == null || route.isEmpty) {
+      if (currentTrip.description.contains('Route:')) {
+        final parts = currentTrip.description.split('Route:');
+        if (parts.length > 1) {
+          route = parts[1].split('.').first.trim();
+        }
       }
     }
 
@@ -2077,171 +2226,160 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       }
     }
 
-    // Fallback defaults if not explicitly present
-    airport ??= 'Jolly Grant Airport (DED), Dehradun';
-    railway ??= 'Dehradun / Rishikesh Railway Station';
+    // Set fallback text if data is missing
+    const fallbackText = 'Info Not available';
+    airport = (airport != null && airport.isNotEmpty) ? airport : fallbackText;
+    railway = (railway != null && railway.isNotEmpty) ? railway : fallbackText;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.04) : Colors.indigo.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white12 : Colors.indigo.withOpacity(0.12)),
+        color: isDark ? Colors.white.withOpacity(0.04) : Colors.grey.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.alt_route_rounded, color: Colors.indigo, size: 20),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Transit & Connectivity Hub',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
-            ],
+          const Text(
+            'Transit & Connectivity',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white10 : Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.flight_takeoff_rounded, color: Colors.blueAccent, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            'NEAREST AIRPORT',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.blueAccent,
-                              letterSpacing: 0.5,
+          const SizedBox(height: 8),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? Colors.transparent : Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.flight_takeoff_rounded, color: Colors.blueAccent, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'Airport',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blueAccent,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        airport,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          height: 1.3,
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Direct connecting cabs available',
-                        style: TextStyle(fontSize: 9.5, color: Colors.grey),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          airport,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: airport == fallbackText ? FontWeight.normal : FontWeight.w600,
+                            color: airport == fallbackText ? Colors.grey : null,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white10 : Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.train_rounded, color: Colors.orange, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            'NEAREST RAILWAY',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.orange,
-                              letterSpacing: 0.5,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? Colors.transparent : Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.train_rounded, color: Colors.orange, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'Railway',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        railway,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          height: 1.3,
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Frequent express & daily trains',
-                        style: TextStyle(fontSize: 9.5, color: Colors.grey),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          railway,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: railway == fallbackText ? FontWeight.normal : FontWeight.w600,
+                            color: railway == fallbackText ? Colors.grey : null,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           if (route != null && route.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.teal.withOpacity(0.2)),
+                color: isDark ? Colors.white10 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.navigation_outlined, size: 14, color: Colors.teal),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Expedition Transit Circuit: ',
-                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.teal),
+                  const Icon(Icons.navigation_outlined, size: 12, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Route: ',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   Expanded(
                     child: Text(
                       route,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontSize: 11),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (currentTrip.busesCabs != null && currentTrip.busesCabs!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.directions_bus, size: 10, color: Colors.green),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Transit: ${currentTrip.busesCabs}',
+                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.green),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2251,26 +2389,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     );
   }
 
-  String _getCleanDescription(String raw) {
-    var desc = raw;
-    final markers = [
-      'Expected Weather:',
-      'Temperature Range:',
-      'Nearest Airport:',
-      'Nearest Railway Station:',
-      'Route:',
-    ];
-    for (final m in markers) {
-      if (desc.contains(m)) {
-        final idx = desc.indexOf(m);
-        final endIdx = desc.indexOf('.', idx);
-        if (endIdx != -1) {
-          desc = desc.replaceRange(idx, endIdx + 1, '').trim();
-        }
-      }
-    }
-    return desc.isNotEmpty ? desc : raw;
-  }
+
 Widget _buildPackagesSection() {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return Column(
@@ -2797,35 +2916,36 @@ Widget _buildPackagesSection() {
     );
   }
 Widget _buildSeasonalOutlook() {
-  // Extract Expected Weather and Temperature Range from description if present
-  String? extractedWeather;
-  String? extractedTemp;
-  
-  if (currentTrip.description.contains('Expected Weather:')) {
+  String? weather = (currentTrip.weather != null && currentTrip.weather!.isNotEmpty) ? currentTrip.weather : null;
+  String? tempRange;
+  if (currentTrip.minTemp != null && currentTrip.maxTemp != null && currentTrip.minTemp!.isNotEmpty && currentTrip.maxTemp!.isNotEmpty) {
+    tempRange = '${currentTrip.minTemp} to ${currentTrip.maxTemp}';
+  } else if (currentTrip.minTemp != null && currentTrip.minTemp!.isNotEmpty) {
+    tempRange = currentTrip.minTemp;
+  } else if (currentTrip.maxTemp != null && currentTrip.maxTemp!.isNotEmpty) {
+    tempRange = currentTrip.maxTemp;
+  }
+
+  // Fallback to description extraction if not present
+  if (weather == null && currentTrip.description.contains('Expected Weather:')) {
     final parts = currentTrip.description.split('Expected Weather:');
-    if (parts.length > 1) {
-      final sub = parts[1]; // Fixed typo from previous block
-      if (sub.contains('.')) {
-        extractedWeather = sub.split('.').first.trim();
-      }
+    if (parts.length > 1 && parts[1].contains('.')) {
+      weather = parts[1].split('.').first.trim();
     }
   }
-  if (currentTrip.description.contains('Temperature Range:')) {
+  if (tempRange == null && currentTrip.description.contains('Temperature Range:')) {
     final parts = currentTrip.description.split('Temperature Range:');
-    if (parts.length > 1) {
-      final sub = parts[1]; // Fixed typo from previous block
-      if (sub.contains('.')) {
-        extractedTemp = sub.split('.').first.trim();
-      }
+    if (parts.length > 1 && parts[1].contains('.')) {
+      tempRange = parts[1].split('.').first.trim();
     }
   }
 
   // Safety conditional exit
-  if (currentTrip.seasonalInfo.isEmpty && extractedWeather == null && currentTrip.bestMonths.isEmpty) {
+  if (currentTrip.seasonalInfo.isEmpty && weather == null && tempRange == null && currentTrip.bestMonths.isEmpty) {
     return const SizedBox.shrink();
   }
 
-  final hasWeatherCard = extractedWeather != null || extractedTemp != null;
+  final hasWeatherCard = weather != null || tempRange != null;
   final hasSeasonalCard = currentTrip.seasonalInfo.isNotEmpty;
 
   return Column(
@@ -2837,12 +2957,10 @@ Widget _buildSeasonalOutlook() {
       ),
       const SizedBox(height: 12),
       
-      // IntrinsicHeight forces the Row to size itself to the tallest child
       IntrinsicHeight(
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch, // Forces both Expanded children to match heights exactly
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Current/Expected Weather Card
             if (hasWeatherCard)
               Expanded(
                 child: Container(
@@ -2858,15 +2976,15 @@ Widget _buildSeasonalOutlook() {
                     children: [
                       const Icon(Icons.wb_sunny_outlined, color: Colors.blue, size: 20),
                       const SizedBox(height: 8),
-                      if (extractedWeather != null)
+                      if (weather != null)
                         Text(
-                          extractedWeather,
+                          weather,
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blueGrey),
                         ),
-                      if (extractedTemp != null) ...[
+                      if (tempRange != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          extractedTemp,
+                          tempRange,
                           style: const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                       ],
@@ -2974,91 +3092,162 @@ Widget _buildSeasonalOutlook() {
 
             ...List.generate(currentTrip.itinerary.length, (index) {
               final step = currentTrip.itinerary[index];
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final dayNum = step.day > 0 ? step.day : (index + 1);
+
+              // Smart parameter extraction from description & fields
+              String? distChip = step.distance.isNotEmpty ? step.distance : null;
+              if (distChip == null || distChip.isEmpty) {
+                final kmMatch = RegExp(r'(\d+(?:\.\d+)?(?:\s*[-–to]+\s*\d+(?:\.\d+)?)?)\s*km', caseSensitive: false).firstMatch(step.description);
+                if (kmMatch != null) distChip = '${kmMatch.group(1)} km';
+              }
+
+              String? timeChip = step.time.isNotEmpty ? step.time : null;
+              if (timeChip == null || timeChip.isEmpty) {
+                final hrsMatch = RegExp(r'(\d+(?:\.\d+)?(?:\s*[-–to]+\s*\d+(?:\.\d+)?)?)\s*(?:hrs|hours|hour|hr)\b', caseSensitive: false).firstMatch(step.description);
+                if (hrsMatch != null) timeChip = '${hrsMatch.group(1)} hrs';
+              }
+
+              String? altChip;
+              final altMatch = RegExp(r'(\d+(?:,\d+)?(?:\s*[-–to]+\s*\d+(?:,\d+)?)?)\s*(ft|feet|m|meters|meter)\b', caseSensitive: false).firstMatch(step.description);
+              if (altMatch != null) {
+                altChip = '${altMatch.group(1)} ${altMatch.group(2)}';
+              }
 
               return FadeInLeft(
-                delay: Duration(milliseconds: 50 * index),
-                child: IntrinsicHeight(
-                  child: Row(
-                    children: [
-                      Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 12,
-                            backgroundColor: Theme.of(context).primaryColor,
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: VerticalDivider(
-                              color: Theme.of(
-                                context,
-                              ).primaryColor.withOpacity(0.3),
-                              thickness: 2,
-                            ),
-                          ),
-                        ],
+                delay: Duration(milliseconds: 40 * index),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? Colors.white12 : Colors.grey.shade200,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      const SizedBox(width: 16),
-
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 24.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Theme.of(context).primaryColor,
+                                    Theme.of(context).primaryColor.withOpacity(0.8),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'DAY $dayNum',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                step.title.isNotEmpty ? step.title : 'Stage $dayNum',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (distChip != null || timeChip != null || altChip != null) ...[
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
                             children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      step.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
+                              if (distChip != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(isDark ? 0.15 : 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.blue.withOpacity(0.2)),
                                   ),
-                                  if (step.time.isNotEmpty)
-                                    Text(
-                                      step.time,
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-
-                              Text(
-                                step.description,
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-
-                              if (step.distance.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(
-                                        Icons.directions_walk,
-                                        size: 14,
-                                        color: Colors.blueAccent,
-                                      ),
+                                      const Icon(Icons.directions_walk, size: 12, color: Colors.blueAccent),
                                       const SizedBox(width: 4),
                                       Text(
-                                        step.distance,
+                                        distChip,
                                         style: const TextStyle(
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w900,
+                                          fontWeight: FontWeight.bold,
                                           color: Colors.blueAccent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (timeChip != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(isDark ? 0.15 : 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.timer_outlined, size: 12, color: Colors.orange),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        timeChip,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.orange,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (altChip != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.purple.withOpacity(isDark ? 0.15 : 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.purple.withOpacity(0.2)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.terrain_rounded, size: 12, color: Colors.purpleAccent),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        altChip,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.purpleAccent,
                                         ),
                                       ),
                                     ],
@@ -3066,9 +3255,18 @@ Widget _buildSeasonalOutlook() {
                                 ),
                             ],
                           ),
+                        ],
+                        const SizedBox(height: 10),
+                        Text(
+                          step.description,
+                          style: TextStyle(
+                            color: isDark ? Colors.grey.shade300 : Colors.blueGrey.shade800,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );

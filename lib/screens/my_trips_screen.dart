@@ -453,6 +453,8 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                     _detailRow('Date:', DateFormat('dd MMM yyyy').format(DateTime.parse(booking['trip_date']))),
                     _detailRow('Status:', (booking['status'] ?? 'PENDING').toString().toUpperCase()),
                     _detailRow('Payment:', (booking['payment_status'] ?? 'UNPAID').toString().toUpperCase()),
+                    _detailRow('Pickup Hub:', booking['pickup_location'] ?? (trip.startPoint ?? 'Base Camp')),
+                    _detailRow('Drop Hub:', trip.endPoint ?? (trip.startPoint ?? (booking['pickup_location'] ?? 'Base Camp'))),
                     const Divider(height: 32),
                     const Text('TRIP MEMBERS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 16),

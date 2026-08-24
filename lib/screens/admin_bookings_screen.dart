@@ -504,6 +504,22 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
                     ],
                   ),
                 ],
+                if (p['pickup_location'] != null && p['pickup_location'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 11, color: Colors.blueAccent),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Hub: ${p['pickup_location']}',
+                          style: const TextStyle(fontSize: 10.5, color: Colors.blueAccent, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
