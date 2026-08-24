@@ -17,6 +17,11 @@ class InvoiceService {
     required double basePrice,
     required double pickupPrice,
     required String pickupLocation,
+    String? phoneNumber,
+    String? address,
+    String? aadharNumber,
+    int pax = 1,
+    List<dynamic> travelers = const [],
     String? email,
   }) async {
     final pdf = pw.Document();
@@ -30,7 +35,7 @@ class InvoiceService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(36),
+        margin: const pw.EdgeInsets.all(32),
         build: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -71,45 +76,98 @@ class InvoiceService {
                   ),
                 ],
               ),
-              pw.SizedBox(height: 12),
+              pw.SizedBox(height: 10),
               pw.Divider(thickness: 1, color: PdfColors.grey300),
-              pw.SizedBox(height: 16),
+              pw.SizedBox(height: 10),
+              
+              // ── CLIENT & BOOKING IDENTITY ───────────────────────────────────
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Expanded(
+                    flex: 3,
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('BILLED TO (PARTICIPANT):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.grey700)),
-                        pw.SizedBox(height: 4),
-                        pw.Text(hikerName, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                        if (email != null && email.isNotEmpty) pw.Text(email, style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey800)),
+                        pw.Text('BILLED TO (LEAD EXPLORER):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 3),
+                        pw.Text(hikerName, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                        if (phoneNumber != null && phoneNumber.isNotEmpty)
+                          pw.Text('Contact: $phoneNumber', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
+                        if (email != null && email.isNotEmpty)
+                          pw.Text('Email: $email', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
+                        if (aadharNumber != null && aadharNumber.isNotEmpty)
+                          pw.Text('Aadhar Number: $aadharNumber', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey800)),
+                        if (address != null && address.isNotEmpty)
+                          pw.Text('Address: $address', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                       ],
                     ),
                   ),
+                  pw.SizedBox(width: 16),
                   pw.Expanded(
+                    flex: 2,
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text('PAYMENT & STATUS:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.grey700)),
-                        pw.SizedBox(height: 4),
+                        pw.SizedBox(height: 3),
                         pw.Text('Status: Confirmed / Paid', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
-                        pw.Text('Mode: Online / Verified UPI', style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)),
+                        pw.Text('Mode: Online / Verified UPI', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                        pw.Text('Total Travelers: $pax Person(s)', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey800)),
                       ],
                     ),
                   ),
                 ],
               ),
-              pw.SizedBox(height: 16),
+              pw.SizedBox(height: 12),
+
+              // ── GROUP MEMBERS TABLE (IF ANY) ─────────────────────────────────
+              if (travelers.isNotEmpty) ...[
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(8),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey50,
+                    borderRadius: pw.BorderRadius.circular(6),
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('GROUP MEMBERS / CO-TRAVELERS DETAILS', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.red900)),
+                      pw.SizedBox(height: 4),
+                      ...travelers.asMap().entries.map((e) {
+                        final m = e.value is Map ? e.value : {'name': e.value.toString()};
+                        final mName = m['name'] ?? 'Member #${e.key + 2}';
+                        final mAge = m['age'] != null && m['age'].toString() != '0' ? 'Age: ${m['age']}' : '';
+                        final mAadhar = m['aadhar'] != null && m['aadhar'].toString().isNotEmpty ? 'Aadhar: ${m['aadhar']}' : '';
+                        final mPhone = m['phone'] != null && m['phone'].toString().isNotEmpty ? 'Phone: ${m['phone']}' : '';
+                        final detailsStr = [mAge, mAadhar, mPhone].where((s) => s.isNotEmpty).join(' | ');
+
+                        return pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+                          child: pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text('${e.key + 2}. $mName', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
+                              pw.Text(detailsStr, style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+              ],
+
               pw.Container(
-                padding: const pw.EdgeInsets.all(12),
+                padding: const pw.EdgeInsets.all(10),
                 decoration: pw.BoxDecoration(color: PdfColors.grey100, borderRadius: pw.BorderRadius.circular(8)),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('BOOKING & LOGISTICS SPECIFICATIONS', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.red900)),
-                    pw.SizedBox(height: 8),
+                    pw.Text('BOOKING & LOGISTICS SPECIFICATIONS', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.red900)),
+                    pw.SizedBox(height: 6),
                     _pdfRow('Trek / Package:', tripName),
                     _pdfRow('Expedition Start Date:', DateFormat('dd MMM yyyy').format(date)),
                     _pdfRow('Boarding / Pickup Hub:', pickupLocation.isNotEmpty ? pickupLocation : 'Base Camp Dehradun'),
@@ -119,29 +177,29 @@ class InvoiceService {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 18),
-              pw.Text('COMPREHENSIVE FEE BREAKDOWN', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.grey700)),
+              pw.SizedBox(height: 12),
+              pw.Text('COMPREHENSIVE FEE BREAKDOWN', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.grey700)),
               pw.Divider(thickness: 0.5),
               _pdfPriceRow('Base Expedition Package (Stay, Meals, Guide)', 'INR ${basePrice.toInt()}'),
-              _pdfPriceRow('Pickup & Drop Logistics Logistics', 'INR ${pickupPrice.toInt()}'),
+              _pdfPriceRow('Pickup & Drop Logistics', 'INR ${pickupPrice.toInt()}'),
               _pdfPriceRow('Addons, Gear Rental & Forest Permits', 'INR ${(totalPrice - basePrice - pickupPrice).toInt()}'),
-              pw.SizedBox(height: 14),
+              pw.SizedBox(height: 8),
               pw.Divider(thickness: 1.5, color: PdfColors.red900),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('NET PAYABLE AMOUNT (INCL. TAXES)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
-                  pw.Text('INR ${totalPrice.toInt()}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColors.red900)),
+                  pw.Text('NET PAYABLE AMOUNT (INCL. TAXES)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                  pw.Text('INR ${totalPrice.toInt()}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColors.red900)),
                 ],
               ),
               pw.Spacer(),
               pw.Divider(thickness: 0.5, color: PdfColors.grey300),
-              pw.SizedBox(height: 6),
+              pw.SizedBox(height: 4),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('trekwithmussafirr • Explore the Unexplored', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
-                  pw.Text('Authorized Computer-Generated Invoice • No Signature Required', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                  pw.Text('trekwithmussafirr • Explore the Unexplored', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600)),
+                  pw.Text('Authorized Computer-Generated Invoice • No Signature Required', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600)),
                 ],
               ),
             ],

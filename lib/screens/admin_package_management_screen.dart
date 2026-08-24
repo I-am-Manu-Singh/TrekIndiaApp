@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/trip.dart';
 import '../services/database_service.dart';
 import '../services/xlsx_service.dart';
@@ -102,10 +105,30 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
                 ))),
               );
               try {
+                // Ensure fresh trips from db
+                List<Trip> tripsToExport = _allTrips;
+                if (tripsToExport.isEmpty) {
+                  tripsToExport = await _dbService.fetchTrips();
+                }
+                if (tripsToExport.isEmpty) {
+                  final rawTrips = await Supabase.instance.client.from('trips').select('*, trip_packages(*), pickup_options(*)');
+                  tripsToExport = (rawTrips as List).map((e) => Trip.fromJson(e)).toList();
+                }
+
                 final List<List<dynamic>> rows = [
-                  ['id', 'title', 'location', 'category', 'duration', 'base_price', 'discount_percent', 'reward_points', 'difficulty', 'altitude', 'best_months', 'peak_elevation', 'trail_type', 'start_point', 'package_type', 'rating', 'total_distance', 'image_url', 'description']
+                  [
+                    'id', 'title', 'location', 'category', 'duration', 'base_price',
+                    'discount_percent', 'gst_percent', 'reward_points', 'difficulty', 'altitude',
+                    'best_months', 'peak_elevation', 'trail_type', 'start_point', 'end_point',
+                    'airport', 'railway', 'buses_cabs', 'state', 'district',
+                    'min_height', 'max_height', 'min_temp', 'max_temp', 'weather',
+                    'package_type', 'rating', 'total_distance', 'slot_capacity', 'latitude', 'longitude',
+                    'google_map_link', 'terms_conditions', 'cancellation_policy', 'trip_story',
+                    'image_url', 'images', 'inclusions', 'exclusions', 'carry_list', 'description'
+                  ]
                 ];
-                for (final trip in _allTrips) {
+
+                for (final trip in tripsToExport) {
                   rows.add([
                     trip.id,
                     trip.title,
@@ -114,35 +137,101 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
                     trip.duration,
                     trip.basePrice,
                     trip.discountPercent,
+                    trip.gstPercent,
                     trip.rewardPoints,
                     trip.difficulty,
                     trip.altitude,
                     trip.bestMonths,
                     trip.peakElevation,
                     trip.trailType,
-                    trip.startPoint,
-                    trip.packageType,
+                    trip.startPoint ?? '',
+                    trip.endPoint ?? '',
+                    trip.airport ?? '',
+                    trip.railway ?? '',
+                    trip.busesCabs ?? '',
+                    trip.state ?? '',
+                    trip.district ?? '',
+                    trip.minHeight ?? '',
+                    trip.maxHeight ?? '',
+                    trip.minTemp ?? '',
+                    trip.maxTemp ?? '',
+                    trip.weather ?? '',
+                    trip.packageType ?? '',
                     trip.rating,
                     trip.totalDistance,
+                    trip.slotCapacity,
+                    trip.latitude,
+                    trip.longitude,
+                    trip.googleMapLink ?? '',
+                    trip.termsConditions ?? '',
+                    trip.cancellationPolicy ?? '',
+                    (trip.tripStory ?? '').replaceAll('\n', ' '),
                     trip.imageUrl,
+                    trip.images.join(' | '),
+                    trip.inclusions.join(' | '),
+                    trip.exclusions.join(' | '),
+                    trip.carryList.join(' | '),
                     trip.description.replaceAll('\n', ' '),
                   ]);
                 }
                 final bytes = XlsxService.buildXlsx(rows);
                 final fileName = 'packages_export_${DateTime.now().millisecondsSinceEpoch}';
-                final path = await FileSaver.instance.saveAs(
-                  name: fileName,
-                  bytes: bytes,
-                  ext: 'xlsx',
-                  mimeType: MimeType.microsoftExcel,
-                );
+
+                if (mounted) Navigator.pop(context); // Dismiss loading
+
+                // Offer Save vs Share prompt
                 if (mounted) {
-                  Navigator.pop(context);
-                  if (path != null && path.isNotEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✅ Exported ${_allTrips.length} packages successfully.'), backgroundColor: Colors.green),
-                    );
-                  }
+                  showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                    builder: (sheetCtx) => SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Export ${tripsToExport.length} Packages', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 8),
+                            const Text('Choose how you want to save or share your Excel file:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            const SizedBox(height: 16),
+                            ListTile(
+                              leading: const CircleAvatar(backgroundColor: Color(0xFFE8F5E9), child: Icon(Icons.download, color: Colors.green)),
+                              title: const Text('Save to Device / Custom Path', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              subtitle: const Text('Choose folder destination in system file picker', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              onTap: () async {
+                                Navigator.pop(sheetCtx);
+                                await FileSaver.instance.saveFile(
+                                  name: fileName,
+                                  bytes: bytes,
+                                  ext: 'xlsx',
+                                  mimeType: MimeType.microsoftExcel,
+                                );
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('✅ Exported ${tripsToExport.length} packages successfully.'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              },
+                            ),
+                            const Divider(),
+                            ListTile(
+                              leading: const CircleAvatar(backgroundColor: Color(0xFFE3F2FD), child: Icon(Icons.share, color: Colors.blue)),
+                              title: const Text('Share Excel Spreadsheet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              subtitle: const Text('Send directly to WhatsApp, Email, Drive or AirDrop', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              onTap: () async {
+                                Navigator.pop(sheetCtx);
+                                final tempDir = await getTemporaryDirectory();
+                                final file = File('${tempDir.path}/$fileName.xlsx');
+                                await file.writeAsBytes(bytes);
+                                await Share.shareXFiles([XFile(file.path)], text: 'Exported Packages (${tripsToExport.length} items)');
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
                 }
               } catch (e) {
                 if (mounted) {
@@ -219,8 +308,13 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
                     if (j < row.length) {
                       final val = row[j];
                       final col = headerRow[j];
-                      if (col == 'base_price' || col == 'discount_percent' || col == 'reward_points' || col == 'rating') {
+                      if (col == 'base_price' || col == 'discount_percent' || col == 'gst_percent' || col == 'rating' || col == 'latitude' || col == 'longitude') {
                         data[col] = num.tryParse(val.toString()) ?? 0;
+                      } else if (col == 'reward_points' || col == 'slot_capacity') {
+                        data[col] = int.tryParse(val.toString()) ?? 0;
+                      } else if (col == 'images' || col == 'inclusions' || col == 'exclusions' || col == 'carry_list') {
+                        final strVal = val.toString().trim();
+                        data[col] = strVal.isEmpty ? [] : strVal.split('|').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
                       } else {
                         data[col] = val.toString();
                       }
@@ -321,57 +415,63 @@ class _AdminPackageManagementScreenState extends State<AdminPackageManagementScr
       itemCount: trips.length,
       itemBuilder: (context, index) {
         final t = trips[index];
-        return FadeInUp(
-          delay: Duration(milliseconds: index * 20),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
-            ),
-            child: Row(
-              children: [
-                Hero(
-                  tag: 'manage_${t.id}',
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(15),
-                    child: Image.network(t.imageUrl, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(width: 80, height: 80, color: Colors.grey[200], child: const Icon(Icons.image))),
+        return Container(
+          key: ValueKey(t.id),
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Image.network(
+                  t.imageUrl,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) => Container(
+                    width: 80,
+                    height: 80,
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.image),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(t.category.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.blue)),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text('${t.location} • ${t.duration}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      const SizedBox(height: 4),
-                      Text('₹${t.basePrice.toInt()}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 13)),
-                    ],
-                  ),
-                ),
-                Column(
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_note, color: Colors.blue), 
-                      onPressed: () async {
-                        final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => EditTripScreen(trip: t)));
-                        if (r == true) _loadTrips();
-                      }
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                      child: Text(t.category.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.blue)),
                     ),
-                    IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => _deleteTrip(t.id)),
+                    const SizedBox(height: 4),
+                    Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text('${t.location} • ${t.duration}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text('₹${t.basePrice.toInt()}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 13)),
                   ],
                 ),
-              ],
-            ),
+              ),
+              Column(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_note, color: Colors.blue), 
+                    onPressed: () async {
+                      final r = await Navigator.push(context, MaterialPageRoute(builder: (c) => EditTripScreen(trip: t)));
+                      if (r == true) _loadTrips();
+                    }
+                  ),
+                  IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => _deleteTrip(t.id)),
+                ],
+              ),
+            ],
           ),
         );
       },

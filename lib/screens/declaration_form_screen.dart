@@ -132,7 +132,7 @@ class _DeclarationFormScreenState extends State<DeclarationFormScreen> {
 
         if (shareToWhatsapp) {
           final msg = "Hello trekwithmussafirr Team,\n\nI have digitally signed my Risk Declaration & Medical Consent form for ${widget.tripTitle}.\nParticipant: $hikerName\nEmergency Contact: ${_emergencyNameCtrl.text} (${_emergencyPhoneCtrl.text})${publicUrl != null ? '\n\nDocument: $publicUrl' : ''}";
-          final waUrl = "https://wa.me/919876543210?text=${Uri.encodeComponent(msg)}";
+          final waUrl = "https://wa.me/919756399115?text=${Uri.encodeComponent(msg)}";
           launchUrl(Uri.parse(waUrl), mode: LaunchMode.externalApplication);
         }
 
@@ -255,7 +255,7 @@ class _DeclarationFormScreenState extends State<DeclarationFormScreen> {
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 labelText: 'Emergency Contact Phone Number *',
-                hintText: '+91 9876543210',
+                hintText: '+91 9756399115',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
               ),
             ),

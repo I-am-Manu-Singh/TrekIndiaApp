@@ -1,17 +1,20 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../services/database_service.dart';
-import 'admin_group_analytics_screen.dart';
-import '../widgets/user_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../services/database_service.dart';
-import '../services/whatsapp_service.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../models/trip.dart';
 import 'package:collection/collection.dart';
+import 'package:file_saver/file_saver.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import '../services/database_service.dart';
+import '../services/xlsx_service.dart';
+import '../services/whatsapp_service.dart';
+import '../widgets/user_avatar.dart';
+import '../models/trip.dart';
+import 'admin_group_analytics_screen.dart';
 import 'media_preview_screen.dart';
 
 class AdminBookingsScreen extends StatefulWidget {
@@ -52,7 +55,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
       
       Map<String, dynamic> groups = {};
 
-      void addToGroup(String groupKey, dynamic trip, String date, dynamic profile, double price, String? realGroupId, {String? hikerNumber, String? hikerEmail, String? pickupLocation, int? travelers, dynamic addons, String? paymentStatus, String? paymentMethod, String? paymentProofUrl, String? bookingId}) {
+      void addToGroup(String groupKey, dynamic trip, String date, dynamic profile, double price, String? realGroupId, {String? hikerNumber, String? hikerEmail, String? aadharNo, String? address, String? pickupLocation, int? travelers, dynamic addons, String? paymentStatus, String? paymentMethod, String? paymentProofUrl, String? bookingId, String? specialRequests, String? travelType, bool? tentSharing, bool? roomSharing}) {
         if (trip == null) return;
         
         if (_selectedDate != null) {
@@ -80,6 +83,8 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
           final participant = Map<String, dynamic>.from(profile);
           participant['hiker_number'] = hikerNumber;
           participant['hiker_email'] = hikerEmail;
+          participant['aadhar_no'] = aadharNo;
+          participant['address'] = address;
           participant['pickup_location'] = pickupLocation;
           participant['travelers'] = travelers ?? 1;
           participant['addons'] = addons;
@@ -88,6 +93,10 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
           participant['payment_proof_url'] = paymentProofUrl;
           participant['booking_id'] = bookingId;
           participant['total_price'] = price;
+          participant['special_requests'] = specialRequests;
+          participant['travel_type'] = travelType;
+          participant['tent_sharing'] = tentSharing;
+          participant['room_sharing'] = roomSharing;
           groups[groupKey]['participants'].add(participant);
           groups[groupKey]['total_revenue'] += price;
         }
@@ -114,10 +123,37 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
 
           final String rawDate = b['trip_date'] ?? b['booking_date'] ?? 'TBD';
           final String groupKey = '${b['trip_id']}_$rawDate';
-          final userProfile = b['profiles'];
+          
+          final primaryDetail = (b['traveler_details'] is List && (b['traveler_details'] as List).isNotEmpty)
+              ? (b['traveler_details'] as List).firstWhere((t) => t is Map && t['is_primary'] == true, orElse: () => (b['traveler_details'] as List).first)
+              : null;
+
+          final leadName = b['hiker_name'] ?? (primaryDetail is Map ? primaryDetail['name'] : null) ?? b['profiles']?['full_name'] ?? 'Explorer (Lead)';
+          final leadPhone = b['hiker_number'] ?? (primaryDetail is Map ? primaryDetail['phone'] : null) ?? b['profiles']?['phone_number'];
+          final leadEmail = b['hiker_email'] ?? (primaryDetail is Map ? primaryDetail['email'] : null) ?? b['profiles']?['email'];
+          final leadAadhar = b['aadhar_no'] ?? (primaryDetail is Map ? primaryDetail['aadhar'] : null);
+          final leadAddress = b['address'] ?? (primaryDetail is Map ? primaryDetail['address'] : null);
+          final leadAge = b['age'] ?? (primaryDetail is Map ? primaryDetail['age'] : null);
+          final leadGender = b['gender'] ?? (primaryDetail is Map ? primaryDetail['gender'] : null);
+
+          final userProfile = {
+            'id': b['user_id'] ?? b['id'],
+            'full_name': leadName,
+            'avatar_url': b['profiles']?['avatar_url'],
+            'role': b['profiles']?['role'] ?? 'user',
+            'age': leadAge,
+            'gender': leadGender,
+            'aadhar_no': leadAadhar,
+            'is_leader': true,
+          };
           
           final String? realGroupId = b['trip_groups']?['id']?.toString() ?? b['group_id']?.toString();
           
+          final specialReq = b['special_requests'] ?? (primaryDetail is Map ? primaryDetail['special_requests'] : null);
+          final travelType = b['travel_type'] ?? (primaryDetail is Map ? primaryDetail['travel_type'] : null);
+          final tentSharing = b['tent_sharing'] ?? (primaryDetail is Map ? primaryDetail['tent_sharing'] : false);
+          final roomSharing = b['room_sharing'] ?? (primaryDetail is Map ? primaryDetail['room_sharing'] : false);
+
           addToGroup(
             groupKey, 
             trip, 
@@ -125,21 +161,29 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
             userProfile, 
             double.tryParse(b['total_price'].toString()) ?? 0, 
             realGroupId,
-            hikerNumber: b['hiker_number']?.toString(),
-            hikerEmail: b['hiker_email']?.toString(),
+            hikerNumber: leadPhone?.toString(),
+            hikerEmail: leadEmail?.toString(),
+            aadharNo: leadAadhar?.toString(),
+            address: leadAddress?.toString(),
             pickupLocation: b['pickup_location']?.toString(),
-            travelers: int.tryParse(b['travelers']?.toString() ?? '1') ?? 1,
+            travelers: int.tryParse(b['travelers']?.toString() ?? b['hiker_pax']?.toString() ?? '1') ?? 1,
             addons: b['addons'],
             paymentStatus: b['payment_status']?.toString(),
             paymentMethod: b['payment_method']?.toString(),
             paymentProofUrl: b['payment_proof_url']?.toString(),
             bookingId: b['id']?.toString(),
+            specialRequests: specialReq?.toString(),
+            travelType: travelType?.toString(),
+            tentSharing: tentSharing == true,
+            roomSharing: roomSharing == true,
           );
 
           // Add additional travelers if any
           if (b['traveler_details'] != null) {
             final extras = b['traveler_details'] as List;
             for (var ext in extras) {
+              if (ext is! Map) continue;
+              if (ext['is_primary'] == true) continue;
               addToGroup(
                 groupKey,
                 b['trip'],
@@ -150,16 +194,24 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
                   'id': 'extra_${b['id']}',
                   'is_extra': true,
                   'age': ext['age'],
+                  'aadhar_no': ext['aadhar'],
+                  'gender': ext['gender'],
                 },
                 0, // Price already accounted for in primary
                 realGroupId,
-                hikerNumber: b['hiker_number']?.toString(),
+                hikerNumber: ext['phone']?.toString().isNotEmpty == true ? ext['phone'].toString() : b['hiker_number']?.toString(),
                 hikerEmail: b['hiker_email']?.toString(),
+                aadharNo: ext['aadhar']?.toString(),
+                address: b['address']?.toString(),
                 addons: null,
                 paymentStatus: b['payment_status']?.toString(),
                 paymentMethod: b['payment_method']?.toString(),
                 paymentProofUrl: b['payment_proof_url']?.toString(),
                 bookingId: b['id']?.toString(),
+                specialRequests: ext['special_requests']?.toString() ?? specialReq?.toString(),
+                travelType: ext['travel_type']?.toString() ?? travelType?.toString(),
+                tentSharing: ext['tent_sharing'] == true || tentSharing == true,
+                roomSharing: ext['room_sharing'] == true || roomSharing == true,
               );
             }
           }
@@ -216,6 +268,202 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
   }
 
 
+  Future<void> _exportBookingsExcel() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: Card(child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          CircularProgressIndicator(), SizedBox(width: 16), Text('Compiling Bookings Excel...'),
+        ]),
+      ))),
+    );
+
+    try {
+      final List<List<dynamic>> rows = [
+        [
+          'Booking ID', 'Trip Name', 'Trip Departure Date', 'Traveler Type', 'Lead/Member',
+          'Full Name', 'Age', 'Gender', 'Phone Number', 'Email Address',
+          'Aadhar Number', 'Address / City', 'Total Pax', 'Pickup Location',
+          'Trip Base Price', 'Total Paid Price', 'Payment Method', 'Payment Status',
+          'Couple Sharing Required', 'Tent Sharing Required', 'Private Room Required',
+          'Special Requests / Medical Notes', 'Addons / Gear Rentals', 'Payment Proof URL',
+          'Group ID', 'Created Timestamp'
+        ]
+      ];
+
+      // Fetch all raw bookings with complete nested data
+      final allRawBookings = await _client.from('bookings').select('*, trip_groups(*), trips(*), profiles(*)').order('created_at', ascending: false);
+
+      for (var b in allRawBookings) {
+        final tripTitle = b['trips']?['title'] ?? b['trip_name'] ?? 'Expedition';
+        final tripDate = b['trip_date'] ?? b['booking_date'] ?? 'TBD';
+        final bookingId = b['id']?.toString() ?? '';
+        final groupId = b['group_id']?.toString() ?? b['trip_groups']?['id']?.toString() ?? '';
+        final createdAt = b['created_at']?.toString() ?? '';
+        final paymentMethod = b['payment_method']?.toString() ?? '';
+        final paymentStatus = b['payment_status']?.toString() ?? '';
+        final paymentProofUrl = b['payment_proof_url']?.toString() ?? '';
+        final pickupLoc = b['pickup_location']?.toString() ?? '';
+        final totalPrice = b['total_price'] ?? 0;
+        final basePrice = b['trips']?['base_price'] ?? 0;
+        final totalPax = b['hiker_pax'] ?? b['travelers'] ?? 1;
+
+        // Gear addons formatting
+        String addonsStr = '';
+        if (b['addons'] is List) {
+          addonsStr = (b['addons'] as List).map((a) => "${a['quantity']}x Gear (${a['gear_id']})").join('; ');
+        }
+
+        // 1. Primary Booker Row
+        final primaryDetail = (b['traveler_details'] is List && (b['traveler_details'] as List).isNotEmpty)
+            ? (b['traveler_details'] as List).firstWhere((t) => t is Map && t['is_primary'] == true, orElse: () => (b['traveler_details'] as List).first)
+            : null;
+
+        final leadName = b['hiker_name'] ?? (primaryDetail is Map ? primaryDetail['name'] : null) ?? b['profiles']?['full_name'] ?? 'Lead Explorer';
+        final leadPhone = b['hiker_number'] ?? (primaryDetail is Map ? primaryDetail['phone'] : null) ?? b['profiles']?['phone_number'] ?? '';
+        final leadEmail = b['hiker_email'] ?? (primaryDetail is Map ? primaryDetail['email'] : null) ?? b['profiles']?['email'] ?? '';
+        final leadAadhar = b['aadhar_no'] ?? (primaryDetail is Map ? primaryDetail['aadhar'] : null) ?? '';
+        final leadAddress = b['address'] ?? (primaryDetail is Map ? primaryDetail['address'] : null) ?? '';
+        final leadAge = b['age'] ?? (primaryDetail is Map ? primaryDetail['age'] : null) ?? '';
+        final leadGender = b['gender'] ?? (primaryDetail is Map ? primaryDetail['gender'] : null) ?? '';
+        final travelType = b['travel_type'] ?? (primaryDetail is Map ? primaryDetail['travel_type'] : null) ?? 'Solo / Standard';
+        final tentSharing = (b['tent_sharing'] == true || (primaryDetail is Map && primaryDetail['tent_sharing'] == true)) ? 'YES' : 'NO';
+        final roomSharing = (b['room_sharing'] == true || (primaryDetail is Map && primaryDetail['room_sharing'] == true)) ? 'YES' : 'NO';
+        final specialRequests = b['special_requests'] ?? (primaryDetail is Map ? primaryDetail['special_requests'] : null) ?? '';
+
+        rows.add([
+          bookingId,
+          tripTitle,
+          tripDate,
+          travelType,
+          'LEAD BOOKER',
+          leadName,
+          leadAge,
+          leadGender,
+          leadPhone,
+          leadEmail,
+          leadAadhar,
+          leadAddress,
+          totalPax,
+          pickupLoc,
+          basePrice,
+          totalPrice,
+          paymentMethod,
+          paymentStatus,
+          travelType.toString().contains('Couple') ? 'YES' : 'NO',
+          tentSharing,
+          roomSharing,
+          specialRequests,
+          addonsStr,
+          paymentProofUrl,
+          groupId,
+          createdAt,
+        ]);
+
+        // 2. Additional Group Members
+        if (b['traveler_details'] is List) {
+          for (var ext in (b['traveler_details'] as List)) {
+            if (ext is! Map || ext['is_primary'] == true) continue;
+            rows.add([
+              bookingId,
+              tripTitle,
+              tripDate,
+              ext['travel_type'] ?? travelType,
+              'GROUP MEMBER',
+              ext['name'] ?? 'Additional Hiker',
+              ext['age'] ?? '',
+              ext['gender'] ?? '',
+              ext['phone'] ?? leadPhone,
+              leadEmail,
+              ext['aadhar'] ?? '',
+              leadAddress,
+              totalPax,
+              pickupLoc,
+              0, // Included in primary
+              0,
+              paymentMethod,
+              paymentStatus,
+              (ext['travel_type'] ?? travelType).toString().contains('Couple') ? 'YES' : 'NO',
+              (ext['tent_sharing'] == true || tentSharing == 'YES') ? 'YES' : 'NO',
+              (ext['room_sharing'] == true || roomSharing == 'YES') ? 'YES' : 'NO',
+              ext['special_requests'] ?? specialRequests,
+              '',
+              paymentProofUrl,
+              groupId,
+              createdAt,
+            ]);
+          }
+        }
+      }
+
+      final bytes = XlsxService.buildXlsx(rows);
+      final fileName = 'bookings_master_export_${DateTime.now().millisecondsSinceEpoch}';
+
+      if (mounted) Navigator.pop(context); // Dismiss loading
+
+      if (mounted) {
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (sheetCtx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Export Bookings Master Sheet', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Text('Generated master spreadsheet containing ${rows.length - 1} traveler records.', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFFE8F5E9), child: Icon(Icons.download, color: Colors.green)),
+                    title: const Text('Save to Device / Custom Folder', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('Save .xlsx spreadsheet locally', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    onTap: () async {
+                      Navigator.pop(sheetCtx);
+                      await FileSaver.instance.saveFile(
+                        name: fileName,
+                        bytes: bytes,
+                        ext: 'xlsx',
+                        mimeType: MimeType.microsoftExcel,
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('✅ Exported ${rows.length - 1} traveler records successfully.'), backgroundColor: Colors.green),
+                        );
+                      }
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFFE3F2FD), child: Icon(Icons.share, color: Colors.blue)),
+                    title: const Text('Share Master Excel Sheet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('Share directly to WhatsApp, Email, Drive or Office apps', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    onTap: () async {
+                      Navigator.pop(sheetCtx);
+                      final tempDir = await getTemporaryDirectory();
+                      final file = File('${tempDir.path}/$fileName.xlsx');
+                      await file.writeAsBytes(bytes);
+                      await Share.shareXFiles([XFile(file.path)], text: 'trekwithmussafirr Master Bookings Export (${rows.length - 1} records)');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bookings export failed: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -225,6 +473,11 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
         backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download, color: Colors.white),
+            tooltip: 'Export Bookings Excel',
+            onPressed: _exportBookingsExcel,
+          ),
           IconButton(
             icon: Icon(Icons.calendar_month, color: _selectedDate != null ? Colors.blueAccent : Colors.white),
             onPressed: () async {
@@ -504,20 +757,84 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
                     ],
                   ),
                 ],
-                if (p['pickup_location'] != null && p['pickup_location'].toString().isNotEmpty) ...[
+                if (p['aadhar_no'] != null && p['aadhar_no'].toString().isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 11, color: Colors.blueAccent),
+                      const Icon(Icons.badge_outlined, size: 11, color: Colors.teal),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Aadhar: ${p['aadhar_no']}',
+                        style: const TextStyle(fontSize: 10.5, color: Colors.teal, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+                if (p['address'] != null && p['address'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Icon(Icons.home_outlined, size: 11, color: isDark ? Colors.white38 : Colors.grey),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Hub: ${p['pickup_location']}',
-                          style: const TextStyle(fontSize: 10.5, color: Colors.blueAccent, fontWeight: FontWeight.w600),
+                          'Addr: ${p['address']}',
+                          style: TextStyle(fontSize: 10, color: isDark ? Colors.white54 : Colors.grey.shade600),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
+                  ),
+                ],
+                if (p['travel_type'] != null && p['travel_type'].toString().contains('Couple')) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: const [
+                      Icon(Icons.favorite_rounded, size: 11, color: Colors.pinkAccent),
+                      SizedBox(width: 6),
+                      Text(
+                        'Couple Travel / Shared Occupancy',
+                        style: TextStyle(fontSize: 10, color: Colors.pinkAccent, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+                if (p['tent_sharing'] == true || p['room_sharing'] == true) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(Icons.night_shelter_outlined, size: 11, color: Colors.purple),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${p['tent_sharing'] == true ? 'Tent Sharing' : ''}${p['tent_sharing'] == true && p['room_sharing'] == true ? ' + ' : ''}${p['room_sharing'] == true ? 'Private Room' : ''}',
+                        style: const TextStyle(fontSize: 10, color: Colors.purple, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ],
+                if (p['special_requests'] != null && p['special_requests'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.amber.shade400, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.amber),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Special Req: ${p['special_requests']}',
+                            style: TextStyle(fontSize: 10, color: isDark ? Colors.amber.shade200 : Colors.brown, fontWeight: FontWeight.bold),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],

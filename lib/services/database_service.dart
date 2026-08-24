@@ -101,6 +101,8 @@ class DatabaseService {
     required String pickupLocation,
     required double totalPrice,
     required String hikerEmail,
+    String? address,
+    String? aadharNo,
     String? userId,
     List<Map<String, dynamic>> addons = const [],
     List<Map<String, dynamic>> additionalTravelers = const [],
@@ -129,17 +131,20 @@ class DatabaseService {
         groupId = groupResponse['id'];
       }
 
-      // 2. Prevent duplicate booking
-      final existingBooking = await _client.from('bookings')
-          .select('id')
-          .eq('user_id', userId ?? user?.id ?? '')
-          .eq('trip_id', tripId)
-          .eq('trip_date', dateStr)
-          .maybeSingle();
-      
-      if (existingBooking != null) return existingBooking['id'];
+      // 2. Prevent duplicate booking if logged in
+      final effectiveUserId = userId ?? user?.id;
+      if (effectiveUserId != null && effectiveUserId.isNotEmpty) {
+        final existingBooking = await _client.from('bookings')
+            .select('id')
+            .eq('user_id', effectiveUserId)
+            .eq('trip_id', tripId)
+            .eq('trip_date', dateStr)
+            .maybeSingle();
+        
+        if (existingBooking != null) return existingBooking['id'];
+      }
 
-      final bookingResponse = await _client.from('bookings').insert({
+      final bookingPayload = <String, dynamic>{
         'user_id': userId ?? user?.id,
         'trip_id': tripId,
         'group_id': groupId,
@@ -159,7 +164,39 @@ class DatabaseService {
         'hiker_email': hikerEmail,
         'hiker_pax': pax,
         'trip_name': tripTitle,
-      }).select().single();
+      };
+
+      if (address != null && address.isNotEmpty) bookingPayload['address'] = address;
+      if (aadharNo != null && aadharNo.isNotEmpty) bookingPayload['aadhar_no'] = aadharNo;
+      
+      // Extract primary special requests, travel_type, tent/room sharing if available
+      if (additionalTravelers.isNotEmpty) {
+        final primary = additionalTravelers.firstWhere((t) => t['is_primary'] == true, orElse: () => additionalTravelers.first);
+        if (primary['special_requests'] != null && primary['special_requests'].toString().isNotEmpty) {
+          bookingPayload['special_requests'] = primary['special_requests'];
+        }
+        if (primary['travel_type'] != null) bookingPayload['travel_type'] = primary['travel_type'];
+        if (primary['tent_sharing'] != null) bookingPayload['tent_sharing'] = primary['tent_sharing'];
+        if (primary['room_sharing'] != null) bookingPayload['room_sharing'] = primary['room_sharing'];
+        if (primary['age'] != null) bookingPayload['age'] = primary['age'];
+        if (primary['gender'] != null) bookingPayload['gender'] = primary['gender'];
+      }
+
+      dynamic bookingResponse;
+      try {
+        bookingResponse = await _client.from('bookings').insert(bookingPayload).select().single();
+      } catch (insertErr) {
+        // Fallback for column safety: remove ad-hoc columns and ensure data exists inside traveler_details JSONB
+        bookingPayload.remove('address');
+        bookingPayload.remove('aadhar_no');
+        bookingPayload.remove('special_requests');
+        bookingPayload.remove('travel_type');
+        bookingPayload.remove('tent_sharing');
+        bookingPayload.remove('room_sharing');
+        bookingPayload.remove('age');
+        bookingPayload.remove('gender');
+        bookingResponse = await _client.from('bookings').insert(bookingPayload).select().single();
+      }
 
       final bookingId = bookingResponse['id'];
 
@@ -174,38 +211,44 @@ class DatabaseService {
       }
 
       // 4. Update Trip Group Last Message & Send REAL Message
-      final welcomeMsg = "📢 Welcome! $fullName has joined the $tripTitle group for $dateStr.";
-      await _client.from('trip_groups').update({
-        'last_message_content': welcomeMsg,
-        'last_message_time': DateTime.now().toIso8601String(),
-      }).eq('id', groupId ?? '');
+      try {
+        final welcomeMsg = "📢 Welcome! $fullName has joined the $tripTitle group for $dateStr.";
+        await _client.from('trip_groups').update({
+          'last_message_content': welcomeMsg,
+          'last_message_time': DateTime.now().toIso8601String(),
+        }).eq('id', groupId ?? '');
 
-      // Insert into chat_messages so it appears in the chat history
-      await _client.from('chat_messages').insert({
-        'room_id': groupId,
-        'sender_id': userId ?? user?.id, 
-        'content': welcomeMsg,
-        'message_type': 'text',
-      });
-
-      // 4. Notify User
-      if (user != null) {
-        await createNotification(
-          userId: user.id,
-          title: 'Booking Confirmed',
-          body: 'You have successfully booked $tripTitle for $dateStr.',
-          category: 'booking',
-        );
+        // Insert into chat_messages so it appears in the chat history
+        await _client.from('chat_messages').insert({
+          'room_id': groupId,
+          'sender_id': userId ?? user?.id, 
+          'content': welcomeMsg,
+          'message_type': 'text',
+        });
+      } catch (msgErr) {
+        debugPrint('Post-booking message update error: $msgErr');
       }
 
-      // 5. Notify Admins
+      // 5. Notify User
+      if (user != null) {
+        try {
+          await createNotification(
+            userId: user.id,
+            title: 'Booking Confirmed',
+            body: 'You have successfully booked $tripTitle for $dateStr.',
+            category: 'booking',
+          );
+        } catch (_) {}
+      }
+
+      // 6. Notify Admins
       try {
         final admins = await _client.from('profiles').select('id').eq('role', 'admin');
         for (var admin in admins) {
           await createNotification(
             userId: admin['id'],
             title: 'New Booking Alert!',
-            body: '${user?.userMetadata?['full_name'] ?? 'A traveler'} just booked $tripTitle.',
+            body: '$fullName just booked $tripTitle ($pax Pax).',
             category: 'admin_booking',
           );
         }
@@ -215,7 +258,7 @@ class DatabaseService {
 
       return groupId;
     } catch (e) {
-      print('Error booking trip: $e');
+      debugPrint('Error booking trip: $e');
       return null;
     }
   }

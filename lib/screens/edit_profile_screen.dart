@@ -1,7 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:file_picker/file_picker.dart';
 import '../widgets/user_avatar.dart';
+import 'media_preview_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -168,7 +172,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () => _replaceDoc('avatar_url', 'PROFILE PICTURE'),
+            onTap: () => _uploadOrReplaceDoc('avatar_url', 'PROFILE PICTURE', _userData?['avatar_url']),
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -310,15 +314,15 @@ Widget _buildDocumentsSection(bool isDark) {
     ),
     child: Column(
       children: [
-        _docRow(Icons.badge_outlined, 'PASSPORT / ID PROOF', _userData?['passport_url'], 'passport_url', isDark),
-
-        const Divider(height: 20),
-
         _docRow(Icons.fingerprint_outlined, 'AADHAR CARD', _userData?['aadhar_url'], 'aadhar_url', isDark),
 
         const Divider(height: 20),
 
-        _docRow(Icons.medical_services_outlined, 'MEDICAL CERTIFICATE', _userData?['medical_certificate_url'], 'medical_certificate_url', isDark),
+        _docRow(Icons.medical_services_outlined, 'HEALTH / MEDICAL CERTIFICATE', _userData?['medical_certificate_url'], 'medical_certificate_url', isDark),
+
+        const Divider(height: 20),
+
+        _docRow(Icons.badge_outlined, 'PASSPORT / ID PROOF', _userData?['passport_url'], 'passport_url', isDark),
 
         const Divider(height: 20),
 
@@ -329,64 +333,233 @@ Widget _buildDocumentsSection(bool isDark) {
 }
 
   Widget _docRow(IconData icon, String title, String? url, String field, bool isDark) {
-  final hasFile = url != null && url.startsWith('http');
+    final hasFile = url != null && url.startsWith('http');
 
-  return Row(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: (hasFile ? Colors.green : Colors.blueGrey).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: (hasFile ? Colors.green : Colors.orange).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 20, color: hasFile ? Colors.green : Colors.orange),
         ),
-        child: Icon(icon, size: 18, color: hasFile ? Colors.green : Colors.blueGrey),
-      ),
 
-      const SizedBox(width: 12),
+        const SizedBox(width: 12),
 
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: (hasFile ? Colors.green : Colors.redAccent).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: (hasFile ? Colors.green : Colors.redAccent).withOpacity(0.2)),
-              ),
-              child: Text(
-                hasFile ? 'VERIFIED / UPLOADED' : 'ACTION REQUIRED',
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
                 style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                  color: hasFile ? Colors.green : Colors.redAccent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: (hasFile ? Colors.green : Colors.redAccent).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: (hasFile ? Colors.green : Colors.redAccent).withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(hasFile ? Icons.check_circle : Icons.error_outline, size: 10, color: hasFile ? Colors.green : Colors.redAccent),
+                        const SizedBox(width: 4),
+                        Text(
+                          hasFile ? 'UPLOADED & VERIFIED' : 'NOT UPLOADED',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                            color: hasFile ? Colors.green : Colors.redAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        if (hasFile)
+          IconButton(
+            tooltip: 'View Document',
+            icon: const Icon(Icons.visibility_outlined, size: 20, color: Colors.blueAccent),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => MediaPreviewScreen(url: url, title: title),
+                ),
+              );
+            },
+          ),
+
+        ElevatedButton.icon(
+          onPressed: () => _uploadOrReplaceDoc(field, title, url),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: hasFile ? Colors.grey.shade800 : const Color(0xFFD32F2F),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
+          ),
+          icon: Icon(hasFile ? Icons.refresh : Icons.upload_file, size: 14),
+          label: Text(hasFile ? 'REPLACE' : 'UPLOAD', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  void _uploadOrReplaceDoc(String field, String title, String? oldUrl) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Upload $title', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              const Text('Select a file from your device (PDF or Image format):', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFE8F5E9), child: Icon(Icons.picture_as_pdf, color: Colors.red)),
+                title: const Text('Upload PDF Document', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Select a PDF certificate from your files', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['pdf'],
+                    withData: true,
+                  );
+                  if (result != null && result.files.single.bytes != null) {
+                    _processStorageUpload(
+                      field: field,
+                      oldUrl: oldUrl,
+                      bytes: result.files.single.bytes!,
+                      fileName: result.files.single.name,
+                      contentType: 'application/pdf',
+                    );
+                  }
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFE3F2FD), child: Icon(Icons.image, color: Colors.blue)),
+                title: const Text('Upload Photo / Image (JPG/PNG)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Pick a picture of your document/card', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.image,
+                    withData: true,
+                  );
+                  if (result != null && result.files.single.bytes != null) {
+                    _processStorageUpload(
+                      field: field,
+                      oldUrl: oldUrl,
+                      bytes: result.files.single.bytes!,
+                      fileName: result.files.single.name,
+                      contentType: result.files.single.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg',
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
 
-      IconButton(
-        onPressed: () => _replaceDoc(field, title),
-        icon: const Icon(Icons.upload_outlined, size: 18),
-      ),
-    ],
-  );
-}
+  Future<void> _processStorageUpload({
+    required String field,
+    required String? oldUrl,
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
 
-  
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: Card(child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          CircularProgressIndicator(), SizedBox(width: 16), Text('Uploading and securing document...'),
+        ]),
+      ))),
+    );
+
+    try {
+      if (oldUrl != null && oldUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(oldUrl);
+          final segments = uri.pathSegments;
+          final bucketIndex = segments.indexOf('public');
+          if (bucketIndex != -1 && bucketIndex + 2 < segments.length) {
+            final bucket = segments[bucketIndex + 1];
+            final oldPath = segments.sublist(bucketIndex + 2).join('/');
+            await _client.storage.from(bucket).remove([oldPath]);
+          }
+        } catch (_) {}
+      }
+
+      final ext = fileName.split('.').last;
+      final storagePath = 'user_docs/${user.id}/${field}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      
+      await _client.storage.from('payment_proofs').uploadBinary(
+        storagePath,
+        bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+        fileOptions: FileOptions(contentType: contentType, upsert: true),
+      );
+
+      final publicUrl = _client.storage.from('payment_proofs').getPublicUrl(storagePath);
+
+      await _client.from('profiles').update({
+        field: publicUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Document uploaded and previous version replaced!'), backgroundColor: Colors.green),
+        );
+        _fetchData();
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Widget _buildSecurityCard(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -445,126 +618,6 @@ Widget _buildDocumentsSection(bool isDark) {
       }
     }
   }
-
- void _replaceDoc(String field, String title) async {
-  final controller = TextEditingController();
-
-  final url = await showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // drag handle
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-
-            Text(
-              'Add $title',
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                hintText: 'Paste document URL here',
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 14,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            SizedBox(
-              width: double.infinity,
-              height: 52, // 👈 increase height (try 50–56 range)
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context, controller.text.trim()),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD32F2F),
-                  foregroundColor: Colors.white, // 👈 forces white text + icon
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'SAVE',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14, // 👈 slightly bigger text
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-
-  if (url == null || url.isEmpty) return;
-
-  // basic validation (don’t trust users blindly)
-  if (!url.startsWith('http')) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Enter a valid URL')),
-    );
-    return;
-  }
-
-  try {
-    await _client.from('profiles').update({field: url}).eq(
-          'id',
-          _client.auth.currentUser!.id,
-        );
-
-    _fetchData();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Document updated')),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed: $e')),
-      );
-    }
-  }
-}
 
   Future<void> _updateTripPassword() async {
     if (_passwordController.text.isEmpty || _passwordController.text != _confirmPasswordController.text) {

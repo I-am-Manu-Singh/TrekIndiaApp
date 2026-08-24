@@ -212,7 +212,7 @@ class _PaymentLedgerScreenState extends State<PaymentLedgerScreen>
               fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
           tabs: const [
             Tab(text: 'TRANSACTIONS'),
-            Tab(text: '🏆 REWARDS'),
+            Tab(text: 'REWARDS'),
           ],
         ),
       ),

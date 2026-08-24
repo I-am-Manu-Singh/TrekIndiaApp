@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -71,9 +72,14 @@ class PreferencesService {
     return prefs.getBool('notifications_enabled') ?? true;
   }
 
-  Future<void> setLocationSharing(bool enabled) async {
+  Future<void> setCachedUserRole(String role) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('location_sharing_enabled', enabled);
+    await prefs.setString('cached_user_role', role);
+  }
+
+  Future<String> getCachedUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('cached_user_role') ?? 'user';
   }
 
   Future<bool> getLocationSharing() async {
@@ -85,21 +91,55 @@ class PreferencesService {
   Future<void> setAdminDispatchEmail(String email) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('admin_dispatch_email', email);
+    try {
+      await Supabase.instance.client.from('app_settings').upsert({
+        'key': 'admin_dispatch_email',
+        'value': email,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Error syncing admin dispatch email to DB: $e');
+    }
   }
 
   Future<String> getAdminDispatchEmail() async {
     final prefs = await SharedPreferences.getInstance();
+    try {
+      final res = await Supabase.instance.client.from('app_settings').select('value').eq('key', 'admin_dispatch_email').maybeSingle();
+      if (res != null && res['value'] != null) {
+        final val = res['value'].toString();
+        await prefs.setString('admin_dispatch_email', val);
+        return val;
+      }
+    } catch (_) {}
     return prefs.getString('admin_dispatch_email') ?? 'mussafirr1@gmail.com';
   }
 
   Future<void> setAdminDispatchPhone(String phone) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('admin_dispatch_phone', phone);
+    try {
+      await Supabase.instance.client.from('app_settings').upsert({
+        'key': 'admin_dispatch_phone',
+        'value': phone,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Error syncing admin dispatch phone to DB: $e');
+    }
   }
 
   Future<String> getAdminDispatchPhone() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('admin_dispatch_phone') ?? '919876543210';
+    try {
+      final res = await Supabase.instance.client.from('app_settings').select('value').eq('key', 'admin_dispatch_phone').maybeSingle();
+      if (res != null && res['value'] != null) {
+        final val = res['value'].toString();
+        await prefs.setString('admin_dispatch_phone', val);
+        return val;
+      }
+    } catch (_) {}
+    return prefs.getString('admin_dispatch_phone') ?? '919756399115';
   }
 
   Future<void> syncLastReadFromCloud(String userId) async {

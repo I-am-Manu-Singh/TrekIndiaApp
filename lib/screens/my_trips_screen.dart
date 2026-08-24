@@ -346,6 +346,11 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
               tripName: trip.title,
               date: tripDate,
               hikerName: booking['hiker_name'] ?? _userProfile?['full_name'] ?? 'Hiker',
+              phoneNumber: booking['hiker_number'] ?? _userProfile?['phone_number'],
+              address: booking['address'],
+              aadharNumber: booking['aadhar_no'],
+              pax: int.tryParse((booking['travelers'] ?? 1).toString()) ?? 1,
+              travelers: booking['traveler_details'] is List ? booking['traveler_details'] : [],
               totalPrice: double.tryParse(booking['total_price'].toString()) ?? 0,
               basePrice: double.tryParse((booking['base_price'] ?? 0).toString()) ?? 0,
               pickupPrice: double.tryParse((booking['pickup_price'] ?? 0).toString()) ?? 0,
@@ -453,28 +458,53 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                     _detailRow('Date:', DateFormat('dd MMM yyyy').format(DateTime.parse(booking['trip_date']))),
                     _detailRow('Status:', (booking['status'] ?? 'PENDING').toString().toUpperCase()),
                     _detailRow('Payment:', (booking['payment_status'] ?? 'UNPAID').toString().toUpperCase()),
+                    if (booking['hiker_number'] != null && booking['hiker_number'].toString().isNotEmpty)
+                      _detailRow('Phone:', booking['hiker_number'].toString()),
+                    if (booking['aadhar_no'] != null && booking['aadhar_no'].toString().isNotEmpty)
+                      _detailRow('Lead Aadhar:', booking['aadhar_no'].toString()),
+                    if (booking['address'] != null && booking['address'].toString().isNotEmpty)
+                      _detailRow('Address:', booking['address'].toString()),
                     _detailRow('Pickup Hub:', booking['pickup_location'] ?? (trip.startPoint ?? 'Base Camp')),
                     _detailRow('Drop Hub:', trip.endPoint ?? (trip.startPoint ?? (booking['pickup_location'] ?? 'Base Camp'))),
                     const Divider(height: 32),
-                    const Text('TRIP MEMBERS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                    const Text('TRIP MEMBERS & IDENTITY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 16),
-                    if (members.isEmpty)
+                    if (booking['traveler_details'] != null && (booking['traveler_details'] as List).isNotEmpty) ...[
+                      ...(booking['traveler_details'] as List).asMap().entries.map((e) {
+                        final t = e.value is Map ? e.value : {};
+                        final name = t['name'] ?? 'Member #${e.key + 2}';
+                        final age = t['age'] != null && t['age'].toString() != '0' ? 'Age: ${t['age']}' : '';
+                        final aadhar = t['aadhar'] != null && t['aadhar'].toString().isNotEmpty ? 'Aadhar: ${t['aadhar']}' : '';
+                        final sub = [age, aadhar].where((s) => s.isNotEmpty).join(' | ');
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.person_pin_outlined, size: 16, color: Colors.blueAccent),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '$name ${sub.isNotEmpty ? "($sub)" : ""}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 12),
+                    ],
+                    if (members.isEmpty && (booking['traveler_details'] == null || (booking['traveler_details'] as List).isEmpty))
                       const Text('No other confirmed members yet.', style: TextStyle(color: Colors.grey, fontSize: 12))
-                    else
+                    else if (members.isNotEmpty)
                       SizedBox(
                         height: 60,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          itemCount: members.length + (booking['traveler_details'] != null ? (booking['traveler_details'] as List).length : 0),
+                          itemCount: members.length,
                           itemBuilder: (ctx, i) {
-                            if (i < members.length) {
-                              final p = members[i]['profiles'];
-                              return _memberCard(p['avatar_url'], p['full_name']);
-                            } else {
-                              final extras = booking['traveler_details'] as List;
-                              final ext = extras[i - members.length];
-                              return _memberCard(null, ext['name'] ?? 'Guest');
-                            }
+                            final p = members[i]['profiles'];
+                            return _memberCard(p['avatar_url'], p['full_name']);
                           },
                         ),
                       ),
@@ -532,6 +562,11 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                                 tripName: trip.title,
                                 date: DateTime.parse(booking['trip_date']),
                                 hikerName: booking['hiker_name'] ?? 'Trip',
+                                phoneNumber: booking['hiker_number'] ?? _userProfile?['phone_number'],
+                                address: booking['address'],
+                                aadharNumber: booking['aadhar_no'],
+                                pax: int.tryParse((booking['travelers'] ?? 1).toString()) ?? 1,
+                                travelers: booking['traveler_details'] is List ? booking['traveler_details'] : [],
                                 totalPrice: double.tryParse(booking['total_price'].toString()) ?? 0,
                                 basePrice: double.tryParse((booking['base_price'] ?? 0).toString()) ?? 0,
                                 pickupPrice: double.tryParse((booking['pickup_price'] ?? 0).toString()) ?? 0,

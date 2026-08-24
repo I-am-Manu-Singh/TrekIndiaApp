@@ -24,6 +24,8 @@ class TripBookingSheet extends StatefulWidget {
     String name,
     String phone,
     String email,
+    String address,
+    String aadharNo,
     int pax,
     List<Map<String, dynamic>> additionalTravelers,
     String paymentMethod,
@@ -73,9 +75,18 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
   final TextEditingController _emailCtrl = TextEditingController(
     text: Supabase.instance.client.auth.currentUser?.email,
   );
+  final TextEditingController _ageCtrl = TextEditingController();
+  final TextEditingController _addressCtrl = TextEditingController();
+  final TextEditingController _aadharCtrl = TextEditingController();
   final TextEditingController _licenseCtrl = TextEditingController();
+  final TextEditingController _specialRequestsCtrl = TextEditingController();
 
-  List<Map<String, TextEditingController>> _additionalTravelers = [];
+  String _gender = 'Male'; // Male, Female, Other
+  String _travelType = 'Solo / Standard'; // Solo / Standard, Couple (Room & Tent Sharing)
+  bool _tentSharingRequired = false;
+  bool _roomSharingRequired = false;
+
+  List<Map<String, dynamic>> _additionalTravelers = [];
 
   Trip get _trip => _freshTrip ?? widget.trip;
 
@@ -250,9 +261,10 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
 
   double _calculateAddonsTotal() {
     double total = 0;
+    final match = RegExp(r'\d+').firstMatch(_trip.duration);
+    final durationDays = match != null ? (int.tryParse(match.group(0)!) ?? 1) : 1;
     _selectedAddons.forEach((id, qty) {
-      final gear = _availableGears.firstWhere((g) => g.id == id);
-      final durationDays = int.tryParse(_trip.duration.split(' ')[0]) ?? 1;
+      final gear = _availableGears.firstWhere((g) => g.id == id, orElse: () => Gear(id: id, name: '', pricePerDay: 0, category: '', description: ''));
       total += gear.pricePerDay * qty * durationDays;
     });
     return total;
@@ -317,30 +329,37 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
           double.infinity,
         );
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(),
-          _buildStepperHeader(),
-          Expanded(
-            child: IndexedStack(
-              index: _currentStep,
-              children: [
-                _buildStepHikerInfo(),
-                _buildStepLogistics(),
-                _buildStepGears(),
-                _buildStepSummary(grandTotal, tripFee, pickupFee),
-                _buildStepPayment(grandTotal),
-              ],
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return AnimatedPadding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.90,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildStepperHeader(),
+            Expanded(
+              child: IndexedStack(
+                index: _currentStep,
+                children: [
+                  _buildStepHikerInfo(),
+                  _buildStepLogistics(),
+                  _buildStepGears(),
+                  _buildStepSummary(grandTotal, tripFee, pickupFee),
+                  _buildStepPayment(grandTotal),
+                ],
+              ),
             ),
-          ),
-          _buildFooter(grandTotal),
-        ],
+            _buildFooter(grandTotal),
+          ],
+        ),
       ),
     );
   }
@@ -448,7 +467,7 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
         padding: const EdgeInsets.all(24),
         children: [
           const Text(
-            'PRIMARY HIKER',
+            'PRIMARY HIKER (LEAD EXPLORER)',
             style: TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 12,
@@ -460,7 +479,7 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
           TextField(
             controller: _nameCtrl,
             decoration: InputDecoration(
-              labelText: 'Full Name',
+              labelText: 'Full Name *',
               prefixIcon: const Icon(Icons.person_outline),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
@@ -468,11 +487,50 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
             ),
           ),
           const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: TextField(
+                  controller: _ageCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Age *',
+                    prefixIcon: const Icon(Icons.cake_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: _gender,
+                  decoration: InputDecoration(
+                    labelText: 'Gender *',
+                    prefixIcon: const Icon(Icons.wc),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Male', child: Text('Male')),
+                    DropdownMenuItem(value: 'Female', child: Text('Female')),
+                    DropdownMenuItem(value: 'Other', child: Text('Other / Any')),
+                  ],
+                  onChanged: (val) => setState(() => _gender = val ?? 'Male'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _phoneCtrl,
             keyboardType: TextInputType.phone,
             decoration: InputDecoration(
-              labelText: 'Phone Number',
+              labelText: 'Phone Number *',
               prefixIcon: const Icon(Icons.phone_android),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
@@ -484,8 +542,117 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
-              labelText: 'Email Address',
+              labelText: 'Email Address *',
               prefixIcon: const Icon(Icons.email_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _aadharCtrl,
+            keyboardType: TextInputType.number,
+            maxLength: 12,
+            decoration: InputDecoration(
+              labelText: 'Aadhar Card Number (12 Digits) *',
+              prefixIcon: const Icon(Icons.badge_outlined),
+              counterText: '',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _addressCtrl,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: 'Residential Address / City *',
+              prefixIcon: const Icon(Icons.home_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // ── COUPLE & ROOM / TENT SHARING ───────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.purple.withOpacity(0.18)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'ACCOMMODATION & SHARING PREFERENCES',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.purple, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _travelType,
+                  decoration: InputDecoration(
+                    labelText: 'Traveler Type',
+                    prefixIcon: const Icon(Icons.group_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Solo / Standard', child: Text('Solo / Standard Sharing')),
+                    DropdownMenuItem(value: 'Couple', child: Text('Couple (Traveling as Couple)')),
+                    DropdownMenuItem(value: 'Family / Private Group', child: Text('Family / Private Group')),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      _travelType = val ?? 'Solo / Standard';
+                      if (_travelType == 'Couple') {
+                        _tentSharingRequired = true;
+                        _roomSharingRequired = true;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                CheckboxListTile(
+                  title: const Text('Couple Tent Sharing Required', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Dedicated 2-person tent during alpine camping', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  value: _tentSharingRequired,
+                  onChanged: (val) => setState(() => _tentSharingRequired = val ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                CheckboxListTile(
+                  title: const Text('Private Room Sharing Required', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Double occupancy room at basecamp guest house/hotel', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  value: _roomSharingRequired,
+                  onChanged: (val) => setState(() => _roomSharingRequired = val ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _specialRequestsCtrl,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: 'Special Requirements / Dietary / Medical Notes (Optional)',
+              hintText: 'e.g. Jain food, strict vegan, luggage offloading, height allergy, couple private tent',
+              prefixIcon: const Icon(Icons.note_alt_outlined),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
               ),
@@ -496,8 +663,8 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
             TextField(
               controller: _licenseCtrl,
               decoration: InputDecoration(
-                labelText: 'Driving License',
-                prefixIcon: const Icon(Icons.badge_outlined),
+                labelText: 'Driving License Number',
+                prefixIcon: const Icon(Icons.card_membership_outlined),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
@@ -508,7 +675,7 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
           Row(
             children: [
               const Text(
-                'Traveling With Others?',
+                'Traveling With Others (Group)?',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const Spacer(),
@@ -541,11 +708,12 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
         children: [
           IconButton(
             onPressed: () {
-              if (_pax > 1)
+              if (_pax > 1) {
                 setState(() {
                   _pax--;
                   _additionalTravelers.removeLast();
                 });
+              }
             },
             icon: const Icon(Icons.remove, size: 18),
           ),
@@ -567,6 +735,9 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
                 _additionalTravelers.add({
                   'name': TextEditingController(),
                   'age': TextEditingController(),
+                  'gender': 'Male',
+                  'aadhar': TextEditingController(),
+                  'phone': TextEditingController(),
                 });
               });
             },
@@ -584,39 +755,94 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
       decoration: BoxDecoration(
         color: Colors.grey.withOpacity(0.05),
         borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'TRAVELER ${idx + 2}',
+            'GROUP MEMBER #${idx + 2}',
             style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w900,
+              color: Colors.blueGrey,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
+                flex: 3,
                 child: TextField(
-                  controller: _additionalTravelers[idx]['name'],
+                  controller: _additionalTravelers[idx]['name'] as TextEditingController,
                   decoration: const InputDecoration(
-                    labelText: 'Name',
+                    labelText: 'Full Name *',
                     isDense: true,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
+                flex: 2,
                 child: TextField(
-                  controller: _additionalTravelers[idx]['age'],
+                  controller: _additionalTravelers[idx]['age'] as TextEditingController,
                   decoration: const InputDecoration(
-                    labelText: 'Age',
+                    labelText: 'Age *',
                     isDense: true,
                   ),
                   keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: (_additionalTravelers[idx]['gender'] ?? 'Male').toString(),
+                  decoration: const InputDecoration(
+                    labelText: 'Gender',
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Male', child: Text('M', style: TextStyle(fontSize: 12))),
+                    DropdownMenuItem(value: 'Female', child: Text('F', style: TextStyle(fontSize: 12))),
+                    DropdownMenuItem(value: 'Other', child: Text('O', style: TextStyle(fontSize: 12))),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      _additionalTravelers[idx]['gender'] = val ?? 'Male';
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _additionalTravelers[idx]['aadhar'] as TextEditingController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 12,
+                  decoration: const InputDecoration(
+                    labelText: 'Aadhar Number (12 Digits) *',
+                    isDense: true,
+                    counterText: '',
+                    prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _additionalTravelers[idx]['phone'] as TextEditingController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number *',
+                    isDense: true,
+                    prefixIcon: Icon(Icons.phone_outlined, size: 18),
+                  ),
                 ),
               ),
             ],
@@ -1060,7 +1286,25 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
           const SizedBox(height: 16),
           _summaryRow('Trip', _trip.title),
           _summaryRow('Date', DateFormat('dd MMM yyyy').format(_selectedDate)),
-          _summaryRow('Travelers', '$_pax Person(s)'),
+          _summaryRow('Lead Explorer', '${_nameCtrl.text} ($_gender, Age: ${_ageCtrl.text})'),
+          _summaryRow('Contact', _phoneCtrl.text),
+          _summaryRow('Email', _emailCtrl.text),
+          if (_aadharCtrl.text.isNotEmpty) _summaryRow('Lead Aadhar', _aadharCtrl.text),
+          if (_addressCtrl.text.isNotEmpty) _summaryRow('Address', _addressCtrl.text),
+          _summaryRow('Travel Type', _travelType),
+          if (_tentSharingRequired) _summaryRow('Tent Sharing', '✅ Couple Tent Sharing (Double Tent)'),
+          if (_roomSharingRequired) _summaryRow('Room Sharing', '✅ Private Double Occupancy Room'),
+          if (_specialRequestsCtrl.text.isNotEmpty) _summaryRow('Special Requests', _specialRequestsCtrl.text),
+          _summaryRow('Total Travelers', '$_pax Person(s)'),
+          if (_additionalTravelers.isNotEmpty) ...[
+            ..._additionalTravelers.asMap().entries.map((e) {
+              final n = (e.value['name'] as TextEditingController).text;
+              final a = (e.value['aadhar'] as TextEditingController).text;
+              final ag = (e.value['age'] as TextEditingController).text;
+              final g = (e.value['gender'] ?? 'Male').toString();
+              return _summaryRow('Member #${e.key + 2}', '$n ($g, Age: $ag, Aadhar: $a)');
+            }),
+          ],
           _summaryRow('Pickup Hub', _selectedPickup?.location ?? (_trip.startPoint ?? 'Base Camp')),
           _summaryRow('Drop Hub', _dropPointDisplay),
           const Divider(height: 32),
@@ -1077,9 +1321,9 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
               ),
             ),
             ..._selectedAddons.entries.map((e) {
-              final gear = _availableGears.firstWhere((g) => g.id == e.key);
-              final durationDays =
-                  int.tryParse(_trip.duration.split(' ')[0]) ?? 1;
+              final gear = _availableGears.firstWhere((g) => g.id == e.key, orElse: () => Gear(id: e.key, name: 'Gear', pricePerDay: 0, category: '', description: ''));
+              final match = RegExp(r'\d+').firstMatch(_trip.duration);
+              final durationDays = match != null ? (int.tryParse(match.group(0)!) ?? 1) : 1;
               return _costRow(
                 '${gear.name} (x${e.value})',
                 gear.pricePerDay * e.value * durationDays,
@@ -1358,13 +1602,89 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
               onPressed: () {
                 if (_currentStep < 4) {
                   if (_currentStep == 0) {
-                    if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty) {
+                    if (_nameCtrl.text.trim().isEmpty || _phoneCtrl.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Please fill name and phone'),
+                          content: Text('Please fill your Full Name and Phone Number'),
                         ),
                       );
                       return;
+                    }
+                    if (_emailCtrl.text.trim().isEmpty || !_emailCtrl.text.contains('@')) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid Email Address'),
+                        ),
+                      );
+                      return;
+                    }
+                    final primaryAge = int.tryParse(_ageCtrl.text.trim());
+                    if (primaryAge == null || primaryAge <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid Age for the lead explorer'),
+                        ),
+                      );
+                      return;
+                    }
+                    if (_aadharCtrl.text.trim().isEmpty || _aadharCtrl.text.trim().length < 12) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid 12-digit Aadhar card number for the lead explorer'),
+                        ),
+                      );
+                      return;
+                    }
+                    if (_addressCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter your residential address / city'),
+                        ),
+                      );
+                      return;
+                    }
+                    // Validate additional group members
+                    for (int i = 0; i < _additionalTravelers.length; i++) {
+                      final t = _additionalTravelers[i];
+                      final nameCtrl = t['name'] as TextEditingController;
+                      final ageCtrl = t['age'] as TextEditingController;
+                      final aadharCtrl = t['aadhar'] as TextEditingController;
+                      final phoneCtrl = t['phone'] as TextEditingController;
+
+                      if (nameCtrl.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Please enter Full Name for Group Member #${i + 2}'),
+                          ),
+                        );
+                        return;
+                      }
+                      final mAge = int.tryParse(ageCtrl.text.trim());
+                      if (mAge == null || mAge <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Please enter a valid Age for Group Member #${i + 2}'),
+                          ),
+                        );
+                        return;
+                      }
+                      if (phoneCtrl.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Please enter Phone Number for Group Member #${i + 2}'),
+                          ),
+                        );
+                        return;
+                      }
+                      final aadhar = aadharCtrl.text.trim();
+                      if (aadhar.isEmpty || aadhar.length < 12) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Please enter a valid 12-digit Aadhar number for Group Member #${i + 2}'),
+                          ),
+                        );
+                        return;
+                      }
                     }
                     if (!_declarationSigned) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1424,18 +1744,39 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
                     _selectedDate,
                     _selectedAddons,
                     _availableGears,
-                    _nameCtrl.text,
-                    _phoneCtrl.text,
-                    _emailCtrl.text,
+                    _nameCtrl.text.trim(),
+                    _phoneCtrl.text.trim(),
+                    _emailCtrl.text.trim(),
+                    _addressCtrl.text.trim(),
+                    _aadharCtrl.text.trim(),
                     _pax,
-                    _additionalTravelers
-                        .map(
-                          (t) => {
-                            'name': t['name']!.text,
-                            'age': int.tryParse(t['age']!.text) ?? 0,
-                          },
-                        )
-                        .toList(),
+                    [
+                      {
+                        'name': _nameCtrl.text.trim(),
+                        'age': int.tryParse(_ageCtrl.text.trim()) ?? 0,
+                        'gender': _gender,
+                        'phone': _phoneCtrl.text.trim(),
+                        'aadhar': _aadharCtrl.text.trim(),
+                        'address': _addressCtrl.text.trim(),
+                        'travel_type': _travelType,
+                        'tent_sharing': _tentSharingRequired,
+                        'room_sharing': _roomSharingRequired,
+                        'special_requests': _specialRequestsCtrl.text.trim(),
+                        'is_primary': true,
+                      },
+                      ..._additionalTravelers.map((t) => {
+                        'name': (t['name'] as TextEditingController).text.trim(),
+                        'age': int.tryParse((t['age'] as TextEditingController).text.trim()) ?? 0,
+                        'gender': (t['gender'] ?? 'Male').toString(),
+                        'phone': (t['phone'] as TextEditingController).text.trim(),
+                        'aadhar': (t['aadhar'] as TextEditingController).text.trim(),
+                        'travel_type': _travelType,
+                        'tent_sharing': _tentSharingRequired,
+                        'room_sharing': _roomSharingRequired,
+                        'special_requests': _specialRequestsCtrl.text.trim(),
+                        'is_primary': false,
+                      }),
+                    ],
                     _paymentMethod,
                     _paymentProofPath,
                     _redeemPoints,

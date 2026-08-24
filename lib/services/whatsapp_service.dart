@@ -1,8 +1,15 @@
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
+import 'preferences_service.dart';
 
 class WhatsAppService {
-  static const String adminPhone = "+918949821211"; // Default support number
+  static const String adminPhone = "+919756399115";
+  static const String fallbackAdminPhone = "919756399115";
+
+  static Future<String> _getPhone() async {
+    final phone = await PreferencesService().getAdminDispatchPhone();
+    return phone.replaceAll('+', '').replaceAll(' ', '').replaceAll('-', '');
+  }
 
   static Future<void> sendBookingReceipt({
     required String hikerName,
@@ -11,6 +18,7 @@ class WhatsAppService {
     required double amount,
     required String date,
   }) async {
+    final phone = await _getPhone();
     final String message = 
       "🌟 *trekwithmussafirr BOOKING RECEIPT* 🌟\n\n"
       "Hello Admin,\n"
@@ -22,7 +30,7 @@ class WhatsAppService {
       "🆔 *Booking ID:* $bookingId\n\n"
       "Please verify the payment in the dashboard.";
 
-    final String url = "whatsapp://send?phone=$adminPhone&text=${Uri.encodeComponent(message)}";
+    final String url = "whatsapp://send?phone=$phone&text=${Uri.encodeComponent(message)}";
     final Uri uri = Uri.parse(url);
 
     try {
@@ -30,7 +38,7 @@ class WhatsAppService {
         await launchUrl(uri);
       } else {
         // Fallback to web whatsapp if app is not installed
-        final String webUrl = "https://wa.me/$adminPhone?text=${Uri.encodeComponent(message)}";
+        final String webUrl = "https://wa.me/$phone?text=${Uri.encodeComponent(message)}";
         await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
       }
     } catch (e) {
@@ -43,21 +51,24 @@ class WhatsAppService {
     required double amount,
     required String tripName,
   }) async {
+    final phone = await _getPhone();
     final String message = 
       "🙏 *UPI PAYMENT CONFIRMATION* 🙏\n\n"
       "Hi Admin,\n"
       "I ($hikerName) just initiated a UPI payment of *₹$amount* for the trip: *$tripName*.\n\n"
       "Please check and confirm.";
 
-    final String webUrl = "https://wa.me/$adminPhone?text=${Uri.encodeComponent(message)}";
+    final String webUrl = "https://wa.me/$phone?text=${Uri.encodeComponent(message)}";
     await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
   }
+
   static Future<void> contactAdminForPayment({
     required String hikerName,
     required String tripName,
     required String bookingId,
     required String method,
   }) async {
+    final phone = await _getPhone();
     final String message = 
       "👋 *PAYMENT VERIFICATION REQUEST* 👋\n\n"
       "Hello Admin,\n"
@@ -67,7 +78,7 @@ class WhatsAppService {
       "🆔 *Booking ID:* $bookingId\n\n"
       "Please let me know how to proceed or confirm if you've received the funds.";
 
-    final String webUrl = "https://wa.me/$adminPhone?text=${Uri.encodeComponent(message)}";
+    final String webUrl = "https://wa.me/$phone?text=${Uri.encodeComponent(message)}";
     await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
   }
 }

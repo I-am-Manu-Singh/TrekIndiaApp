@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,6 +7,8 @@ import 'package:animate_do/animate_do.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'edit_trip_screen.dart';
 import '../models/trip.dart';
 import 'blogs_screen.dart';
@@ -28,13 +31,16 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
   List<String> _categories = ['All'];
   
 
-  // CSV column headers — must match _rowFromTrip() order
+  // Comprehensive CSV/Excel column headers — covers 100% of all trip columns
   static const List<String> _csvHeaders = [
     'id', 'title', 'location', 'category', 'duration', 'base_price',
     'discount_percent', 'gst_percent', 'reward_points', 'difficulty', 'altitude',
-    'best_months', 'peak_elevation', 'trail_type', 'start_point',
-    'package_type', 'rating', 'total_distance', 'image_url',
-    'description',
+    'best_months', 'peak_elevation', 'trail_type', 'start_point', 'end_point',
+    'airport', 'railway', 'buses_cabs', 'state', 'district',
+    'min_height', 'max_height', 'min_temp', 'max_temp', 'weather',
+    'package_type', 'rating', 'total_distance', 'slot_capacity', 'latitude', 'longitude',
+    'google_map_link', 'terms_conditions', 'cancellation_policy', 'trip_story',
+    'image_url', 'images', 'inclusions', 'exclusions', 'carry_list', 'description',
   ];
 
   @override
@@ -116,22 +122,61 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
       }
       final bytes = XlsxService.buildXlsx(rows);
       final fileName = 'trips_export_${DateTime.now().millisecondsSinceEpoch}';
-      final path = await FileSaver.instance.saveAs(
-        name: fileName,
-        bytes: bytes,
-        ext: 'xlsx',
-        mimeType: MimeType.microsoftExcel,
-      );
+
+      if (mounted) Navigator.pop(context); // Dismiss loading
+
       if (mounted) {
-        Navigator.pop(context);
-        if (path != null && path.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ Exported ${_trips.length} trips successfully.'),
-              backgroundColor: Colors.green,
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (sheetCtx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Export ${_trips.length} Trips (Excel)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  const Text('Choose how you want to save or share your Excel file:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFFE8F5E9), child: Icon(Icons.download, color: Colors.green)),
+                    title: const Text('Save to Device / Custom Path', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('Choose folder destination in system file picker', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    onTap: () async {
+                      Navigator.pop(sheetCtx);
+                      await FileSaver.instance.saveFile(
+                        name: fileName,
+                        bytes: bytes,
+                        ext: 'xlsx',
+                        mimeType: MimeType.microsoftExcel,
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('✅ Exported ${_trips.length} trips successfully.'), backgroundColor: Colors.green),
+                        );
+                      }
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFFE3F2FD), child: Icon(Icons.share, color: Colors.blue)),
+                    title: const Text('Share Excel Spreadsheet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: const Text('Send directly to WhatsApp, Email, Drive or AirDrop', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    onTap: () async {
+                      Navigator.pop(sheetCtx);
+                      final tempDir = await getTemporaryDirectory();
+                      final file = File('${tempDir.path}/$fileName.xlsx');
+                      await file.writeAsBytes(bytes);
+                      await Share.shareXFiles([XFile(file.path)], text: 'Exported Trips (${_trips.length} items)');
+                    },
+                  ),
+                ],
+              ),
             ),
-          );
-        }
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -175,7 +220,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
       final bytes = Uint8List.fromList(utf8.encode(csvString));
 
       final fileName = 'trips_export_${DateTime.now().millisecondsSinceEpoch}';
-      final path = await FileSaver.instance.saveAs(
+      await FileSaver.instance.saveFile(
         name: fileName,
         bytes: bytes,
         ext: 'csv',
@@ -184,14 +229,12 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
 
       if (mounted) {
         Navigator.pop(context); // dismiss loading
-        if (path != null && path.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ Exported ${_trips.length} trips successfully.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Exported ${_trips.length} trips successfully.'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -203,28 +246,57 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
     }
   }
 
-  List<dynamic> _rowFromTrip(Map<String, dynamic> t) => [
-    t['id'] ?? '',
-    t['title'] ?? '',
-    t['location'] ?? '',
-    t['category'] ?? '',
-    t['duration'] ?? '',
-    t['base_price'] ?? 0,
-    t['discount_percent'] ?? 0,
-    t['gst_percent'] ?? 5.0,
-    t['reward_points'] ?? 0,
-    t['difficulty'] ?? '',
-    t['altitude'] ?? '',
-    t['best_months'] ?? '',
-    t['peak_elevation'] ?? '',
-    t['trail_type'] ?? '',
-    t['start_point'] ?? '',
-    t['package_type'] ?? '',
-    t['rating'] ?? 5.0,
-    t['total_distance'] ?? '',
-    t['image_url'] ?? '',
-    (t['description'] ?? '').toString().replaceAll('\n', ' '),
-  ];
+  List<dynamic> _rowFromTrip(Map<String, dynamic> t) {
+    String listToStr(dynamic v) {
+      if (v is List) return v.join(' | ');
+      return v?.toString() ?? '';
+    }
+
+    return [
+      t['id'] ?? '',
+      t['title'] ?? '',
+      t['location'] ?? '',
+      t['category'] ?? '',
+      t['duration'] ?? '',
+      t['base_price'] ?? 0,
+      t['discount_percent'] ?? 0,
+      t['gst_percent'] ?? 5.0,
+      t['reward_points'] ?? 0,
+      t['difficulty'] ?? '',
+      t['altitude'] ?? '',
+      t['best_months'] ?? '',
+      t['peak_elevation'] ?? '',
+      t['trail_type'] ?? '',
+      t['start_point'] ?? '',
+      t['end_point'] ?? '',
+      t['airport'] ?? '',
+      t['railway'] ?? '',
+      t['buses_cabs'] ?? '',
+      t['state'] ?? '',
+      t['district'] ?? '',
+      t['min_height'] ?? '',
+      t['max_height'] ?? '',
+      t['min_temp'] ?? '',
+      t['max_temp'] ?? '',
+      t['weather'] ?? '',
+      t['package_type'] ?? '',
+      t['rating'] ?? 5.0,
+      t['total_distance'] ?? '',
+      t['slot_capacity'] ?? 15,
+      t['latitude'] ?? 30.7333,
+      t['longitude'] ?? 76.7794,
+      t['google_map_link'] ?? '',
+      t['terms_conditions'] ?? '',
+      t['cancellation_policy'] ?? '',
+      (t['trip_story'] ?? '').toString().replaceAll('\n', ' '),
+      t['image_url'] ?? '',
+      listToStr(t['images']),
+      listToStr(t['inclusions']),
+      listToStr(t['exclusions']),
+      listToStr(t['carry_list']),
+      (t['description'] ?? '').toString().replaceAll('\n', ' '),
+    ];
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // IMPORT: CSV or Excel file → upsert trips in Supabase
@@ -309,8 +381,14 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
         double dbl(String name, [double def = 0]) => double.tryParse(str(name)) ?? def;
         int intVal(String name, [int def = 0]) => int.tryParse(str(name)) ?? def;
 
+        List<String> listVal(String name) {
+          final s = str(name);
+          if (s.isEmpty) return [];
+          return s.split('|').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        }
+
         final rowId = str('id');
-        final tripData = {
+        final tripData = <String, dynamic>{
           'title': str('title').toUpperCase(),
           'location': str('location'),
           'category': str('category').isEmpty ? 'Yatra' : str('category'),
@@ -325,10 +403,32 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
           'peak_elevation': str('peak_elevation').isEmpty ? 'N/A' : str('peak_elevation'),
           'trail_type': str('trail_type').isEmpty ? 'Mixed' : str('trail_type'),
           'start_point': str('start_point'),
+          'end_point': str('end_point'),
+          'airport': str('airport'),
+          'railway': str('railway'),
+          'buses_cabs': str('buses_cabs'),
+          'state': str('state'),
+          'district': str('district'),
+          'min_height': str('min_height'),
+          'max_height': str('max_height'),
+          'min_temp': str('min_temp'),
+          'max_temp': str('max_temp'),
+          'weather': str('weather'),
           'package_type': str('package_type').isEmpty ? 'Standard' : str('package_type'),
           'rating': dbl('rating', 5.0),
           'total_distance': str('total_distance'),
+          'slot_capacity': intVal('slot_capacity', 15),
+          'latitude': dbl('latitude', 30.7333),
+          'longitude': dbl('longitude', 76.7794),
+          'google_map_link': str('google_map_link'),
+          'terms_conditions': str('terms_conditions'),
+          'cancellation_policy': str('cancellation_policy'),
+          'trip_story': str('trip_story'),
           'image_url': str('image_url'),
+          'images': listVal('images'),
+          'inclusions': listVal('inclusions'),
+          'exclusions': listVal('exclusions'),
+          'carry_list': listVal('carry_list'),
           'description': str('description'),
         };
 

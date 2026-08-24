@@ -194,9 +194,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                   }),
                 _buildAppBarAction(
                   Icons.share,
-                  () => Share.share(
-                    'Check out ${currentTrip.title} on trekwithmussafirr!',
-                  ),
+                  _showExportItineraryOptions,
                 ),
                 _buildAppBarAction(
                   _isSaved ? Icons.favorite : Icons.favorite_border,
@@ -519,6 +517,23 @@ class _TripDetailScreenState extends State<TripDetailScreen>
               ],
             ),
             const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.share_outlined, color: Colors.blueAccent),
+              ),
+              title: const Text('Share Trip Link & Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text('Send direct booking & expedition overview link to friends', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              onTap: () {
+                Navigator.pop(ctx);
+                Share.share('Check out ${currentTrip.title} (${currentTrip.duration}) on trekwithmussafirr! Book your slot now.');
+              },
+            ),
+            const Divider(),
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -3074,22 +3089,6 @@ Widget _buildSeasonalOutlook() {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: _showExportItineraryOptions,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD32F2F),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 2,
-                ),
-                icon: const Icon(Icons.file_download_outlined, size: 20),
-                label: const Text('EXPORT ITINERARY (PDF / IMAGE)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5)),
-              ),
-            ),
-            const SizedBox(height: 24),
-
             ...List.generate(currentTrip.itinerary.length, (index) {
               final step = currentTrip.itinerary[index];
               final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -3422,108 +3421,56 @@ Widget _buildSeasonalOutlook() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return TripBookingSheet(
           trip: currentTrip,
           isTrip: _isTrip,
-          onConfirm:
-              (
-                total,
-                tripFee,
-                pickupFee,
-                pickupLoc,
-                date,
-                addons,
-                gears,
-                name,
-                phone,
-                email,
-                pax,
-                additional,
-                payMethod,
-                payProof,
-                redeemPoints,
-                pointsRedeemed,
-              ) {
-                Navigator.pop(context);
-                _showMockPaymentFlow(
-                  total,
-                  tripFee,
-                  pickupFee,
-                  pickupLoc,
-                  date,
-                  addons,
-                  gears,
-                  name,
-                  phone,
-                  email,
-                  pax,
-                  additional,
-                  payMethod,
-                  payProof,
-                  redeemPoints,
-                  pointsRedeemed,
-                );
-              },
-        );
-      },
-    );
-  }
-
-  void _showMockPaymentFlow(
-    double total,
-    double tripFee,
-    double pickupFee,
-    String pickupLocation,
-    DateTime date,
-    Map<String, int> gearAddons,
-    List<Gear> gears,
-    String name,
-    String phone,
-    String email,
-    int pax,
-    List<Map<String, dynamic>> additionalTravelers,
-    String payMethod,
-    String? payProof,
-    bool redeemPoints,
-    int pointsRedeemed,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (c) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: MockPaymentFlow(
-          total: total,
-          onComplete: () {
-            Navigator.pop(c);
+          onConfirm: (
+            total,
+            tripFee,
+            pickupFee,
+            pickupLoc,
+            date,
+            addons,
+            gears,
+            name,
+            phone,
+            email,
+            address,
+            aadharNo,
+            pax,
+            additional,
+            payMethod,
+            payProof,
+            redeemPoints,
+            pointsRedeemed,
+          ) {
+            Navigator.pop(context);
             _confirmBooking(
               total,
               tripFee,
               pickupFee,
-              pickupLocation,
+              pickupLoc,
               date,
-              gearAddons,
+              addons,
               gears,
               name,
               phone,
               email,
+              address,
+              aadharNo,
               pax,
-              additionalTravelers,
+              additional,
               payMethod,
               payProof,
               redeemPoints,
               pointsRedeemed,
             );
           },
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -3538,6 +3485,8 @@ Widget _buildSeasonalOutlook() {
     String hikerName,
     String hikerPhone,
     String hikerEmail,
+    String address,
+    String aadharNo,
     int pax,
     List<Map<String, dynamic>> additionalTravelers,
     String payMethod,
@@ -3545,10 +3494,20 @@ Widget _buildSeasonalOutlook() {
     bool redeemPoints,
     int pointsRedeemed,
   ) async {
+    BuildContext? progressDialogContext;
     showDialog(
       context: context,
-      builder: (c) => const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
+      builder: (c) {
+        progressDialogContext = c;
+        return const Center(child: CircularProgressIndicator());
+      },
     );
+
+    final int durationDays = () {
+      final match = RegExp(r'\d+').firstMatch(currentTrip.duration);
+      return match != null ? (int.tryParse(match.group(0)!) ?? 1) : 1;
+    }();
 
     final formattedAddons = addons.entries
         .map(
@@ -3557,7 +3516,7 @@ Widget _buildSeasonalOutlook() {
             'quantity': e.value,
             'price':
                 allGears.firstWhere((g) => g.id == e.key).pricePerDay *
-                int.parse(currentTrip.duration.split(' ')[0]),
+                durationDays,
           },
         )
         .toList();
@@ -3565,25 +3524,37 @@ Widget _buildSeasonalOutlook() {
     final user = Supabase.instance.client.auth.currentUser;
     String? currentUserId = user?.id;
 
-    final String? groupId = await DatabaseService().bookTrip(
-      tripId: currentTrip.id,
-      fullName: hikerName,
-      phoneNumber: hikerPhone,
-      hikerEmail: hikerEmail,
-      userId: currentUserId,
-      pax: pax,
-      tripTitle: currentTrip.title,
-      tripDate: date,
-      tripPrice: tp,
-      pickupPrice: pp,
-      pickupLocation: loc,
-      totalPrice: total,
-      addons: formattedAddons,
-      additionalTravelers: additionalTravelers,
-      paymentMethod: payMethod,
-      paymentProof: payProof,
-    );
-    if (mounted) Navigator.pop(context);
+    String? groupId;
+    try {
+      groupId = await DatabaseService().bookTrip(
+        tripId: currentTrip.id,
+        fullName: hikerName,
+        phoneNumber: hikerPhone,
+        hikerEmail: hikerEmail,
+        address: address,
+        aadharNo: aadharNo,
+        userId: currentUserId,
+        pax: pax,
+        tripTitle: currentTrip.title,
+        tripDate: date,
+        tripPrice: tp,
+        pickupPrice: pp,
+        pickupLocation: loc,
+        totalPrice: total,
+        addons: formattedAddons,
+        additionalTravelers: additionalTravelers,
+        paymentMethod: payMethod,
+        paymentProof: payProof,
+      ).timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('Booking request timeout/error: $e');
+    }
+
+    if (progressDialogContext != null && Navigator.canPop(progressDialogContext!)) {
+      Navigator.pop(progressDialogContext!);
+    } else if (mounted) {
+      Navigator.pop(context);
+    }
 
     if (groupId != null && mounted) {
       // ── Reward points ledger writes ───────────────────────────────────
@@ -3659,17 +3630,26 @@ Widget _buildSeasonalOutlook() {
       _showBookingSuccess(groupId);
       _checkBookingAndFetchMembers();
 
-      InvoiceService.generateAndDownloadInvoice(
-        bookingId: groupId,
-        tripName: currentTrip.title,
-        date: date,
-        hikerName: hikerName,
-        totalPrice: total,
-        basePrice: tp,
-        pickupPrice: pp,
-        pickupLocation: loc,
-        email: hikerEmail,
-      );
+      // Generate and download invoice asynchronously in background so UI finishes immediately
+      final validGroupId = groupId;
+      Future.microtask(() {
+        InvoiceService.generateAndDownloadInvoice(
+          bookingId: validGroupId,
+          tripName: currentTrip.title,
+          date: date,
+          hikerName: hikerName,
+          phoneNumber: hikerPhone,
+          address: address,
+          aadharNumber: aadharNo,
+          pax: pax,
+          travelers: additionalTravelers,
+          totalPrice: total,
+          basePrice: tp,
+          pickupPrice: pp,
+          pickupLocation: loc,
+          email: hikerEmail,
+        );
+      });
 
       if (payMethod == 'WhatsApp') {
         WhatsAppService.contactAdminForPayment(

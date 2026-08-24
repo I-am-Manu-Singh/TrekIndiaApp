@@ -103,6 +103,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tabController = TabController(length: _categoryNames.length, vsync: this);
+    _loadCachedRoleImmediately();
     _initBlogsAndAnnouncements();
     _handleInitialLoad();
     _checkConnectivity();
@@ -113,6 +114,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     ) {
       if (mounted) {
         if (data.session == null) {
+          PreferencesService().setCachedUserRole('user');
           setState(() {
             _selectedIndex = 0;
             _userRole = 'user';
@@ -124,6 +126,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _handleInitialLoad();
       }
     });
+  }
+
+  Future<void> _loadCachedRoleImmediately() async {
+    final cachedRole = await PreferencesService().getCachedUserRole();
+    if (mounted && _userRole != cachedRole) {
+      setState(() => _userRole = cachedRole);
+    }
   }
 
   Future<void> _checkConnectivity() async {
@@ -316,8 +325,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           }
         }
 
+        final fetchedRole = (res?['role'] ?? 'user').toString().toLowerCase();
+        PreferencesService().setCachedUserRole(fetchedRole);
+
         setState(() {
-          _userRole = res?['role'] ?? 'user';
+          _userRole = fetchedRole;
           _userName = finalName;
           _userAvatar = res?['avatar_url'];
 
@@ -2151,11 +2163,16 @@ Widget _notificationBadge({Color? iconColor}) {
     if (_userRole == 'admin') {
       title = 'ADMIN CENTER';
       pages = [
+        _buildExploreScreen(context),
         const AdminPanelScreen(),
         const ChatRoomListScreen(),
         ProfileScreen(),
       ];
       navItems = [
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.explore),
+          label: 'Explore',
+        ),
         const BottomNavigationBarItem(
           icon: Icon(Icons.shield_outlined),
           label: 'Admin Panel',
@@ -3414,7 +3431,7 @@ Widget _notificationBadge({Color? iconColor}) {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Email: trekwithmussafirr@gmail.com',
+                      'Email: mussafirr1@gmail.com',
                       style: TextStyle(
                         color: Colors.grey.shade400,
                         fontSize: 12,
@@ -3422,7 +3439,7 @@ Widget _notificationBadge({Color? iconColor}) {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Phone: +91 9876543210',
+                      'Phone: +91 9756399115',
                       style: TextStyle(
                         color: Colors.grey.shade400,
                         fontSize: 12,

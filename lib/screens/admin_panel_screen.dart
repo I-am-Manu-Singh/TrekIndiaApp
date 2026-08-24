@@ -691,7 +691,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 labelText: 'Official Admin WhatsApp No.',
-                hintText: 'e.g. 919876543210 (with country code)',
+                hintText: 'e.g. 919756399115 (with country code)',
                 prefixIcon: const Icon(Icons.phone_android_outlined, color: Colors.green),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
