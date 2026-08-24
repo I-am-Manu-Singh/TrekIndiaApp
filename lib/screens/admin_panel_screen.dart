@@ -14,6 +14,7 @@ import 'admin_rewards_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:animate_do/animate_do.dart';
+import '../services/preferences_service.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -119,15 +120,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('ADMIN PANEL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-        backgroundColor: const Color(0xFFD32F2F),
-        elevation: 0,
-        actions: [
-          _liveBadge(),
-          const SizedBox(width: 16),
-        ],
-      ),
       body: _isLoading ? _buildAdminShimmer() : RefreshIndicator(
         onRefresh: _loadData,
        child: SingleChildScrollView(
@@ -539,6 +531,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       ),
     ),
     _dashboardCard(
+      'Dispatch\nSettings',
+      Icons.mark_email_read_outlined,
+      const Color(0xFFEDE7F6),
+      Colors.deepPurple,
+      () => _showDispatchSettingsDialog(),
+    ),
+    _dashboardCard(
       'Rewards\nPoints',
       Icons.card_giftcard,
       const Color(0xFFE8F5E9),
@@ -627,6 +626,103 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             const ShimmerBlock(width: double.infinity, height: 200, borderRadius: 15),
             const SizedBox(height: 32),
             const ShimmerBlock(width: double.infinity, height: 150, borderRadius: 15),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDispatchSettingsDialog() async {
+    final prefs = PreferencesService();
+    final currentEmail = await prefs.getAdminDispatchEmail();
+    final currentPhone = await prefs.getAdminDispatchPhone();
+
+    final emailCtrl = TextEditingController(text: currentEmail);
+    final phoneCtrl = TextEditingController(text: currentPhone);
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Automated Dispatch Settings',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Configure the central official email and WhatsApp number that will receive all auto-dispatched invoices, participant declaration PDFs, and enquiry briefings.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'Official Admin Email',
+                hintText: 'e.g. mussafirr1@gmail.com',
+                prefixIcon: const Icon(Icons.email_outlined, color: Colors.deepPurple),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: 'Official Admin WhatsApp No.',
+                hintText: 'e.g. 919876543210 (with country code)',
+                prefixIcon: const Icon(Icons.phone_android_outlined, color: Colors.green),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  final newEmail = emailCtrl.text.trim();
+                  final newPhone = phoneCtrl.text.trim();
+                  if (newEmail.isNotEmpty) await prefs.setAdminDispatchEmail(newEmail);
+                  if (newPhone.isNotEmpty) await prefs.setAdminDispatchPhone(newPhone);
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Dispatch routing updated successfully!')),
+                    );
+                  }
+                },
+                child: const Text(
+                  'SAVE DISPATCH CONFIG',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ),
           ],
         ),
       ),

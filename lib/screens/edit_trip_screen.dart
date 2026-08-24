@@ -45,6 +45,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
   late TextEditingController _ratingCtrl;
   late TextEditingController _seasonalInfoCtrl;
   late TextEditingController _rewardPointsCtrl;
+  late TextEditingController _gstCtrl;
 
   List<PickupOption> _pickups = [];
   List<TripItinerary> _itinerary = [];
@@ -96,6 +97,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
     _ratingCtrl = TextEditingController(text: (widget.trip?.rating ?? 5.0).toString());
     _seasonalInfoCtrl = TextEditingController(text: jsonEncode(widget.trip?.seasonalInfo ?? {}));
     _rewardPointsCtrl = TextEditingController(text: (widget.trip?.rewardPoints ?? 0).toString());
+    _gstCtrl = TextEditingController(text: (widget.trip?.gstPercent ?? 5.0).toString());
     _selectedCategory = widget.trip?.category ?? '';
 
     _pickups = List.from(widget.trip?.pickupOptions ?? []);
@@ -137,6 +139,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
     _ratingCtrl.dispose();
     _seasonalInfoCtrl.dispose();
     _rewardPointsCtrl.dispose();
+    _gstCtrl.dispose();
     super.dispose();
   }
 
@@ -170,6 +173,15 @@ class _EditTripScreenState extends State<EditTripScreen> {
   }
 
   Future<void> _saveChanges() async {
+    final userRole = await _client
+    .from('profiles')
+    .select('role')
+    .eq('id', _client.auth.currentUser!.id)
+    .single();
+
+if (userRole['role'] != 'admin') {
+  throw Exception('Only admins can edit trips');
+}
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
@@ -221,6 +233,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
         'carry_list': _carryList,
         'seasonal_info': _parseSeasonalInfo(),
         'reward_points': int.tryParse(_rewardPointsCtrl.text) ?? 0,
+        'gst_percent': double.tryParse(_gstCtrl.text) ?? 5.0,
         if (isNew) 'created_at': DateTime.now().toIso8601String(),
       };
 
@@ -234,7 +247,12 @@ class _EditTripScreenState extends State<EditTripScreen> {
       }
 
       // Sync Packages (delete all then re-insert)
-      await _client.from('trip_packages').delete().eq('trip_id', tripId);
+      if (!isNew) {
+        await _client
+            .from('trip_packages')
+            .delete()
+            .eq('trip_id', tripId);
+      }
       if (_localPackages.isNotEmpty) {
         await _client.from('trip_packages').insert(_localPackages.map((p) => {
           'trip_id': tripId,
@@ -245,17 +263,35 @@ class _EditTripScreenState extends State<EditTripScreen> {
         }).toList());
       }
 
-      if (mounted) {
+          if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(isNew ? 'TRIP DEPLOYED SUCCESSFULLY' : 'TRIP UPDATED SUCCESSFULLY'),
-          backgroundColor: Colors.green,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isNew
+                  ? 'TRIP DEPLOYED SUCCESSFULLY'
+                  : 'TRIP UPDATED SUCCESSFULLY',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ERROR: $e'), backgroundColor: Colors.red));
+    } catch (e, st) {
+      debugPrint('SAVE ERROR: $e');
+      debugPrintStack(stackTrace: st);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ERROR: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -313,12 +349,18 @@ class _EditTripScreenState extends State<EditTripScreen> {
             ),
             Row(
               children: [
-                Expanded(child: _buildInput('Difficulty', _diffCtrl, Icons.speed, cardColor, borderColor)),
+                Expanded(child: _buildInput('GST % (Default 5%)', _gstCtrl, Icons.receipt_long, cardColor, borderColor, type: TextInputType.number)),
                 const SizedBox(width: 16),
                 Expanded(child: _buildInput('Rating (1-5)', _ratingCtrl, Icons.star, cardColor, borderColor, type: TextInputType.number)),
               ],
             ),
-            _buildInput('Best Months', _bestMonthsCtrl, Icons.calendar_month, cardColor, borderColor),
+            Row(
+              children: [
+                Expanded(child: _buildInput('Difficulty', _diffCtrl, Icons.speed, cardColor, borderColor)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildInput('Best Months', _bestMonthsCtrl, Icons.calendar_month, cardColor, borderColor)),
+              ],
+            ),
 
             // ── REWARD POINTS ────────────────────────────────────────────────
             const SizedBox(height: 8),

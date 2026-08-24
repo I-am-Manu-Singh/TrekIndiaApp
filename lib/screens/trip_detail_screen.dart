@@ -1,6 +1,7 @@
 import 'dart:ui';
 import '../widgets/glass_shimmer.dart';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/whatsapp_service.dart';
 import '../services/invoice_service.dart';
@@ -360,6 +361,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     return FadeInUp(
       delay: const Duration(milliseconds: 100),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(
             Icons.location_on,
@@ -368,22 +370,23 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           ),
           const SizedBox(width: 4),
           Expanded(
-            child: Row(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 4,
               children: [
                 Text(
                   currentTrip.location,
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
                 ),
-                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 7,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     currentTrip.category.toUpperCase(),
@@ -391,21 +394,21 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                       fontSize: 8,
                       fontWeight: FontWeight.w900,
                       color: Theme.of(context).primaryColor,
-                      letterSpacing: 1,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           _detailsIconBtn(
             Icons.travel_explore,
             'FLYOVER',
             Colors.blue,
             _openFlyover,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           _detailsIconBtn(
             Icons.support_agent,
             'SUPPORT',
@@ -482,60 +485,155 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     );
   }
 
+  void _showExportItineraryOptions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'EXPORT ITINERARY',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: isDark ? Colors.white : Colors.black87,
+                    letterSpacing: 1,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.picture_as_pdf_outlined, color: Colors.redAccent),
+              ),
+              title: const Text('Export Official PDF Document', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text('Complete briefing with inclusions, carry list, & company seal', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _exportItineraryPdf();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.image_outlined, color: Colors.orangeAccent),
+              ),
+              title: const Text('Export High-Res Image Graphic', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text('Sharable poster format for WhatsApp, Stories & Social Media', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _exportItineraryImage();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _exportItineraryPdf() async {
     try {
       final pdf = pw.Document();
+      pw.MemoryImage? logoImage;
+      try {
+        final logoData = await rootBundle.load('assets/images/app_logo.png');
+        logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+      } catch (_) {}
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(32),
+          margin: const pw.EdgeInsets.all(28),
           header: (context) => pw.Column(
             children: [
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  pw.Row(
                     children: [
-                      pw.Text(
-                        'trip RECORD',
-                        style: pw.TextStyle(
-                          color: PdfColors.blue900,
-                          fontSize: 10,
-                          fontWeight: pw.FontWeight.bold,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      pw.Text(
-                        currentTrip.title.toUpperCase(),
-                        style: pw.TextStyle(
-                          fontSize: 22,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
+                      if (logoImage != null) ...[
+                        pw.Image(logoImage, width: 36, height: 36),
+                        pw.SizedBox(width: 10),
+                      ],
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'trekwithmussafirr',
+                            style: pw.TextStyle(
+                              color: PdfColors.red900,
+                              fontSize: 14,
+                              fontWeight: pw.FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          pw.Text(
+                            'Official Trip Briefing & Master Itinerary',
+                            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.blue900,
-                      borderRadius: pw.BorderRadius.circular(6),
-                    ),
-                    child: pw.Text(
-                      'OFFICIAL BRIEFING',
-                      style: pw.TextStyle(
-                        color: PdfColors.white,
-                        fontSize: 8,
-                        fontWeight: pw.FontWeight.bold,
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.red900,
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Text(
+                          currentTrip.category.toUpperCase(),
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 7.5,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        'Date: ${DateFormat('dd MMM yyyy').format(DateTime.now())}',
+                        style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 8),
               pw.Divider(thickness: 0.5, color: PdfColors.grey300),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 8),
             ],
           ),
           footer: (context) => pw.Column(
@@ -545,24 +643,23 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
-                    'Generated by trekwithmussafirr App',
-                    style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey,
-                    ),
+                    'trekwithmussafirr • 383 street no. 11 Rajendra Nagar, Shiv Complex, Dehradun • mussafirr1@gmail.com',
+                    style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600),
                   ),
                   pw.Text(
                     'Page ${context.pageNumber} of ${context.pagesCount}',
-                    style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey,
-                    ),
+                    style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey600),
                   ),
                 ],
               ),
             ],
           ),
           build: (context) => [
+            pw.Text(
+              currentTrip.title.toUpperCase(),
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey900),
+            ),
+            pw.SizedBox(height: 10),
             pw.Row(
               children: [
                 _pdfStatBox('LOCATION', currentTrip.location),
@@ -571,39 +668,77 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 _pdfStatBox('DURATION', currentTrip.duration),
               ],
             ),
-            pw.SizedBox(height: 24),
+            pw.SizedBox(height: 8),
+            pw.Row(
+              children: [
+                _pdfStatBox('BASE PRICE', 'INR ${currentTrip.basePrice.toInt()}'),
+                _pdfStatBox('START POINT', currentTrip.startPoint ?? 'Dehradun'),
+                _pdfStatBox('TOTAL DIST.', currentTrip.totalDistance ?? 'N/A'),
+                _pdfStatBox('BEST MONTHS', currentTrip.bestMonths.isNotEmpty ? currentTrip.bestMonths : 'All Year'),
+              ],
+            ),
+            pw.SizedBox(height: 16),
             pw.Text(
-              'OPERATIONAL OVERVIEW',
+              'Trip Overview & Route',
               style: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
-                fontSize: 13,
-                color: PdfColors.blue800,
+                fontSize: 10,
+                color: PdfColors.red900,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              _getCleanDescription(currentTrip.description),
+              style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.5, color: PdfColors.grey800),
+            ),
+
+            if (currentTrip.pickupOptions.isNotEmpty) ...[
+              pw.SizedBox(height: 14),
+              pw.Text(
+                'AVAILABLE PICKUP & TRANSPORT HUBS',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.red900),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: currentTrip.pickupOptions
+                    .map(
+                      (p) => pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.grey100,
+                          borderRadius: pw.BorderRadius.circular(4),
+                          border: pw.Border.all(color: PdfColors.grey300),
+                        ),
+                        child: pw.Text(
+                          '${p.location}: INR ${p.price.toInt()}',
+                          style: const pw.TextStyle(fontSize: 8, color: PdfColors.blueGrey800),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+
+            pw.SizedBox(height: 16),
+            pw.Text(
+              'DAY-BY-DAY ITINERARY',
+              style: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 10,
+                color: PdfColors.red900,
               ),
             ),
             pw.SizedBox(height: 8),
-            pw.Text(
-              currentTrip.description,
-              style: const pw.TextStyle(fontSize: 10, lineSpacing: 2),
-            ),
-
-            pw.SizedBox(height: 24),
-            pw.Text(
-              'trip DAILY PLAN (ITINERARY)',
-              style: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                fontSize: 13,
-                color: PdfColors.blue800,
-              ),
-            ),
-            pw.SizedBox(height: 12),
             ...currentTrip.itinerary
                 .map(
                   (it) => pw.Container(
-                    margin: const pw.EdgeInsets.only(bottom: 12),
-                    padding: const pw.EdgeInsets.all(10),
+                    margin: const pw.EdgeInsets.only(bottom: 10),
+                    padding: const pw.EdgeInsets.all(8),
                     decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        left: pw.BorderSide(color: PdfColors.blue900, width: 3),
+                      border: const pw.Border(
+                        left: pw.BorderSide(color: PdfColors.red900, width: 2.5),
                       ),
                       color: PdfColors.grey50,
                     ),
@@ -617,36 +752,37 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                               'DAY ${it.day}: ${it.title}',
                               style: pw.TextStyle(
                                 fontWeight: pw.FontWeight.bold,
-                                fontSize: 11,
+                                fontSize: 9.5,
                               ),
                             ),
                             if (it.time.isNotEmpty)
                               pw.Text(
                                 it.time,
                                 style: pw.TextStyle(
-                                  color: PdfColors.orange800,
-                                  fontSize: 9,
+                                  color: PdfColors.orange900,
+                                  fontSize: 8,
                                   fontWeight: pw.FontWeight.bold,
                                 ),
                               ),
                           ],
                         ),
-                        pw.SizedBox(height: 4),
+                        pw.SizedBox(height: 3),
                         pw.Text(
                           it.description,
                           style: const pw.TextStyle(
-                            fontSize: 9,
+                            fontSize: 8,
                             color: PdfColors.grey800,
+                            lineSpacing: 1.3,
                           ),
                         ),
                         if (it.distance.isNotEmpty)
                           pw.Padding(
-                            padding: const pw.EdgeInsets.only(top: 4),
+                            padding: const pw.EdgeInsets.only(top: 3),
                             child: pw.Text(
-                              'Distance Threshold: ${it.distance}',
+                              'Trail Distance: ${it.distance}',
                               style: pw.TextStyle(
-                                color: PdfColors.blue,
-                                fontSize: 8,
+                                color: PdfColors.blue800,
+                                fontSize: 7.5,
                                 fontWeight: pw.FontWeight.bold,
                               ),
                             ),
@@ -657,17 +793,26 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 )
                 .toList(),
 
-            pw.SizedBox(height: 24),
+            pw.SizedBox(height: 16),
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Expanded(
-                  child: _pdfCheckList('INCLUSIONS', currentTrip.inclusions),
-                ),
-                pw.SizedBox(width: 20),
-                pw.Expanded(
-                  child: _pdfCheckList('GEAR TO CARRY', currentTrip.carryList),
-                ),
+                if (currentTrip.inclusions.isNotEmpty)
+                  pw.Expanded(
+                    child: _pdfCheckList('INCLUSIONS', currentTrip.inclusions),
+                  ),
+                if (currentTrip.exclusions.isNotEmpty) ...[
+                  pw.SizedBox(width: 14),
+                  pw.Expanded(
+                    child: _pdfCheckList('EXCLUSIONS', currentTrip.exclusions),
+                  ),
+                ],
+                if (currentTrip.carryList.isNotEmpty) ...[
+                  pw.SizedBox(width: 14),
+                  pw.Expanded(
+                    child: _pdfCheckList('GEAR TO CARRY', currentTrip.carryList),
+                  ),
+                ],
               ],
             ),
           ],
@@ -677,12 +822,13 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       final pdfBytes = await pdf.save();
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdfBytes,
+        name: '${currentTrip.title.replaceAll(' ', '_')}_Itinerary.pdf',
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Itinerary generated successfully!'),
+            content: Text('✅ Official Itinerary document generated!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -834,71 +980,140 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     );
   }
 
-  // Widget _buildPrecisionCompass() {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Theme.of(context).cardColor,
-  //       borderRadius: BorderRadius.circular(16),
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //       children: [
-  //         _techItem(Icons.terrain, 'Altitude', currentTrip.altitude),
-  //         _techItem(Icons.speed, 'Difficulty', currentTrip.difficulty),
-  //         _techItem(Icons.timer, 'Duration', currentTrip.duration),
-  //       ],
-  //     ),
-  //   );
-  // }
+  Widget _imgStat(String label, String value) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)),
+      ],
+    );
+  }
+
   Future<void> _exportItineraryImage() async {
     try {
       final image = await _screenshotController.captureFromWidget(
         Material(
           child: Container(
             color: Colors.white,
-            padding: const EdgeInsets.all(40),
+            padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'trip ITINERARY',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Image.asset('assets/images/app_logo.png', width: 36, height: 36),
+                        const SizedBox(width: 10),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'trekwithmussafirr',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFFD32F2F),
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            Text(
+                              'Explore the Unexplored • Master Itinerary',
+                              style: TextStyle(fontSize: 9, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD32F2F),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        currentTrip.category.toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
                 Text(
                   currentTrip.title,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
                 ),
-                Text(
-                  currentTrip.location,
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 14, color: Color(0xFFD32F2F)),
+                    const SizedBox(width: 4),
+                    Text(
+                      currentTrip.location,
+                      style: const TextStyle(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 30),
-                const Divider(),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _imgStat('ALTITUDE', currentTrip.altitude),
+                      _imgStat('DURATION', currentTrip.duration),
+                      _imgStat('DIFFICULTY', currentTrip.difficulty),
+                      _imgStat('PRICE', '₹${currentTrip.basePrice.toInt()}'),
+                    ],
+                  ),
+                ),
+                if (currentTrip.description.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  const Text(
+                    'ROUTE & EXPEDITION BRIEFING',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _getCleanDescription(currentTrip.description),
+                    style: const TextStyle(fontSize: 10.5, color: Colors.black87, height: 1.4),
+                  ),
+                ],
                 const SizedBox(height: 20),
+                const Text(
+                  'DAY-BY-DAY ITINERARY',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFFD32F2F), letterSpacing: 1),
+                ),
+                const SizedBox(height: 12),
                 ...currentTrip.itinerary
                     .map(
                       (it) => Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
+                        padding: const EdgeInsets.only(bottom: 14),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
-                              width: 40,
-                              height: 40,
+                              width: 30,
+                              height: 30,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF0D47A1),
+                                color: Color(0xFFD32F2F),
                                 shape: BoxShape.circle,
                               ),
                               alignment: Alignment.center,
@@ -906,12 +1121,12 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                                 '${it.day}',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 14,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -922,9 +1137,9 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          it.title,
+                                          'Day ${it.day}: ${it.title}',
                                           style: const TextStyle(
-                                            fontSize: 16,
+                                            fontSize: 13,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.black,
                                           ),
@@ -934,29 +1149,29 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                                         Text(
                                           it.time,
                                           style: const TextStyle(
-                                            fontSize: 12,
+                                            fontSize: 10,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.orange,
                                           ),
                                         ),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 2),
                                   Text(
                                     it.description,
                                     style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black54,
+                                      fontSize: 10.5,
+                                      color: Colors.black87,
                                     ),
                                   ),
                                   if (it.distance.isNotEmpty)
                                     Padding(
-                                      padding: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.only(top: 2),
                                       child: Text(
-                                        'DISTANCE: ${it.distance}',
+                                        'Trail Distance: ${it.distance}',
                                         style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.blue,
+                                          fontSize: 9.5,
+                                          color: Color(0xFF0D47A1),
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -967,18 +1182,51 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                           ],
                         ),
                       ),
-                    )
-                    .toList(),
-                const SizedBox(height: 30),
+                    ),
+                if (currentTrip.inclusions.isNotEmpty || currentTrip.carryList.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (currentTrip.inclusions.isNotEmpty)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('INCLUSIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.green)),
+                              const SizedBox(height: 4),
+                              ...currentTrip.inclusions.take(6).map((e) => Text('• $e', style: const TextStyle(fontSize: 9, color: Colors.black87))),
+                            ],
+                          ),
+                        ),
+                      if (currentTrip.carryList.isNotEmpty) ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('GEAR TO CARRY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF0D47A1))),
+                              const SizedBox(height: 4),
+                              ...currentTrip.carryList.take(6).map((e) => Text('• $e', style: const TextStyle(fontSize: 9, color: Colors.black87))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
                 const Divider(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 const Center(
                   child: Text(
-                    'Booked via trekwithmussafirr App',
+                    'trekwithmussafirr • 383 Rajendra Nagar, Dehradun • mussafirr1@gmail.com',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9,
                       color: Colors.grey,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -1404,10 +1652,26 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     final exclusions = currentTrip.exclusions;
 
     if (inclusions.isEmpty && exclusions.isEmpty) {
-      return const Center(
-        child: Text(
-          'N/A - Information not provided',
-          style: TextStyle(color: Colors.grey),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.info_outline, size: 40, color: Colors.grey.withOpacity(0.5)),
+              const SizedBox(height: 12),
+              const Text(
+                'Information not available',
+                style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Inclusions and exclusions details will be updated shortly.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -1475,10 +1739,26 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     final items = currentTrip.carryList;
 
     if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          'N/A - Carry list not provided',
-          style: TextStyle(color: Colors.grey),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.backpack_outlined, size: 40, color: Colors.grey.withOpacity(0.5)),
+              const SizedBox(height: 12),
+              const Text(
+                'Information not available',
+                style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Specific gear carry list for this trip is currently being prepared.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -1602,7 +1882,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             ],
             const SizedBox(height: 24),
             const Text(
-              'trip READINESS: GEAR GRID',
+              'Trip Readiness: Gear Grid',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 12,
@@ -1696,6 +1976,9 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   }
 
   Widget _techItem(IconData icon, String label, String value, double width) {
+    final displayValue = (value.trim().isEmpty || value.trim().toLowerCase() == 'n/a')
+        ? 'Information not available'
+        : value;
     return SizedBox(
       width: width,
       child: Column(
@@ -1712,11 +1995,15 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           ),
           const SizedBox(height: 2),
           Text(
-            value,
+            displayValue,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+            style: TextStyle(
+              fontWeight: displayValue == 'Information not available' ? FontWeight.w500 : FontWeight.w900,
+              fontSize: displayValue == 'Information not available' ? 9.5 : 11,
+              color: displayValue == 'Information not available' ? Colors.grey : null,
+            ),
           ),
         ],
       ),
@@ -1729,21 +2016,20 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Text(_isTrip ? 'Trip Coordinates' : 'Location Highlights', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          // const SizedBox(height: 4),
           _buildPrecisionCompass(),
+          const SizedBox(height: 16),
+          _buildTransitConnectivitySection(),
           const SizedBox(height: 16),
           if (_isTrip) _buildSeasonalOutlook(),
           const SizedBox(height: 24),
           if (currentTrip.packages.isNotEmpty) _buildPackagesSection(),
-          // const SizedBox(height: 24),
           const Text(
-            'TRIP STORY',
+            'Trip Story',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Text(
-            currentTrip.description,
+            _getCleanDescription(currentTrip.description),
             style: const TextStyle(color: Colors.blueGrey, height: 1.6),
           ),
           const SizedBox(height: 32),
@@ -1752,76 +2038,342 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     );
   }
 
-  Widget _buildPackagesSection() {
+  Widget _buildTransitConnectivitySection() {
+    String? airport;
+    String? railway;
+    String? route;
+
+    // Check description tags
+    if (currentTrip.description.contains('Nearest Airport:')) {
+      final parts = currentTrip.description.split('Nearest Airport:');
+      if (parts.length > 1) {
+        airport = parts[1].split('.').first.trim();
+      }
+    }
+    if (currentTrip.description.contains('Nearest Railway Station:')) {
+      final parts = currentTrip.description.split('Nearest Railway Station:');
+      if (parts.length > 1) {
+        railway = parts[1].split('.').first.trim();
+      }
+    }
+    if (currentTrip.description.contains('Route:')) {
+      final parts = currentTrip.description.split('Route:');
+      if (parts.length > 1) {
+        route = parts[1].split('.').first.trim();
+      }
+    }
+
+    // Check pickup options for fallbacks
+    for (final opt in currentTrip.pickupOptions) {
+      final loc = opt.location;
+      if (airport == null && loc.toLowerCase().contains('airport')) {
+        airport = loc.replaceAll(RegExp(r'^(Airport:\s*|Nearest Airport:\s*)', caseSensitive: false), '').trim();
+      }
+      if (railway == null && (loc.toLowerCase().contains('railway') || loc.toLowerCase().contains('station'))) {
+        railway = loc.replaceAll(RegExp(r'^(Railway:\s*|Nearest Railway Station:\s*)', caseSensitive: false), '').trim();
+      }
+      if (route == null && loc.toLowerCase().contains('base:')) {
+        route = loc.replaceAll(RegExp(r'^Base:\s*', caseSensitive: false), '').trim();
+      }
+    }
+
+    // Fallback defaults if not explicitly present
+    airport ??= 'Jolly Grant Airport (DED), Dehradun';
+    railway ??= 'Dehradun / Rishikesh Railway Station';
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'trip PACKAGES',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        ...currentTrip.packages
-            .map(
-              (pkg) => Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(20),
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.04) : Colors.indigo.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.indigo.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDark ? Colors.white10 : Colors.grey.shade100,
-                  ),
+                  color: Colors.indigo.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        shape: BoxShape.circle,
+                child: const Icon(Icons.alt_route_rounded, color: Colors.indigo, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Transit & Connectivity Hub',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white10 : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      child: const Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.blueAccent,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.flight_takeoff_rounded, color: Colors.blueAccent, size: 18),
+                          SizedBox(width: 6),
                           Text(
-                            pkg.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            pkg.description,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
+                            'NEAREST AIRPORT',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.blueAccent,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 6),
+                      Text(
+                        airport,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Direct connecting cabs available',
+                        style: TextStyle(fontSize: 9.5, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white10 : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.train_rounded, color: Colors.orange, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'NEAREST RAILWAY',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.orange,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        railway,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Frequent express & daily trains',
+                        style: TextStyle(fontSize: 9.5, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (route != null && route.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.teal.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.teal.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.navigation_outlined, size: 14, color: Colors.teal),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Expedition Transit Circuit: ',
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.teal),
+                  ),
+                  Expanded(
+                    child: Text(
+                      route,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _getCleanDescription(String raw) {
+    var desc = raw;
+    final markers = [
+      'Expected Weather:',
+      'Temperature Range:',
+      'Nearest Airport:',
+      'Nearest Railway Station:',
+      'Route:',
+    ];
+    for (final m in markers) {
+      if (desc.contains(m)) {
+        final idx = desc.indexOf(m);
+        final endIdx = desc.indexOf('.', idx);
+        if (endIdx != -1) {
+          desc = desc.replaceRange(idx, endIdx + 1, '').trim();
+        }
+      }
+    }
+    return desc.isNotEmpty ? desc : raw;
+  }
+Widget _buildPackagesSection() {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Trip Packages',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+      ),
+      const SizedBox(height: 16),
+      ...currentTrip.packages.map((pkg) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(16), // Adjusted for clean content density
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              if (!isDark)
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+            ],
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.shade100,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 1. Icon Container
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12), // Matching card radius looks cleaner than circle
+                ),
+                child: const Icon(
+                  Icons.inventory_2_outlined,
+                  color: Colors.blue,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              
+              // 2. Text Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      '₹${pkg.price.toInt()}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
+                      pkg.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      pkg.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
-            )
-            .toList(),
-      ],
-    );
-  }
+              const SizedBox(width: 12),
+              
+              // 3. Upgraded Price Badge Container
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.blue.withOpacity(0.15),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  '₹${pkg.price.toInt()}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ],
+  );
+}
 
   Widget _buildSquadInfo() {
     return Column(
@@ -1965,7 +2517,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'trip PREPARATION',
+                        'Trip Preparation',
                         style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
@@ -2098,6 +2650,62 @@ class _TripDetailScreenState extends State<TripDetailScreen>
               const Divider(),
               const SizedBox(height: 16),
               const Text(
+                'PICKUP & TRANSIT HUBS',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  letterSpacing: 1.5,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (currentTrip.pickupOptions.isNotEmpty)
+                ...currentTrip.pickupOptions.map((p) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            p.location.toLowerCase().contains('airport')
+                                ? Icons.flight_takeoff
+                                : (p.location.toLowerCase().contains('railway')
+                                    ? Icons.train
+                                    : Icons.location_on),
+                            color: Colors.blueAccent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              p.location,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          Text(
+                            p.price == 0 ? 'Included' : '+₹${p.price.toInt()}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                              color: p.price == 0 ? Colors.green : Colors.blueAccent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ))
+              else
+                const Text(
+                  'Basecamp arrival & departure included in package.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 16),
+              const Text(
                 'TERMS & CONDITIONS',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
@@ -2188,35 +2796,94 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       ],
     );
   }
-
-  Widget _buildSeasonalOutlook() {
-    if (currentTrip.seasonalInfo.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Seasonal Climate Outlook',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 280,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: currentTrip.seasonalInfo.entries.map((entry) {
-              return _seasonCard(
-                entry.key.toUpperCase(),
-                entry.value.toString(),
-                _getSeasonalTemp(entry.key),
-                _getSeasonalColor(entry.key),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
+Widget _buildSeasonalOutlook() {
+  // Extract Expected Weather and Temperature Range from description if present
+  String? extractedWeather;
+  String? extractedTemp;
+  
+  if (currentTrip.description.contains('Expected Weather:')) {
+    final parts = currentTrip.description.split('Expected Weather:');
+    if (parts.length > 1) {
+      final sub = parts[1]; // Fixed typo from previous block
+      if (sub.contains('.')) {
+        extractedWeather = sub.split('.').first.trim();
+      }
+    }
   }
+  if (currentTrip.description.contains('Temperature Range:')) {
+    final parts = currentTrip.description.split('Temperature Range:');
+    if (parts.length > 1) {
+      final sub = parts[1]; // Fixed typo from previous block
+      if (sub.contains('.')) {
+        extractedTemp = sub.split('.').first.trim();
+      }
+    }
+  }
+
+  // Safety conditional exit
+  if (currentTrip.seasonalInfo.isEmpty && extractedWeather == null && currentTrip.bestMonths.isEmpty) {
+    return const SizedBox.shrink();
+  }
+
+  final hasWeatherCard = extractedWeather != null || extractedTemp != null;
+  final hasSeasonalCard = currentTrip.seasonalInfo.isNotEmpty;
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Seasonal Climate Outlook',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+      ),
+      const SizedBox(height: 12),
+      
+      // IntrinsicHeight forces the Row to size itself to the tallest child
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Forces both Expanded children to match heights exactly
+          children: [
+            // 1. Current/Expected Weather Card
+            if (hasWeatherCard)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start, 
+                    children: [
+                      const Icon(Icons.wb_sunny_outlined, color: Colors.blue, size: 20),
+                      const SizedBox(height: 8),
+                      if (extractedWeather != null)
+                        Text(
+                          extractedWeather,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blueGrey),
+                        ),
+                      if (extractedTemp != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          extractedTemp,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            
+            // Spacer between cards (only if both exist)
+            if (hasWeatherCard || hasSeasonalCard) const SizedBox(width: 12), 
+
+          ],
+        ),
+      ),
+    ],
+  );
+}
 
   String _getSeasonalTemp(String month) {
     switch (month.toLowerCase()) {
@@ -2255,46 +2922,33 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         return Colors.cyan;
     }
   }
-
-  Widget _seasonCard(String month, String note, String temp, Color color) {
-    return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: color.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            month,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            note,
-            style: const TextStyle(fontSize: 10, color: Colors.blueGrey),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          Text(
-            temp,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
+  
   Widget _buildItinerary() {
+    if (currentTrip.itinerary.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.alt_route_rounded, size: 40, color: Colors.grey.withOpacity(0.5)),
+              const SizedBox(height: 12),
+              const Text(
+                'Information not available',
+                style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Day-by-day itinerary details will be updated soon.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Screenshot(
       controller: _screenshotController,
       child: Container(
@@ -2302,28 +2956,21 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _actionButton(
-                    Icons.image_outlined,
-                    'EXPORT IMAGE',
-                    Colors.orangeAccent,
-                    _exportItineraryImage,
-                  ),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: _showExportItineraryOptions,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 2,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _actionButton(
-                    Icons.picture_as_pdf_outlined,
-                    'EXPORT PDF',
-                    Colors.redAccent,
-                    _exportItineraryPdf,
-                  ),
-                ),
-              ],
+                icon: const Icon(Icons.file_download_outlined, size: 20),
+                label: const Text('EXPORT ITINERARY (PDF / IMAGE)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5)),
+              ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             ...List.generate(currentTrip.itinerary.length, (index) {
               final step = currentTrip.itinerary[index];
@@ -2555,13 +3202,24 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       );
       return;
     }
-    final freshTrip = await DatabaseService().fetchTripById(currentTrip.id);
-    if (freshTrip != null && mounted) {
-      setState(() {
-        _trip = freshTrip;
-        _hasChanged = true;
-      });
-    }
+
+    // Restrict Admin & Staff roles from booking
+    try {
+      final p = await Supabase.instance.client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      final role = (p?['role'] ?? '').toString().toLowerCase();
+      if (role == 'admin' || role == 'staff' || role == 'employee' || role == 'guide') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ Access restricted: Admins and Staff ($role) cannot book treks. Please use an explorer account.'),
+              backgroundColor: Colors.orangeAccent.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+    } catch (_) {}
     if (!mounted) return;
     showModalBottomSheet(
       context: context,

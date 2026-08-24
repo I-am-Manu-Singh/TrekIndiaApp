@@ -204,53 +204,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: const Color(0xFFD32F2F),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-            _buildHeader(),
-            const SizedBox(height: 30),
+      body: RefreshIndicator(
+        onRefresh: _fetchProfile,
+        color: const Color(0xFFD32F2F),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              const SizedBox(height: 30),
+              _buildHeader(),
+              const SizedBox(height: 30),
 
-            // Operational modules have been moved to Admin Panels (Admin trekwithmussafirr / Dashboards)
-            if (role == 'user') ...[
-              _buildMedalCase(),
-              const SizedBox(height: 20),
-              _buildPreparationHub(),
-              const SizedBox(height: 20),
-            ],
-            
-            if (role == 'user') ...[
+              // Operational modules have been moved to Admin Panels (Admin trekwithmussafirr / Dashboards)
+              if (role == 'user') ...[
+                _buildMedalCase(),
+                const SizedBox(height: 20),
+                _buildPreparationHub(),
+                const SizedBox(height: 20),
+              ],
+              
+              if (role == 'user') ...[
+                _buildListItem(
+                  Icons.leaderboard_outlined,
+                  'Global Ranking',
+                  'Check your status in the trip community',
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const LeaderboardScreen())),
+                ),
+              ],
               _buildListItem(
-                Icons.leaderboard_outlined,
-                'Global Ranking',
-                'Check your status in the trip community',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const LeaderboardScreen())),
+                Icons.info_outline,
+                'App Info',
+                'Build v1.0.4, contacts, & trip info',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (c) => const AppInfoScreen()),
+                ),
               ),
+              _buildListItem(
+                Icons.settings_outlined,
+                'App Settings',
+                'Trip configs & device sync',
+                onTap: () => _showAppSettings(),
+              ),
+              _buildListItemColor(
+                Icons.logout,
+                'Log Out',
+                'End your current session',
+                color: Colors.redAccent,
+                onTap: _logout,
+              ),
+              const SizedBox(height: 50),
             ],
-            _buildListItem(
-              Icons.info_outline,
-              'App Info',
-              'Build v1.0.4, contacts, & trip info',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const AppInfoScreen()),
-              ),
-            ),
-            _buildListItem(
-              Icons.settings_outlined,
-              'App Settings',
-              'Trip configs & device sync',
-              onTap: () => _showAppSettings(),
-            ),
-            _buildListItemColor(
-              Icons.logout,
-              'Log Out',
-              'End your current session',
-              color: Colors.redAccent,
-              onTap: _logout,
-            ),
-            const SizedBox(height: 50),
-          ],
+          ),
         ),
       ),
     );
@@ -650,8 +655,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           _docCheck('Passport Photo', _userData?['passport_url'] != null),
           _docCheck('Aadhar Card', _userData?['aadhar_url'] != null),
-          _docCheck('Blood Group ID', true),
           _docCheck('Health Certificate', _userData?['medical_certificate_url'] != null),
+          _docCheck('Consent Form (Compulsory)', _userData?['declaration_signed'] == true || _userData?['declaration_url'] != null),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -872,17 +877,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          _buildListItem(
-            Icons.checklist_rtl_rounded, 
-            'Gear Checklist', 
-            'Verify your essential gear', 
-            onTap: () {
-              if (_activeTripId != null) {
-                Navigator.push(context, MaterialPageRoute(builder: (c) => GearChecklistScreen(tripId: _activeTripId!, tripTitle: _activeTripTitle!))).then((_) => _fetchProfile());
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active bookings found to pack for.')));
-              }
-            }
+          Row(
+            children: [
+              Expanded(
+                child: _buildListItem(
+                  Icons.checklist_rtl_rounded, 
+                  'Gear Checklist', 
+                  'Verify essential gear', 
+                  onTap: () {
+                    if (_activeTripId != null) {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => GearChecklistScreen(tripId: _activeTripId!, tripTitle: _activeTripTitle!))).then((_) => _fetchProfile());
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active bookings found to pack for.')));
+                    }
+                  }
+                ),
+              ),
+              if (_activeTripId != null) ...[
+                IconButton(
+                  tooltip: 'Reset Packing Checklist for this Trip',
+                  icon: const Icon(Icons.restart_alt, color: Colors.redAccent),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Reset Gear Checklist?'),
+                        content: Text('This will uncheck all packed gear for ${_activeTripTitle ?? "this trip"}.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            child: const Text('RESET'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      final user = _client.auth.currentUser;
+                      if (user != null && _activeTripId != null) {
+                        await _client
+                            .from('gear_checklists')
+                            .delete()
+                            .eq('user_id', user.id)
+                            .eq('trip_id', _activeTripId!);
+                        await _fetchProfile();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Gear checklist reset successfully!')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                ),
+              ],
+            ],
           ),
         ],
       ),

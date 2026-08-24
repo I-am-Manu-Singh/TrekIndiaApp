@@ -59,10 +59,11 @@ class _TripReviewsSectionState extends State<TripReviewsSection> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () async {
-                if (!widget.canReview) {
+                final user = Supabase.instance.client.auth.currentUser;
+                if (user == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Reviewing is allowed only after completing the trip.'),
+                      content: const Text('Please log in to submit a verified explorer review.'),
                       behavior: SnackBarBehavior.floating,
                       backgroundColor: Theme.of(context).primaryColor,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

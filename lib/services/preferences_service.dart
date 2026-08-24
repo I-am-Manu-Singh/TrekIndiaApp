@@ -81,6 +81,27 @@ class PreferencesService {
     return prefs.getBool('location_sharing_enabled') ?? false;
   }
 
+  // Admin Automated Dispatch Routing (Invoices, Declarations, Enquiries)
+  Future<void> setAdminDispatchEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('admin_dispatch_email', email);
+  }
+
+  Future<String> getAdminDispatchEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('admin_dispatch_email') ?? 'mussafirr1@gmail.com';
+  }
+
+  Future<void> setAdminDispatchPhone(String phone) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('admin_dispatch_phone', phone);
+  }
+
+  Future<String> getAdminDispatchPhone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('admin_dispatch_phone') ?? '919876543210';
+  }
+
   Future<void> syncLastReadFromCloud(String userId) async {
     try {
       final client = Supabase.instance.client;

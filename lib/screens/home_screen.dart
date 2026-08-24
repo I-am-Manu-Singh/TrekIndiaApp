@@ -2151,21 +2151,16 @@ Widget _notificationBadge({Color? iconColor}) {
     if (_userRole == 'admin') {
       title = 'ADMIN CENTER';
       pages = [
-        _buildExploreScreen(context),
-        const ChatRoomListScreen(),
         const AdminPanelScreen(),
+        const ChatRoomListScreen(),
         ProfileScreen(),
       ];
       navItems = [
         const BottomNavigationBarItem(
-          icon: Icon(Icons.explore),
-          label: 'Explore',
+          icon: Icon(Icons.shield_outlined),
+          label: 'Admin Panel',
         ),
         BottomNavigationBarItem(icon: _buildChatIcon(true), label: 'Chats'),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.shield_outlined),
-          label: 'Admin',
-        ),
         const BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
           label: 'Account',
@@ -2176,21 +2171,16 @@ Widget _notificationBadge({Color? iconColor}) {
         _userRole == 'guide') {
       title = 'STAFF PORTAL';
       pages = [
-        _buildExploreScreen(context),
-        const ChatRoomListScreen(),
         const EmployeeDashboardScreen(),
+        const ChatRoomListScreen(),
         ProfileScreen(),
       ];
       navItems = [
         const BottomNavigationBarItem(
-          icon: Icon(Icons.explore),
-          label: 'Explore',
-        ),
-        BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
-        const BottomNavigationBarItem(
           icon: Icon(Icons.dashboard_outlined),
           label: 'Dashboard',
         ),
+        BottomNavigationBarItem(icon: _buildChatIcon(false), label: 'Chats'),
         const BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
           label: 'Account',
@@ -2319,21 +2309,14 @@ Widget _notificationBadge({Color? iconColor}) {
               ),
             )
           : null,
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton.extended(
-              heroTag: 'support_fab',
-              onPressed: _showEnquiryForm,
-              backgroundColor: const Color(0xFFD32F2F),
-              icon: const Icon(Icons.assignment_outlined, color: Colors.white),
-              label: const Text(
-                '',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            )
-          : null,
+ floatingActionButton: _selectedIndex == 0
+    ? FloatingActionButton(
+        heroTag: 'support_fab',
+        onPressed: _showEnquiryForm,
+        backgroundColor: const Color(0xFFD32F2F),
+        child: const Icon(Icons.assignment_outlined, color: Colors.white),
+      )
+    : null,
       body: Column(
         children: [
           // ── Sticky web header (always visible on web, outside scroll) ──────
@@ -2809,9 +2792,217 @@ Widget _notificationBadge({Color? iconColor}) {
   }
 
   void _showEnquiryForm() {
-    const String formUrl =
-        'https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform';
-    launchUrl(Uri.parse(formUrl), mode: LaunchMode.externalApplication);
+    final TextEditingController nameCtrl = TextEditingController(text: _userName ?? '');
+    final TextEditingController phoneCtrl = TextEditingController(text: _user?.phone ?? '');
+    final TextEditingController emailCtrl = TextEditingController(text: _user?.email ?? '');
+    final TextEditingController subjectCtrl = TextEditingController();
+    final TextEditingController msgCtrl = TextEditingController();
+    String enquiryType = 'Custom Trek / Group Booking';
+    bool isSubmitting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              top: 24,
+              left: 24,
+              right: 24,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF18181B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD32F2F).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.support_agent, color: Color(0xFFD32F2F), size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SUBMIT AN ENQUIRY',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              Text(
+                                'trekwithmussafirr Support & Custom Bookings',
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 28),
+                  DropdownButtonFormField<String>(
+                    value: enquiryType,
+                    dropdownColor: isDark ? const Color(0xFF27272A) : Colors.white,
+                    decoration: InputDecoration(
+                      labelText: 'Enquiry Category',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Custom Trek / Group Booking', child: Text('Custom Trek / Group Booking')),
+                      DropdownMenuItem(value: 'Pricing & Discount Inquiry', child: Text('Pricing & Discount Inquiry')),
+                      DropdownMenuItem(value: 'Pickup & Transport Query', child: Text('Pickup & Transport Query')),
+                      DropdownMenuItem(value: 'Corporate / School Expedition', child: Text('Corporate / School Expedition')),
+                      DropdownMenuItem(value: 'Other Inquiries', child: Text('Other Inquiries')),
+                    ],
+                    onChanged: (v) => setSheetState(() => enquiryType = v ?? enquiryType),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: nameCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Your Name *',
+                            hintText: 'Full Name',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: 'Phone / WhatsApp *',
+                            hintText: '+91 ...',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email Address (Optional)',
+                      hintText: 'name@example.com',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: subjectCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Subject / Destination *',
+                      hintText: 'e.g. Kedarkantha 10 Pax Group in Dec',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: msgCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: 'Your Message / Requirements *',
+                      hintText: 'Provide details like dates, group size, or custom needs...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (subjectCtrl.text.trim().isEmpty || msgCtrl.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Please enter subject and message')),
+                              );
+                              return;
+                            }
+                            setSheetState(() => isSubmitting = true);
+                            try {
+                              final user = Supabase.instance.client.auth.currentUser;
+                              await Supabase.instance.client.from('support_inquiries').insert({
+                                'user_id': user?.id,
+                                'subject': '[$enquiryType] ${subjectCtrl.text.trim()}',
+                                'message': '${msgCtrl.text.trim()}\n\nContact Details:\nName: ${nameCtrl.text}\nPhone: ${phoneCtrl.text}\nEmail: ${emailCtrl.text}',
+                                'status': 'pending',
+                                'created_at': DateTime.now().toIso8601String(),
+                              });
+                              if (mounted) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✅ Enquiry received! Our team will contact you shortly.'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              setSheetState(() => isSubmitting = false);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD32F2F),
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: isSubmitting
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('SUBMIT ENQUIRY DIRECTLY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 10),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        const String formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfdVBaghTHAgEN7XKO-TVxeBqK1jcXkzphVL6SKuFgmonwEFw/viewform';
+                        launchUrl(Uri.parse(formUrl), mode: LaunchMode.externalApplication);
+                      },
+                      icon: const Icon(Icons.open_in_new, size: 14, color: Colors.blueAccent),
+                      label: const Text('Or Fill Via Google Forms Link', style: TextStyle(fontSize: 11, color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildWebHeader(BuildContext context) {
@@ -2882,49 +3073,73 @@ Widget _notificationBadge({Color? iconColor}) {
           ),
           Row(
             children: [
-              _webNavLink(
-                context,
-                'Explore',
-                () => setState(() => _selectedIndex = 0),
-                isActive: _selectedIndex == 0,
-              ),
-              if (_user != null) ...[
+              if (_userRole == 'admin') ...[
+                _webNavLink(
+                  context,
+                  'Admin Panel',
+                  () => setState(() => _selectedIndex = 0),
+                  isActive: _selectedIndex == 0,
+                ),
                 _webNavLink(
                   context,
                   'Chats',
                   () => setState(() => _selectedIndex = 1),
                   isActive: _selectedIndex == 1,
                 ),
-                if (_userRole == 'admin')
+                _webNavLink(
+                  context,
+                  'Account',
+                  () => setState(() => _selectedIndex = 2),
+                  isActive: _selectedIndex == 2,
+                ),
+              ] else if (_userRole == 'staff' ||
+                  _userRole == 'employee' ||
+                  _userRole == 'guide') ...[
+                _webNavLink(
+                  context,
+                  'Dashboard',
+                  () => setState(() => _selectedIndex = 0),
+                  isActive: _selectedIndex == 0,
+                ),
+                _webNavLink(
+                  context,
+                  'Chats',
+                  () => setState(() => _selectedIndex = 1),
+                  isActive: _selectedIndex == 1,
+                ),
+                _webNavLink(
+                  context,
+                  'Account',
+                  () => setState(() => _selectedIndex = 2),
+                  isActive: _selectedIndex == 2,
+                ),
+              ] else ...[
+                _webNavLink(
+                  context,
+                  'Explore',
+                  () => setState(() => _selectedIndex = 0),
+                  isActive: _selectedIndex == 0,
+                ),
+                if (_user != null) ...[
                   _webNavLink(
                     context,
-                    'Admin Panel',
-                    () => setState(() => _selectedIndex = 2),
-                    isActive: _selectedIndex == 2,
-                  )
-                else if (_userRole == 'staff' ||
-                    _userRole == 'employee' ||
-                    _userRole == 'guide')
-                  _webNavLink(
-                    context,
-                    'Dashboard',
-                    () => setState(() => _selectedIndex = 2),
-                    isActive: _selectedIndex == 2,
-                  )
-                else
+                    'Chats',
+                    () => setState(() => _selectedIndex = 1),
+                    isActive: _selectedIndex == 1,
+                  ),
                   _webNavLink(
                     context,
                     'Dashboard',
                     () => setState(() => _selectedIndex = 2),
                     isActive: _selectedIndex == 2,
                   ),
-
-                _webNavLink(
-                  context,
-                  'Account',
-                  () => setState(() => _selectedIndex = 3),
-                  isActive: _selectedIndex == 3,
-                ),
+                  _webNavLink(
+                    context,
+                    'Account',
+                    () => setState(() => _selectedIndex = 3),
+                    isActive: _selectedIndex == 3,
+                  ),
+                ],
               ],
               const SizedBox(width: 20),
               if (_user == null)

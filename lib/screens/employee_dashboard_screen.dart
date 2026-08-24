@@ -111,41 +111,41 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('EMPLOYEE DASHBOARD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-        backgroundColor: const Color(0xFFD32F2F),
-        elevation: 0,
-        actions: [
-          _liveBadge(),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/edit_profile'),
-            child: Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                UserAvatar(
-                  imageUrl: _employeeData?['avatar_url'],
-                  name: _employeeData?['full_name'],
-                  width: 38,
-                  height: 38,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                if (_employeeData?['aadhar_url'] != null)
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(1),
-                      decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
-                      child: const Icon(Icons.verified, color: Colors.white, size: 8),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 20),
-        ],
-      ),
+      // appBar: AppBar(
+      //   title: const Text('EMPLOYEE DASHBOARD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+      //   backgroundColor: const Color(0xFFD32F2F),
+      //   elevation: 0,
+      //   actions: [
+      //     _liveBadge(),
+      //     const SizedBox(width: 12),
+      //     GestureDetector(
+      //       onTap: () => Navigator.pushNamed(context, '/edit_profile'),
+      //       child: Stack(
+      //         alignment: Alignment.bottomRight,
+      //         children: [
+      //           UserAvatar(
+      //             imageUrl: _employeeData?['avatar_url'],
+      //             name: _employeeData?['full_name'],
+      //             width: 38,
+      //             height: 38,
+      //             borderRadius: BorderRadius.circular(10),
+      //           ),
+      //           if (_employeeData?['aadhar_url'] != null)
+      //             Positioned(
+      //               right: -2,
+      //               bottom: -2,
+      //               child: Container(
+      //                 padding: const EdgeInsets.all(1),
+      //                 decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+      //                 child: const Icon(Icons.verified, color: Colors.white, size: 8),
+      //               ),
+      //             ),
+      //         ],
+      //       ),
+      //     ),
+      //     const SizedBox(width: 20),
+      //   ],
+      // ),
      body: SingleChildScrollView(
   child: Center(
     child: ConstrainedBox(

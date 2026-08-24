@@ -13,6 +13,8 @@ import 'user_complaints_screen.dart';
 import 'ai_guide_screen.dart';
 import 'achievements_screen.dart';
 import 'user_support_screen.dart';
+import 'gear_checklist_screen.dart';
+import 'leaderboard_screen.dart';
 
 class TripDashboardScreen extends StatefulWidget {
   const TripDashboardScreen({super.key});
@@ -174,23 +176,21 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
   builder: (context, constraints) {
     int columns;
 
-    if (constraints.maxWidth >= 1400) {
-      columns = 5;
-    } else if (constraints.maxWidth >= 1100) {
+    if (constraints.maxWidth >= 1200) {
       columns = 4;
-    } else if (constraints.maxWidth >= 700) {
+    } else if (constraints.maxWidth >= 500) {
       columns = 3;
     } else {
-      columns = 2;
+      columns = 3;
     }
 
     return GridView.count(
       crossAxisCount: columns,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-     childAspectRatio: kIsWeb ? 1.35 : 1.0,
+      mainAxisSpacing: 14,
+      crossAxisSpacing: 14,
+      childAspectRatio: kIsWeb ? 1.2 : 0.95,
       children: [
                             _hubItem(
                               Icons.auto_stories_outlined,
@@ -214,6 +214,12 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
                                   builder: (c) => const MyTripsScreen(),
                                 ),
                               ),
+                            ),
+                            _hubItem(
+                              Icons.folder_shared_outlined,
+                              'Documents',
+                              Colors.teal,
+                              () => Navigator.pushNamed(context, '/travel_documents'),
                             ),
                             _hubItem(
                               Icons.shopping_bag_outlined,
@@ -248,14 +254,7 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
                                 ),
                               ),
                             ),
-                            if (_role != 'user')
-                              _hubItem(
-                                Icons.account_balance_outlined,
-                                'trekwithmussafirr Payroll',
-                                Colors.indigo,
-                                () => Navigator.pushNamed(context, '/salary_breakup'),
-                              ),
-                              _hubItem(
+                            _hubItem(
                               Icons.badge_outlined,
                               'Achievements',
                               Colors.amber,
@@ -266,6 +265,39 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
                                 ),
                               ),
                             ),
+                            _hubItem(
+                              Icons.checklist_rtl_rounded,
+                              'Gear List',
+                              Colors.cyan,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (c) => GearChecklistScreen(
+                                    tripId: 'general',
+                                    tripTitle: 'Master Gear Packing Checklist',
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_role != 'user')
+                              _hubItem(
+                                Icons.account_balance_outlined,
+                                'Payroll',
+                                Colors.indigo,
+                                () => Navigator.pushNamed(context, '/salary_breakup'),
+                              )
+                            else
+                              _hubItem(
+                                Icons.emoji_events_outlined,
+                                'Rankings',
+                                Colors.deepOrange,
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (c) => LeaderboardScreen(),
+                                  ),
+                                ),
+                              ),
                           ],
     );
   },

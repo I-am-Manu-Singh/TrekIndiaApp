@@ -31,7 +31,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
   // CSV column headers — must match _rowFromTrip() order
   static const List<String> _csvHeaders = [
     'id', 'title', 'location', 'category', 'duration', 'base_price',
-    'discount_percent', 'reward_points', 'difficulty', 'altitude',
+    'discount_percent', 'gst_percent', 'reward_points', 'difficulty', 'altitude',
     'best_months', 'peak_elevation', 'trail_type', 'start_point',
     'package_type', 'rating', 'total_distance', 'image_url',
     'description',
@@ -211,6 +211,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
     t['duration'] ?? '',
     t['base_price'] ?? 0,
     t['discount_percent'] ?? 0,
+    t['gst_percent'] ?? 5.0,
     t['reward_points'] ?? 0,
     t['difficulty'] ?? '',
     t['altitude'] ?? '',
@@ -316,6 +317,7 @@ class _AdminTripInventoryScreenState extends State<AdminTripInventoryScreen> {
           'duration': str('duration'),
           'base_price': dbl('base_price'),
           'discount_percent': dbl('discount_percent'),
+          'gst_percent': dbl('gst_percent', 5.0),
           'reward_points': intVal('reward_points'),
           'difficulty': str('difficulty').isEmpty ? 'Moderate' : str('difficulty'),
           'altitude': str('altitude'),

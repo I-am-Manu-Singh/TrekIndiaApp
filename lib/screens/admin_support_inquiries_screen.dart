@@ -196,6 +196,9 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
     final profile = q['profiles'];
     final bool isResolved = q['status']?.toString().toLowerCase() == 'resolved';
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final String displayName = profile?['full_name'] ?? 'Guest Explorer / Lead';
+    final String initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'G';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(24),
@@ -209,14 +212,19 @@ class _AdminSupportInquiriesScreenState extends State<AdminSupportInquiriesScree
         children: [
           Row(
             children: [
-              CircleAvatar(backgroundColor: Colors.blue.withOpacity(0.2), child: Text(profile?['full_name']?[0]?.toUpperCase() ?? 'U', style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))),
+              CircleAvatar(backgroundColor: Colors.blue.withOpacity(0.2), child: Text(initial, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(profile?['full_name'] ?? 'Trip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
-                    Text(DateFormat('MMM dd, HH:mm').format(DateTime.parse(q['created_at'])), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text(displayName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
+                    Text(
+                      q['created_at'] != null 
+                        ? DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(q['created_at'])) 
+                        : 'Recent', 
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),

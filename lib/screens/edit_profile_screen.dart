@@ -319,6 +319,10 @@ Widget _buildDocumentsSection(bool isDark) {
         const Divider(height: 20),
 
         _docRow(Icons.medical_services_outlined, 'MEDICAL CERTIFICATE', _userData?['medical_certificate_url'], 'medical_certificate_url', isDark),
+
+        const Divider(height: 20),
+
+        _docRow(Icons.assignment_turned_in_outlined, 'CONSENT / RISK FORM', _userData?['declaration_url'], 'declaration_url', isDark),
       ],
     ),
   );

@@ -52,7 +52,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
       
       Map<String, dynamic> groups = {};
 
-      void addToGroup(String groupKey, dynamic trip, String date, dynamic profile, double price, String? realGroupId, {String? hikerNumber, String? hikerEmail, dynamic addons, String? paymentStatus, String? paymentMethod, String? paymentProofUrl, String? bookingId}) {
+      void addToGroup(String groupKey, dynamic trip, String date, dynamic profile, double price, String? realGroupId, {String? hikerNumber, String? hikerEmail, String? pickupLocation, int? travelers, dynamic addons, String? paymentStatus, String? paymentMethod, String? paymentProofUrl, String? bookingId}) {
         if (trip == null) return;
         
         if (_selectedDate != null) {
@@ -80,6 +80,8 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
           final participant = Map<String, dynamic>.from(profile);
           participant['hiker_number'] = hikerNumber;
           participant['hiker_email'] = hikerEmail;
+          participant['pickup_location'] = pickupLocation;
+          participant['travelers'] = travelers ?? 1;
           participant['addons'] = addons;
           participant['payment_status'] = paymentStatus;
           participant['payment_method'] = paymentMethod;
@@ -125,6 +127,8 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
             realGroupId,
             hikerNumber: b['hiker_number']?.toString(),
             hikerEmail: b['hiker_email']?.toString(),
+            pickupLocation: b['pickup_location']?.toString(),
+            travelers: int.tryParse(b['travelers']?.toString() ?? '1') ?? 1,
             addons: b['addons'],
             paymentStatus: b['payment_status']?.toString(),
             paymentMethod: b['payment_method']?.toString(),

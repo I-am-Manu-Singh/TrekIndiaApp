@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/trip.dart';
 import '../services/database_service.dart';
 import '../widgets/user_avatar.dart';
@@ -54,9 +56,10 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
   PickupOption? _selectedPickup;
   String _paymentMethod = 'UPI';
   String? _paymentProofPath;
+  bool _isUploadingProof = false;
+  bool _declarationSigned = false;
   bool _isGearsLoading = true;
   bool _isProfileLoaded = false;
-  bool _declarationSigned = false;
   int _pax = 1;
   Trip? _freshTrip;
 
@@ -255,8 +258,10 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final double tripFee = _trip.discountedPrice * _pax;
     final double pickupFee = (_selectedPickup?.price ?? 0) * _pax;
+    final double subtotal = tripFee + pickupFee + _calculateAddonsTotal();
+    final double gstAmount = subtotal * (_trip.gstPercent / 100);
     final double grandTotal =
-        (tripFee + pickupFee + _calculateAddonsTotal() - _pointsDiscount).clamp(
+        (subtotal + gstAmount - _pointsDiscount).clamp(
           0,
           double.infinity,
         );
@@ -886,7 +891,7 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
           _summaryRow('Pickup', _selectedPickup?.location ?? 'Base Camp'),
           const Divider(height: 32),
           _costRow('Trip Fee', tripFee),
-          if (pickupFee > 0) _costRow('Pickup Fee', pickupFee),
+          if (pickupFee > 0) _costRow('Pickup Fee (${_selectedPickup?.location ?? ""})', pickupFee),
           if (_selectedAddons.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Text(
@@ -907,6 +912,9 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
               );
             }),
           ],
+          const SizedBox(height: 8),
+          _costRow('Subtotal', baseTotal),
+          _costRow('GST (${_trip.gstPercent.toStringAsFixed(0)}%)', baseTotal * (_trip.gstPercent / 100)),
 
           // ── Reward Points Redemption ─────────────────────────────────────
           if (hasPointsToRedeem) ...[
@@ -932,7 +940,7 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Total Amount',
+                  'Total Amount (Incl. GST)',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(
@@ -1349,27 +1357,96 @@ class _TripBookingSheetState extends State<TripBookingSheet> {
                     style: TextStyle(fontSize: 10, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() => _paymentProofPath = 'simulated_path.jpg');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Screenshot uploaded!')),
-                      );
-                    },
-                    icon: Icon(
-                      _paymentProofPath == null
-                          ? Icons.upload_file
-                          : Icons.check_circle,
-                      color: _paymentProofPath == null
-                          ? Colors.blue
-                          : Colors.green,
+                  if (_isUploadingProof)
+                    const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: 12),
+                          Text('Uploading screenshot...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                        ],
+                      ),
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        try {
+                          final result = await FilePicker.platform.pickFiles(
+                            type: FileType.image,
+                            withData: true,
+                          );
+                          if (result == null || result.files.single.bytes == null) return;
+                          
+                          setState(() => _isUploadingProof = true);
+                          final bytes = result.files.single.bytes!;
+                          final name = result.files.single.name;
+                          final ext = name.split('.').last.toLowerCase();
+                          final user = Supabase.instance.client.auth.currentUser;
+                          final fileName = 'payment_${user?.id ?? "guest"}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+                          
+                          // Upload to Supabase Storage 'payment_proofs' bucket
+                          await Supabase.instance.client.storage
+                              .from('payment_proofs')
+                              .uploadBinary(
+                                fileName,
+                                bytes,
+                                fileOptions: FileOptions(
+                                  contentType: 'image/$ext',
+                                  upsert: true,
+                                ),
+                              );
+
+                          final publicUrl = Supabase.instance.client.storage
+                              .from('payment_proofs')
+                              .getPublicUrl(fileName);
+
+                          if (mounted) {
+                            setState(() {
+                              _paymentProofPath = publicUrl;
+                              _isUploadingProof = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Payment screenshot uploaded successfully!'), backgroundColor: Colors.green),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            setState(() => _isUploadingProof = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      },
+                      icon: Icon(
+                        _paymentProofPath == null
+                            ? Icons.upload_file
+                            : Icons.check_circle,
+                        color: _paymentProofPath == null
+                            ? Colors.blue
+                            : Colors.green,
+                      ),
+                      label: Text(
+                        _paymentProofPath == null
+                            ? 'PICK FROM GALLERY / FILES'
+                            : 'PROOF ATTACHED (TAP TO REPLACE)',
+                      ),
                     ),
-                    label: Text(
-                      _paymentProofPath == null
-                          ? 'UPLOAD SCREENSHOT'
-                          : 'SCREENSHOT ATTACHED',
+                  if (_paymentProofPath != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        _paymentProofPath!,
+                        height: 100,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (ctx, _, __) => const SizedBox.shrink(),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

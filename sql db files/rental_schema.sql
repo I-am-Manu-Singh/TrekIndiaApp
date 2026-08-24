@@ -1,5 +1,5 @@
 -- ==========================================
--- trekwithmussaffir: Rental Tracking Schema
+-- trekwithmussafirr: Rental Tracking Schema
 -- ==========================================
 
 -- 1. Create User Rentals table to track gear issued to hikers

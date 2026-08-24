@@ -11,6 +11,8 @@ import 'user_complaints_screen.dart';
 import 'ai_guide_screen.dart';
 import 'achievements_screen.dart';
 import 'user_support_screen.dart';
+import 'gear_checklist_screen.dart';
+import 'leaderboard_screen.dart';
 import '../services/invoice_service.dart';
 
 class TripTerminalScreen extends StatefulWidget {
@@ -143,16 +145,17 @@ class _TripTerminalScreenState extends State<TripTerminalScreen> {
                 children: [
                   _buildWalletCard(),
                    const SizedBox(height: 22),  
-                  GridView.count(
+                   GridView.count(
                     crossAxisCount: 3,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.95,
                     children: [
                       _hubItem(
                         Icons.auto_stories_outlined,
-                        'MY BLOGS',
+                        'Blogs',
                         Colors.orange,
                         () => Navigator.push(
                           context,
@@ -212,21 +215,51 @@ class _TripTerminalScreenState extends State<TripTerminalScreen> {
                           ),
                         ),
                       ),
+                      _hubItem(
+                        Icons.badge_outlined,
+                        'Achievements',
+                        Colors.amber,
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (c) => const AchievementsScreen(),
+                          ),
+                        ),
+                      ),
+                      _hubItem(
+                        Icons.checklist_rtl_rounded,
+                        'Gear List',
+                        Colors.cyan,
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (c) => const GearChecklistScreen(
+                              tripId: 'general',
+                              tripTitle: 'Master Gear Packing Checklist',
+                            ),
+                          ),
+                        ),
+                      ),
                       if (_role != 'user')
                         _hubItem(
                           Icons.account_balance_outlined,
-                          'trekwithmussafirr Payroll',
+                          'Payroll',
                           Colors.indigo,
                           () => Navigator.pushNamed(context, '/salary_breakup'),
+                        )
+                      else
+                        _hubItem(
+                          Icons.emoji_events_outlined,
+                          'Rankings',
+                          Colors.deepOrange,
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (c) => const LeaderboardScreen(),
+                            ),
+                          ),
                         ),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  _hubItem(
-                    Icons.badge_outlined,
-                    'Achievements & Progress',
-                    Colors.amber,
-                    () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AchievementsScreen())),
                   ),
                   const SizedBox(height: 32),
                   const Text('ACTIVE JOURNEYS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2, color: Colors.grey)),
@@ -522,19 +555,21 @@ class _TripTerminalScreenState extends State<TripTerminalScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: color.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.15 : 0.08),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: color, size: 34),
+              child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               label,
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
               ),
