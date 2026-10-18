@@ -1,4 +1,4 @@
-# 🏔️ Trip India: Expedition HQ & Tactical Logistics
+# 🏔️ Trek India: Expedition HQ & Tactical Logistics
 
 **Trip India** is a premium, high-performance logistics and mission-management platform designed for Himalayan expeditions. Engineered with a tactical "Command & Control" aesthetic, it bridges the gap between field explorers, ground battalion (staff), and HQ commanders (admins).
 
