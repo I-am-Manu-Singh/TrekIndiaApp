@@ -1,4 +1,9 @@
-# 🏔️ Trip India: Expedition HQ & Tactical Logistics
+# 🏔️ Trek India: Expedition HQ & Tactical Logistics
+
+<p align="center">
+  <img src="playstore/icon_512.png" alt="Trip India Expedition HQ Logo" width="128" height="128" style="border-radius: 20%;" />
+</p>
+
 
 **Trip India** is a premium, high-performance logistics and mission-management platform designed for Himalayan expeditions. Engineered with a tactical "Command & Control" aesthetic, it bridges the gap between field explorers, ground battalion (staff), and HQ commanders (admins).
 
@@ -12,6 +17,51 @@ The application is built for absolute reliability in low-connectivity high-altit
 - **Design System:** **GlassShimmer Framework** - A custom-built universal skeleton loading system for a premium, responsive user experience.
 - **Strategic UI:** [Animate Do](https://pub.dev/packages/animate_do) & [Google Fonts](https://fonts.google.com/) - Featuring the "Outfit" typography for a modern, sharp interface.
 - **Intelligence Layer:** Integrated **AI Guide** for automated trek assistance and mission briefing.
+
+---
+
+## 📱 App Screenshots
+
+<p align="center">
+  <table>
+    <tr>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_1.png" alt="Screenshot 1" width="100%" /><br />
+        <b>1. Main Screen</b>
+      </td>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_2.png" alt="Screenshot 2" width="100%" /><br />
+        <b>2. Core Experience</b>
+      </td>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_3.png" alt="Screenshot 3" width="100%" /><br />
+        <b>3. Interactive Mode</b>
+      </td>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_4.png" alt="Screenshot 4" width="100%" /><br />
+        <b>4. Advanced Features</b>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_5.png" alt="Screenshot 5" width="100%" /><br />
+        <b>5. Workflow / Details</b>
+      </td>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_6.png" alt="Screenshot 6" width="100%" /><br />
+        <b>6. Studio Console</b>
+      </td>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_7.png" alt="Screenshot 7" width="100%" /><br />
+        <b>7. Settings & Config</b>
+      </td>
+      <td align="center" width="25%">
+        <img src="screenshots/screenshot_8.png" alt="Screenshot 8" width="100%" /><br />
+        <b>8. Dark & Light Theme</b>
+      </td>
+    </tr>
+  </table>
+</p>
 
 ---
 
